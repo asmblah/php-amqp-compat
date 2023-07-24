@@ -1,0 +1,576 @@
+<?php
+
+/*
+ * PHP AMQP-Compat - php-amqp/ext-amqp compatibility.
+ * Copyright (c) Dan Phillimore (asmblah)
+ * https://github.com/asmblah/php-amqp-compat/
+ *
+ * Released under the MIT license.
+ * https://github.com/asmblah/php-amqp-compat/raw/master/MIT-LICENSE.txt
+ */
+
+declare(strict_types=1);
+
+use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
+use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
+use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
+use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
+use PhpAmqpLib\Exception\AMQPExceptionInterface;
+use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
+
+/**
+ * Class AMQPQueue.
+ *
+ * Emulates AMQPQueue from pecl-amqp.
+ *
+ * @see {@link https://github.com/php-amqp/php-amqp/blob/v1.11.0/stubs/AMQPQueue.php}
+ */
+class AMQPQueue
+{
+    private readonly AmqplibChannel $amqplibChannel;
+    private bool $autoDelete = false;
+    private readonly AmqpChannelBridgeInterface $channelBridge;
+    private ?string $lastConsumerTag;
+    private bool $durable = false;
+    private bool $exclusive = false;
+    private bool $passive = false;
+    private string $queueName = '';
+
+    /**
+     * @param AMQPChannel $amqpChannel The AMQP channel to use.
+     *
+     * @throws AMQPQueueException When amqpChannel is not connected to a
+     *                            broker.
+     * @throws AMQPConnectionException If the connection to the broker was lost.
+     */
+    public function __construct(
+        private readonly AMQPChannel $amqpChannel
+    ) {
+        $this->channelBridge = AmqpBridge::getBridgeChannel($this->amqpChannel);
+        $this->amqplibChannel = $this->channelBridge->getAmqplibChannel();
+    }
+
+    /**
+     * Acknowledges the receipt of a message.
+     *
+     * This method allows the acknowledgement of a message that is retrieved
+     * without the AMQP_AUTOACK flag through AMQPQueue::get() or
+     * AMQPQueue::consume().
+     *
+     * @param integer $delivery_tag The message delivery tag of which to
+     *                              acknowledge receipt.
+     * @param integer $flags        The only valid flag that can be passed is
+     *                              AMQP_MULTIPLE.
+     *
+     * @return boolean
+     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPConnectionException If the connection to the broker was lost.
+     */
+    public function ack(int $delivery_tag, int $flags = AMQP_NOPARAM): bool
+    {
+        $this->checkChannelOrThrow('Could not ack message.');
+
+        try {
+            $this->amqplibChannel->basic_ack($delivery_tag, $flags & AMQP_MULTIPLE);
+        } catch (AMQPExceptionInterface $exception) {
+            // TODO: Handle errors identically to php-amqp.
+            throw new AMQPQueueException(__METHOD__ . ' failed: ' . $exception->getMessage());
+        }
+
+        return true;
+    }
+
+    /**
+     * Binds the given queue to a routing key on an exchange.
+     *
+     * @param string $exchangeName Name of the exchange to bind to.
+     * @param string $routingKey   Pattern or routing key to bind with.
+     * @param array  $arguments     Additional binding arguments.
+     *
+     * @return boolean
+     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPConnectionException If the connection to the broker was lost.
+     */
+    public function bind(string $exchangeName, string $routingKey = null, array $arguments = array()): bool
+    {
+        $this->checkChannelOrThrow('Could not bind queue.');
+
+        try {
+            $this->amqplibChannel->queue_bind(
+                $this->queueName,
+                $exchangeName,
+                $routingKey,
+                false,
+                $arguments
+            );
+        } catch (AMQPExceptionInterface $exception) {
+            // TODO: Handle errors identically to php-amqp.
+            throw new AMQPQueueException(__METHOD__ . ' failed: ' . $exception->getMessage());
+        }
+
+        return true;
+    }
+
+    /**
+     * Cancels a queue that is already bound to an exchange and routing key.
+     *
+     * @param string $consumerTag  The consumer tag to cancel. If no tag provided,
+     *                             or it is empty string, the latest consumer
+     *                             tag on this queue will be used and after
+     *                             successful request it will set to null.
+     *                             If it is also empty, no `basic.cancel`
+     *                             request will be sent. When consumer_tag is given,
+     *                             and it is the same as the latest consumer_tag on queue,
+     *                             it will be interpreted as the latest consumer_tag usage.
+     *
+     * @return bool;
+     * @throws AMQPConnectionException If the connection to the broker was lost.
+     * @throws AMQPChannelException If the channel is not open.
+     */
+    public function cancel(string $consumerTag = ''): bool
+    {
+        $this->checkChannelOrThrow('Could not cancel queue.');
+
+        try {
+            $this->amqplibChannel->basic_cancel($consumerTag);
+        } catch (AMQPExceptionInterface $exception) {
+            // TODO: Handle errors identically to php-amqp.
+            throw new AMQPQueueException(__METHOD__ . ' failed: ' . $exception->getMessage());
+        }
+
+        $this->channelBridge->unsubscribeConsumer($consumerTag);
+
+        return true;
+    }
+
+    /**
+     * Ensures the channel is usable or bails out if not.
+     *
+     * @throws AMQPChannelException
+     * @throws AMQPConnectionException
+     */
+    private function checkChannelOrThrow(string $error): void
+    {
+        if (!$this->amqplibChannel->getConnection()) {
+            throw new AMQPChannelException($error . ' No channel available.');
+        }
+
+        if (!$this->amqplibChannel->getConnection()->isConnected()) {
+            throw new AMQPConnectionException($error . 'No connection available.');
+        }
+    }
+
+    /**
+     * Consumes messages from a queue.
+     *
+     * Blocking function that will retrieve the next message from the queue as
+     * it becomes available and will pass it off to the callback.
+     *
+     * @param callable|null $callback   A callback function to which the
+     *                                  consumed message will be passed. The
+     *                                  function must accept at a minimum
+     *                                  one parameter, an AMQPEnvelope object,
+     *                                  and an optional second parameter
+     *                                  the AMQPQueue object from which callback
+     *                                  was invoked. The AMQPQueue::consume() will
+     *                                  not return the processing thread back to
+     *                                  the PHP script until the callback
+     *                                  function returns FALSE.
+     *                                  If the callback is omitted or null is passed,
+     *                                  then the messages delivered to this client will
+     *                                  be made available to the first real callback
+     *                                  registered. That allows one to have a single
+     *                                  callback consuming from multiple queues.
+     * @param integer $flags            A bitmask of any of the flags: AMQP_AUTOACK,
+     *                                  AMQP_JUST_CONSUME. Note: when AMQP_JUST_CONSUME
+     *                                  flag is used, all other flags are ignored and
+     *                                  $consumerTag parameter makes no sense.
+     *                                  AMQP_JUST_CONSUME flag prevents sending the
+     *                                  `basic.consume` request and just runs $callback
+     *                                  if provided. Calling the method with empty $callback
+     *                                  and AMQP_JUST_CONSUME makes no sense.
+     * @param string|null $consumerTag  A string describing this consumer. Used
+     *                                  for canceling subscriptions with ->cancel().
+     *
+     * @throws AMQPChannelException     If the channel is not open.
+     * @throws AMQPConnectionException  If the connection to the broker was lost.
+     * @throws AMQPEnvelopeException    When no queue found for envelope.
+     * @throws AMQPQueueException       If timeout occurs or queue does not exist.
+     */
+    public function consume(
+        callable $callback = null,
+        int $flags = AMQP_NOPARAM,
+        ?string $consumerTag = null
+    ): void {
+        $this->checkChannelOrThrow('Could not get channel.');
+
+        if ($flags & AMQP_JUST_CONSUME) {
+            throw new BadMethodCallException(
+                __METHOD__ . ' $flags & AMQP_JUST_CONSUME, not yet implemented'
+            );
+        }
+
+        try {
+            $consumerTag = $this->amqplibChannel->basic_consume(
+                $this->queueName,
+                $consumerTag,
+                $flags & AMQP_NOLOCAL,
+                $flags & AMQP_AUTOACK, // A.K.A "no_ack".
+                $this->exclusive,
+                false, // FIXME.
+                function (AmqplibMessage $message) {
+                    if (!$this->channelBridge->isConsumerSubscribed($message->getConsumerTag())) {
+                        // We received an envelope for a consumer tag that isn't subscribed.
+                        throw new AMQPEnvelopeException('Orphaned envelope');
+                    }
+
+                    $this->channelBridge->consumeMessage($message);
+                },
+                null,
+                [] // FIXME.
+            );
+        } catch (AMQPExceptionInterface $exception) {
+            // TODO: Handle errors identically to php-amqp.
+            throw new AMQPQueueException(__METHOD__ . ' failed: ' . $exception->getMessage());
+        }
+
+        // Record the most recent consumer tag as it may be fetched by ->getConsumerTag().
+        $this->lastConsumerTag = $consumerTag;
+
+        $this->channelBridge->subscribeConsumer($consumerTag);
+
+        if ($callback === null) {
+            // Queue was only being subscribed to the list for consumption; do not start processing yet.
+            return;
+        }
+
+        $this->channelBridge->setConsumptionCallback($callback);
+
+        $consuming = true;
+
+        while ($consuming) {
+            try {
+                /*
+                 * Wait for a message to be delivered to the callback attached above via ->basic_consume(...).
+                 *
+                 * Amqplib's internal wait loop will allow async signals to still be fired,
+                 * so that heartbeats can still be handled in between messages.
+                 */
+                $this->amqplibChannel->wait();
+            } catch (StopConsumptionException $exception) {
+                // Consumer returned false, so we return control to the caller.
+                $consuming = false;
+            } catch (AMQPExceptionInterface $exception) {
+                // TODO: Handle errors identically to php-amqp.
+                throw new AMQPQueueException(__METHOD__ . ' failed: ' . $exception->getMessage());
+            }
+        }
+    }
+
+    /**
+     * Declares a new queue on the broker.
+     *
+     * @return integer the message count.
+     *
+     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPConnectionException If the connection to the broker was lost.
+     * @throws AMQPQueueException      On failure.
+     */
+    public function declareQueue(): int
+    {
+        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+    }
+
+    /**
+     * Delete a queue from the broker.
+     *
+     * This includes its entire contents of unread or unacknowledged messages.
+     *
+     * @param integer $flags        Optionally AMQP_IFUNUSED can be specified
+     *                              to indicate the queue should not be
+     *                              deleted until no clients are connected to
+     *                              it.
+     *
+     * @return integer The number of deleted messages.
+     *
+     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPConnectionException If the connection to the broker was lost.
+     */
+    public function delete(int $flags = AMQP_NOPARAM): int
+    {
+        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+    }
+
+    /**
+     * Retrieves the next message from the queue.
+     *
+     * Retrieve the next available message from the queue. If no messages are
+     * present in the queue, this function will return FALSE immediately. This
+     * is a non-blocking alternative to the AMQPQueue::consume() method.
+     * Currently, the only supported flag for the flags parameter is
+     * AMQP_AUTOACK. If this flag is passed in, then the message returned will
+     * automatically be marked as acknowledged by the broker as soon as the
+     * frames are sent to the client.
+     *
+     * @param integer $flags A bitmask of supported flags for the
+     *                       method call. Currently, the only
+     *                       supported flag is AMQP_AUTOACK. If this
+     *                       value is not provided, it will use the
+     *                       value of ini-setting amqp.auto_ack.
+     *
+     * @return AMQPEnvelope|boolean
+     *
+     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPConnectionException If the connection to the broker was lost.
+     * @throws AMQPQueueException      If queue is not exist.
+     */
+    public function get(int $flags = AMQP_NOPARAM)
+    {
+        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+    }
+
+    /**
+     * Fetches the argument associated with the given key.
+     *
+     * @param string $key The key to look up.
+     *
+     * @return string|integer|boolean The string or integer value associated
+     *                                with the given key, or false if the key
+     *                                is not set.
+     */
+    public function getArgument(string $key)
+    {
+        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+    }
+
+    /**
+     * Fetches all set arguments as an array of key/value pairs.
+     *
+     * @return array
+     */
+    public function getArguments(): array
+    {
+        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+    }
+
+    /**
+     * Fetches the AMQPChannel object in use.
+     *
+     * @return AMQPChannel
+     */
+    public function getChannel(): AMQPChannel
+    {
+        return $this->amqpChannel;
+    }
+
+    /**
+     * Fetches the AMQPConnection object in use.
+     *
+     * @return AMQPConnection
+     */
+    public function getConnection(): AMQPConnection
+    {
+        return $this->amqpChannel->getConnection();
+    }
+
+    /**
+     * Gets the latest consumer tag.
+     * If no consumer is available or the latest one was canceled, null will be returned.
+     */
+    public function getConsumerTag(): ?string
+    {
+        return $this->lastConsumerTag;
+    }
+
+    /**
+     * Fetches all the flags currently set on this queue.
+     *
+     * @return int An integer bitmask of all the flags currently set on this
+     *             queue object.
+     */
+    public function getFlags(): int
+    {
+        $flags = 0;
+
+        if ($this->autoDelete) {
+            $flags &= AMQP_AUTODELETE;
+        }
+
+        if ($this->durable) {
+            $flags &= AMQP_DURABLE;
+        }
+
+        if ($this->exclusive) {
+            $flags &= AMQP_EXCLUSIVE;
+        }
+
+        if ($this->passive) {
+            $flags &= AMQP_PASSIVE;
+        }
+
+        return $flags;
+    }
+
+    /**
+     * Fetches the configured queue name.
+     *
+     * @return string
+     */
+    public function getName(): string
+    {
+        return $this->queueName;
+    }
+
+    /**
+     * Check whether a queue has specific argument.
+     *
+     * @param string $key The key to check.
+     *
+     * @return bool
+     */
+    public function hasArgument(string $key): bool
+    {
+        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+    }
+
+    /**
+     * Marks a message as explicitly negatively acknowledged (rejected).
+     *
+     * This method can only be called on messages that have not
+     * yet been acknowledged, meaning that messages retrieved with by
+     * AMQPQueue::consume() and AMQPQueue::get() and using the AMQP_AUTOACK
+     * flag are not eligible. When called, the broker will immediately put the
+     * message back onto the queue, instead of waiting until the connection is
+     * closed. This method is only supported by the RabbitMQ broker. The
+     * behavior of calling this method while connected to any other broker is
+     * undefined.
+     *
+     * @param integer $deliveryTag  Delivery tag of last message to reject.
+     * @param integer $flags        AMQP_REQUEUE to requeue the message(s),
+     *                              AMQP_MULTIPLE to nack all previous
+     *                              unacked messages as well.
+     *
+     * @return boolean
+     *
+     * @throws AMQPConnectionException If the connection to the broker was lost.
+     * @throws AMQPChannelException    If the channel is not open.
+     */
+    public function nack(int $deliveryTag, int $flags = AMQP_NOPARAM): bool
+    {
+        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+    }
+
+    /**
+     * Purges the contents of a queue.
+     *
+     * @return boolean
+     *
+     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPConnectionException If the connection to the broker was lost.
+     */
+    public function purge(): bool
+    {
+        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+    }
+
+    /**
+     * Marks one message as explicitly not acknowledged.
+     *
+     * Marks the message identified by delivery_tag as explicitly negatively
+     * acknowledged. This method can only be called on messages that have not
+     * yet been acknowledged, meaning that messages retrieved with by
+     * AMQPQueue::consume() and AMQPQueue::get() and using the AMQP_AUTOACK
+     * flag are not eligible.
+     *
+     * @param integer $deliveryTag Delivery tag of the message to reject.
+     * @param integer $flags        AMQP_REQUEUE to requeue the message(s).
+     *
+     * @return boolean
+     *
+     * @throws AMQPConnectionException If the connection to the broker was lost.
+     * @throws AMQPChannelException    If the channel is not open.
+     */
+    public function reject(int $deliveryTag, int $flags = AMQP_NOPARAM): bool
+    {
+        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+    }
+
+    /**
+     * Sets a queue argument.
+     *
+     * @param string $key The key to set.
+     * @param mixed $value The value to set.
+     *
+     * @return boolean
+     */
+    public function setArgument(string $key, $value): bool
+    {
+        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+    }
+
+    /**
+     * Sets all arguments on the given queue.
+     *
+     * All other argument settings will be wiped.
+     *
+     * @param array $arguments An array of key/value pairs of arguments.
+     *
+     * @return bool
+     */
+    public function setArguments(array $arguments): bool
+    {
+        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+    }
+
+    /**
+     * Sets the flags on the queue.
+     *
+     * @param integer $flags A bitmask of flags:
+     *                       AMQP_DURABLE, AMQP_PASSIVE,
+     *                       AMQP_EXCLUSIVE, AMQP_AUTODELETE.
+     *
+     * @return bool
+     */
+    public function setFlags(int $flags): bool
+    {
+        $this->autoDelete = (bool)($flags & AMQP_AUTODELETE);
+        $this->durable = (bool)($flags & AMQP_DURABLE);
+        $this->exclusive = (bool)($flags & AMQP_EXCLUSIVE);
+        $this->passive = (bool)($flags & AMQP_PASSIVE);
+
+        return true;
+    }
+
+    /**
+     * Sets the queue name.
+     *
+     * @param string $queueName The name of the queue.
+     *
+     * @return boolean
+     */
+    public function setName(string $queueName): bool
+    {
+        $this->queueName = $queueName;
+
+        return true;
+    }
+
+    /**
+     * Remove a routing key binding on an exchange from the given queue.
+     *
+     * @param string $exchangeName  The name of the exchange on which the
+     *                              queue is bound.
+     * @param string $routingKey    The binding routing key used by the
+     *                              queue.
+     * @param array  $arguments     Additional binding arguments.
+     *
+     * @return bool
+     *
+     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPConnectionException If the connection to the broker was lost.
+     */
+    public function unbind(string $exchangeName, string $routingKey = null, array $arguments = array()): bool
+    {
+        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+    }
+}

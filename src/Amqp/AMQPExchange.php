@@ -1,0 +1,431 @@
+<?php
+
+/*
+ * PHP AMQP-Compat - php-amqp/ext-amqp compatibility.
+ * Copyright (c) Dan Phillimore (asmblah)
+ * https://github.com/asmblah/php-amqp-compat/
+ *
+ * Released under the MIT license.
+ * https://github.com/asmblah/php-amqp-compat/raw/master/MIT-LICENSE.txt
+ */
+
+declare(strict_types=1);
+
+use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
+use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
+use PhpAmqpLib\Exception\AMQPExceptionInterface;
+use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
+use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;
+
+/**
+ * Class AMQPExchange.
+ *
+ * Emulates AMQPExchange from pecl-amqp.
+ *
+ * @see {@link https://github.com/php-amqp/php-amqp/blob/v1.11.0/stubs/AMQPExchange.php}
+ */
+class AMQPExchange
+{
+    /**
+     * @var AMQPChannel
+     */
+    private $amqpChannel;
+    /**
+     * @var AmqplibChannel
+     */
+    private $amqplibChannel;
+    /**
+     * @var array<string|integer>
+     */
+    private $arguments = [];
+    /**
+     * @var string
+     */
+    private $exchangeName = '';
+    /**
+     * @var string
+     */
+    private $exchangeType = AMQP_EX_TYPE_DIRECT;
+    /**
+     * @var int
+     */
+    private $flags = 0;
+
+    /**
+     * @param AMQPChannel $amqpChannel A valid AMQPChannel object, connected
+     *                                 to a broker.
+     *
+     * @throws AMQPExchangeException   When amqpChannel is not connected to
+     *                                 a broker.
+     * @throws AMQPConnectionException If the connection to the broker was
+     *                                 lost.
+     */
+    public function __construct(AMQPChannel $amqpChannel)
+    {
+        $this->amqpChannel = $amqpChannel;
+
+        $channelBridge = AmqpBridge::getBridgeChannel($amqpChannel);
+        $this->amqplibChannel = $channelBridge->getAmqplibChannel();
+    }
+
+    /**
+     * Binds this exchange to another exchange using the specified routing key.
+     *
+     * @param string $exchangeName Name of the exchange to bind.
+     * @param string $routingKey   The routing key to use for binding.
+     * @param array  $arguments    Additional binding arguments.
+     *
+     * @return boolean true on success or false on failure.
+     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPConnectionException If the connection to the broker was lost.
+     * @throws AMQPExchangeException   On failure.
+     */
+    public function bind(string $exchangeName, string $routingKey = '', array $arguments = array()): bool
+    {
+        $this->checkChannelOrThrow('Could not bind to exchange.');
+
+        try {
+            $this->amqplibChannel->exchange_bind(
+                $this->exchangeName,
+                $exchangeName,
+                $routingKey,
+                $this->flags & AMQP_NOWAIT,
+                $arguments
+            );
+        } catch (AMQPExceptionInterface $exception) {
+            // TODO: Handle errors identically to php-amqp.
+            throw new AMQPExchangeException(__METHOD__ . ' failed: ' . $exception->getMessage());
+        }
+
+        return true;
+    }
+
+    /**
+     * Ensures the channel is usable or bails out if not.
+     *
+     * @throws AMQPChannelException
+     * @throws AMQPConnectionException
+     */
+    private function checkChannelOrThrow(string $error): void
+    {
+        if (!$this->amqplibChannel->getConnection()) {
+            throw new AMQPChannelException($error . ' No channel available.');
+        }
+
+        if (!$this->amqplibChannel->getConnection()->isConnected()) {
+            throw new AMQPConnectionException($error . 'No connection available.');
+        }
+    }
+
+    /**
+     * Declares a new exchange on the broker.
+     *
+     * @return boolean TRUE on success or FALSE on failure.
+     *
+     * @throws AMQPExchangeException   On failure.
+     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPConnectionException If the connection to the broker was lost.
+     */
+    public function declareExchange(): bool
+    {
+        $this->checkChannelOrThrow('Could not declare exchange.');
+
+        try {
+            $this->amqplibChannel->exchange_declare(
+                $this->exchangeName,
+                $this->exchangeType,
+                $this->flags & AMQP_PASSIVE,
+                $this->flags & AMQP_DURABLE,
+                $this->flags & AMQP_AUTODELETE,
+                $this->flags & AMQP_INTERNAL,
+                $this->flags & AMQP_NOWAIT
+            );
+        } catch (AMQPExceptionInterface $exception) {
+            // TODO: Handle errors identically to php-amqp.
+            throw new AMQPExchangeException(__METHOD__ . ' failed: ' . $exception->getMessage());
+        }
+
+        return true;
+    }
+
+    /**
+     * Deletes the exchange from the broker.
+     *
+     * @param string  $exchangeName Optional name of exchange to delete.
+     * @param integer $flags        Optionally AMQP_IFUNUSED can be specified
+     *                              to indicate the exchange should not be
+     *                              deleted until no clients are connected to
+     *                              it.
+     *
+     * @return bool true on success or false on failure.
+     *
+     * @throws AMQPExchangeException   On failure.
+     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPConnectionException If the connection to the broker was lost.
+     */
+    public function delete(?string $exchangeName = null, int $flags = AMQP_NOPARAM): bool
+    {
+        $this->checkChannelOrThrow('Could not delete exchange.');
+
+        try {
+            $this->amqplibChannel->exchange_delete(
+                $exchangeName ?? $this->exchangeName,
+                $this->flags & AMQP_IFUNUSED,
+                $this->flags & AMQP_NOWAIT
+            );
+        } catch (AMQPExceptionInterface $exception) {
+            // TODO: Handle errors identically to php-amqp.
+            throw new AMQPExchangeException(__METHOD__ . ' failed: ' . $exception->getMessage());
+        }
+
+        return true;
+    }
+
+    /**
+     * Fetches the argument associated with the given key.
+     *
+     * @param string $key The key to look up.
+     *
+     * @return string|integer|boolean The string or integer value associated
+     *                                with the given key, or FALSE if the key
+     *                                is not set.
+     */
+    public function getArgument(string $key)
+    {
+        return $this->arguments[$key] ?? false;
+    }
+
+    /**
+     * Fetches all arguments for this exchange.
+     *
+     * @return array An array containing all the set key/value pairs.
+     */
+    public function getArguments(): array
+    {
+        return $this->arguments;
+    }
+
+    /**
+     * Fetches the AMQPChannel object in use.
+     *
+     * @return AMQPChannel
+     */
+    public function getChannel(): AMQPChannel
+    {
+        return $this->amqpChannel;
+    }
+
+    /**
+     * Fetches the AMQPConnection object in use.
+     *
+     * @return AMQPConnection
+     */
+    public function getConnection(): AMQPConnection
+    {
+        return $this->amqpChannel->getConnection();
+    }
+
+    /**
+     * Fetches all the flags currently set on this exchange.
+     *
+     * @return int An integer bitmask of all the flags currently set on this
+     *             exchange object.
+     */
+    public function getFlags(): int
+    {
+        return $this->flags;
+    }
+
+    /**
+     * Fetches the configured name.
+     *
+     * @return string The configured name as a string.
+     */
+    public function getName(): string
+    {
+        return $this->exchangeName;
+    }
+
+    /**
+     * Fetches the configured type.
+     *
+     * @return string The configured type as a string.
+     */
+    public function getType(): string
+    {
+        return $this->exchangeType;
+    }
+
+    /**
+     * Determines whether an argument exists with the given key.
+     *
+     * @param string $key The key to look up.
+     *
+     * @return bool
+     */
+    public function hasArgument(string $key): bool
+    {
+        return array_key_exists($key, $this->arguments);
+    }
+
+    /**
+     * Publishes a message to this exchange.
+     *
+     * @param string  $message     The message to publish.
+     * @param string  $routingKey  The optional routing key to which to
+     *                             publish to.
+     * @param integer $flags       One or more of AMQP_MANDATORY and
+     *                             AMQP_IMMEDIATE.
+     * @param array   $attributes  One of content_type, content_encoding,
+     *                             message_id, user_id, app_id, delivery_mode,
+     *                             priority, timestamp, expiration, type
+     *                             or reply_to, headers.
+     *
+     * @return bool TRUE on success or FALSE on failure.
+     *
+     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPConnectionException If the connection to the broker was lost.
+     * @throws AMQPExchangeException   On failure.
+     */
+    public function publish(
+        string $message,
+        string $routingKey = null,
+        int $flags = AMQP_NOPARAM,
+        array $attributes = array()
+    ): bool {
+        $this->checkChannelOrThrow('Could not publish to exchange.');
+
+        if (array_key_exists('headers', $attributes)) {
+            // Amqplib expects "application_headers" instead.
+            $attributes['application_headers'] = new AmqplibTable($attributes['headers']);
+
+            unset($attributes['headers']);
+        }
+
+        $amqplibMessage = new AmqplibMessage($message, $attributes);
+
+        try {
+            $this->amqplibChannel->basic_publish(
+                $amqplibMessage,
+                $this->exchangeName,
+                $routingKey,
+                $flags & AMQP_MANDATORY,
+                $flags & AMQP_IMMEDIATE
+            );
+        } catch (AMQPExceptionInterface $exception) {
+            // TODO: Handle errors identically to php-amqp.
+            throw new AMQPExchangeException(__METHOD__ . ' failed: ' . $exception->getMessage());
+        }
+
+        return true;
+    }
+
+    /**
+     * Sets the value of the specified argument.
+     *
+     * @param string $key Name of the argument to set.
+     * @param string|float|int|null $value Value of the argument to set.
+     *
+     * @return boolean TRUE on success or FALSE on failure.
+     * @throws AMQPExchangeException When an invalid value is given.
+     */
+    public function setArgument(string $key, $value): bool
+    {
+        if ($value !== 'null' && !is_int($value) && !is_float($value) && !is_string($value)) {
+            throw new AMQPExchangeException(
+                'The value parameter must be of type NULL, int, double or string.'
+            );
+        }
+
+        $this->arguments[$key] = $value;
+
+        return true;
+    }
+
+    /**
+     * Sets all arguments on the exchange.
+     *
+     * @param array $arguments An array of key/value pairs of arguments.
+     *
+     * @return bool TRUE on success or FALSE on failure.
+     */
+    public function setArguments(array $arguments): bool
+    {
+        $this->arguments = $arguments;
+
+        return true;
+    }
+
+    /**
+     * Sets the flags on an exchange.
+     *
+     * @param integer|null $flags A bitmask of flags. This call currently only
+     *                            considers the following flags:
+     *                            AMQP_DURABLE, AMQP_PASSIVE
+     *                            (and AMQP_DURABLE, if librabbitmq version >= 0.5.3)
+     *
+     * @return void
+     */
+    public function setFlags(?int $flags): void
+    {
+        $this->flags = $flags ?? 0;
+    }
+
+    /**
+     * Sets the name of the exchange.
+     *
+     * @param string $exchangeName The name of the exchange to set as string.
+     */
+    public function setName(string $exchangeName): void
+    {
+        $this->exchangeName = $exchangeName;
+    }
+
+    /**
+     * Sets the type of the exchange, which can be one of:
+     *
+     * - AMQP_EX_TYPE_DIRECT
+     * - AMQP_EX_TYPE_FANOUT
+     * - AMQP_EX_TYPE_HEADERS
+     * - AMQP_EX_TYPE_TOPIC.
+     *
+     * @param string $exchangeType The type of exchange as a string.
+     */
+    public function setType(string $exchangeType): void
+    {
+        $this->exchangeType = $exchangeType;
+    }
+
+    /**
+     * Unbinds this exchange from another exchange when using the specified routing key.
+     *
+     * @param string $exchangeName Name of the exchange to bind.
+     * @param string $routingKey   The routing key to use for binding.
+     * @param array  $arguments     Additional binding arguments.
+     *
+     * @return bool true on success or false on failure.
+     *
+     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPConnectionException If the connection to the broker was lost.
+     * @throws AMQPExchangeException   On failure.
+     */
+    public function unbind(string $exchangeName, string $routingKey = '', array $arguments = array()): bool
+    {
+        $this->checkChannelOrThrow('Could not unbind from exchange.');
+
+        try {
+            $this->amqplibChannel->exchange_unbind(
+                $this->exchangeName,
+                $exchangeName,
+                $routingKey,
+                $this->flags & AMQP_NOWAIT,
+                $arguments
+            );
+        } catch (AMQPExceptionInterface $exception) {
+            // TODO: Handle errors identically to php-amqp.
+            throw new AMQPExchangeException(__METHOD__ . ' failed: ' . $exception->getMessage());
+        }
+
+        return true;
+    }
+}

@@ -1,0 +1,37 @@
+{
+    "name": "asmblah/php-amqp-compat",
+    "type": "project",
+    "license": "MIT",
+    "autoload": {
+        "files": [
+            "src/AmqpCompat/bootstrap.php"
+        ],
+        "psr-4": {
+            "": "src/Amqp/",
+            "Asmblah\\PhpAmqpCompat\\": "src/AmqpCompat/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Asmblah\\PhpAmqpCompat\\Tests\\": "tests/"
+        }
+    },
+    "require": {
+        "php": ">=8.1",
+        "ext-pcntl": "*",
+        "php-amqplib/php-amqplib": "v3.5.4"
+    },
+    "require-dev": {
+        "mockery/mockery": "^1.6",
+        "phpunit/phpunit": "^10.2"
+    },
+    "replace": {
+        "ext-amqp": "*"
+    },
+    "config": {
+        "platform": {
+            "php": "8.1"
+        },
+        "sort-packages": true
+    }
+}
