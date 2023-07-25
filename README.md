@@ -1,5 +1,7 @@
 # PHP AMQP-Compat.
 
+[![Build Status](https://github.com/asmblah/php-amqp-compat/workflows/CI/badge.svg)](https://github.com/asmblah/php-amqp-compat/actions?query=workflow%3ACI)
+
 [EXPERIMENTAL] [php-amqp/ext-amqp]() compatibility using [php-amqplib]().
 
 ## Why?
