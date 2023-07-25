@@ -2,13 +2,13 @@
 
 [![Build Status](https://github.com/asmblah/php-amqp-compat/workflows/CI/badge.svg)](https://github.com/asmblah/php-amqp-compat/actions?query=workflow%3ACI)
 
-[EXPERIMENTAL] [php-amqp/ext-amqp]() compatibility using [php-amqplib]().
+[EXPERIMENTAL] [php-amqp/ext-amqp][1] compatibility using [php-amqplib][2].
 
 ## Why?
-`php-amqp`/`librabbitmq` does not fully support [AMQP heartbeats](), they are only supported during [blocking calls into the extension](https://github.com/php-amqp/php-amqp/tree/v1.11.0#persistent-connection).
+`php-amqp`/`librabbitmq` does not fully support [AMQP heartbeats][4], they are only supported during [blocking calls into the extension](https://github.com/php-amqp/php-amqp/tree/v1.11.0#persistent-connection).
 With `php-amqplib`, we're able to send heartbeats more regularly, using Unix System V signals.
 This library provides its own signal-based heartbeat sender, using `pcntl_async_signals(...)`
-to allow for more frequent heartbeat handling, based on the logic in [php-amqplib's sender implementation]().
+to allow for more frequent heartbeat handling, based on the logic in [php-amqplib's sender implementation][3].
 
 ## Usage
 First, remove `ext-amqp` - it cannot be used at the same time as this compatibility layer.
@@ -31,10 +31,10 @@ That should be all the changes required - this userland library is designed as a
 
 ## See also
 
-- The original php-amqp extension that this compatibility layer replaces: [php-amqp/ext-amqp]()
-- `php-amqplib`, which this library uses under the hood: [php-amqplib]()
+- The original php-amqp extension that this compatibility layer replaces: [php-amqp/ext-amqp][1]
+- `php-amqplib`, which this library uses under the hood: [php-amqplib][2]
 
-[php-amqp/ext-amqp]: https://github.com/php-amqp/php-amqp
-[php-amqplib]: https://github.com/php-amqplib/php-amqplib
-[php-amqplib's sender implementation]: https://github.com/php-amqplib/php-amqplib/blob/v3.5.4/PhpAmqpLib/Connection/Heartbeat/PCNTLHeartbeatSender.php
-[AMQP heartbeats]: https://www.rabbitmq.com/heartbeats.html
+[1]: https://github.com/php-amqp/php-amqp
+[2]: https://github.com/php-amqplib/php-amqplib
+[3]: https://github.com/php-amqplib/php-amqplib/blob/v3.5.4/PhpAmqpLib/Connection/Heartbeat/PCNTLHeartbeatSender.php
+[4]: https://www.rabbitmq.com/heartbeats.html
