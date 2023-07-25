@@ -31,6 +31,11 @@ use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 use PhpAmqpLib\Message\AMQPMessage;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * Class PublishThenConsumeTest.
+ *
+ * @author Dan Phillimore <dan@ovms.co>
+ */
 class PublishThenConsumeTest extends TestCase
 {
     private AMQPChannel|null $amqpChannel;
