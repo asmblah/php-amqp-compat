@@ -15,7 +15,7 @@ namespace Asmblah\PhpAmqpCompat\Heartbeat;
 
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 
-interface PcntlHeartbeatSenderInterface
+interface HeartbeatSenderInterface
 {
     /**
      * Installs heartbeat handling for the given AMQP connection.

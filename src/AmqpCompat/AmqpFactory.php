@@ -17,13 +17,21 @@ use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Connection\ConnectionConfig;
 use Asmblah\PhpAmqpCompat\Connection\ConnectionConfigInterface;
-use Asmblah\PhpAmqpCompat\Heartbeat\PcntlHeartbeatSenderInterface;
-use PhpAmqpLib\Connection\AMQPStreamConnection;
+use Asmblah\PhpAmqpCompat\Connection\ConnectorInterface;
+use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSenderInterface;
 
+/**
+ * Class AmqpFactory.
+ *
+ * This default implementation connects to the AMQP broker via the php-amqplib library.
+ *
+ * @author Dan Phillimore <dan@ovms.co>
+ */
 class AmqpFactory implements AmqpFactoryInterface
 {
     public function __construct(
-        private readonly PcntlHeartbeatSenderInterface $heartbeatSender
+        private readonly ConnectorInterface $connector,
+        private readonly HeartbeatSenderInterface $heartbeatSender
     ) {
     }
 
@@ -32,26 +40,13 @@ class AmqpFactory implements AmqpFactoryInterface
      */
     public function connect(ConnectionConfigInterface $config): AmqpConnectionBridgeInterface
     {
-        $amqplibConnection = new AMQPStreamConnection(
-            $config->getHost(),
-            $config->getPort(),
-            $config->getUser(),
-            $config->getPassword(),
-            $config->getVirtualHost(),
-            false,
-            'AMQPLAIN',
-            null,
-            'en_US',
-            $config->getConnectionTimeout(),
-            $config->getReadTimeout(),
-            null,
-            false,
-            $config->getHeartbeatInterval(),
-            $config->getRpcTimeout()
-        );
+        // Open the underlying connection to the AMQP broker via php-amqplib.
+        $amqplibConnection = $this->connector->connect($config);
 
+        // Internal representation of the AMQP connection that this compatibility layer uses.
         $connectionBridge = new AmqpConnectionBridge($amqplibConnection);
 
+        // Install AMQP heartbeat handling (via php-amqplib) as applicable.
         $this->heartbeatSender->register($connectionBridge);
 
         return $connectionBridge;

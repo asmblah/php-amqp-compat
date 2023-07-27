@@ -11,7 +11,7 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Tests\Functional;
+namespace Asmblah\PhpAmqpCompat\Tests\Functional\AmqpCompat;
 
 use AMQPChannel;
 use AMQPConnection;
@@ -24,19 +24,19 @@ use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
 use Asmblah\PhpAmqpCompat\Connection\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
+use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery;
 use Mockery\MockInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 use PhpAmqpLib\Message\AMQPMessage;
-use PHPUnit\Framework\TestCase;
 
 /**
  * Class PublishThenConsumeTest.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-class PublishThenConsumeTest extends TestCase
+class PublishThenConsumeTest extends AbstractTestCase
 {
     private AMQPChannel|null $amqpChannel;
     private AMQPConnection|null $amqpConnection;

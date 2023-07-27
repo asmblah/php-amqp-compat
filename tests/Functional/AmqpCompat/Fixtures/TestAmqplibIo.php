@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Tests\Functional\Fixtures;
+namespace Asmblah\PhpAmqpCompat\Tests\Functional\AmqpCompat\Fixtures;
 
 use PhpAmqpLib\Wire\IO\AbstractIO;
 

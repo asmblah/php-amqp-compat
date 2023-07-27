@@ -16,16 +16,16 @@ namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Bridge\Channel;
 use AMQPEnvelope;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\Consumer;
 use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
+use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use LogicException;
 use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
-use PHPUnit\Framework\TestCase;
 
 /**
  * Class ConsumerTest.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-class ConsumerTest extends TestCase
+class ConsumerTest extends AbstractTestCase
 {
     private Consumer|null $consumer;
 

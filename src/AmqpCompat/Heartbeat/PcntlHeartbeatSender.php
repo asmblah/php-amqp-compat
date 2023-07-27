@@ -22,8 +22,12 @@ use SplObjectStorage;
  *
  * Based on PhpAmqpLib\Connection\Heartbeat\PCNTLHeartbeatSender,
  * with support for multiple simultaneous connections.
+ *
+ * Uses Unix System V signals with pcntl_async_signals(...) to allow regular heartbeat handling.
+ *
+ * @author Dan Phillimore <dan@ovms.co>
  */
-class PcntlHeartbeatSender implements PcntlHeartbeatSenderInterface
+class PcntlHeartbeatSender implements HeartbeatSenderInterface
 {
     /**
      * @var SplObjectStorage<AmqpConnectionBridgeInterface>

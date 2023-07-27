@@ -17,6 +17,13 @@ use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Connection\ConnectionConfigInterface;
 use Exception;
 
+/**
+ * Interface AmqpFactoryInterface.
+ *
+ * May be implemented by a custom class and set on the AmqpManager to allow extension.
+ *
+ * @author Dan Phillimore <dan@ovms.co>
+ */
 interface AmqpFactoryInterface
 {
     /**

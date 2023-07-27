@@ -11,22 +11,19 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Misc;
+namespace Asmblah\PhpAmqpCompat\Tests;
+
+use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
+use PHPUnit\Framework\TestCase as PhpUnitTestCase;
 
 /**
- * Class Clock.
+ * Class AbstractTestCase.
+ *
+ * Base class for all test cases.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-class Clock
+abstract class AbstractTestCase extends PhpUnitTestCase
 {
-    /**
-     * Fetches the current Unix timestamp in seconds.
-     *
-     * Useful to allow stubbing.
-     */
-    public function getUnixTimestamp(): int
-    {
-        return time();
-    }
+    use MockeryPHPUnitIntegration;
 }
