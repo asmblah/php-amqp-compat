@@ -13,25 +13,27 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat;
 
-use Asmblah\PhpAmqpCompat\AmqpFactory;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
+use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Connection\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\ConnectorInterface;
 use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSenderInterface;
+use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery;
 use Mockery\MockInterface;
 use PhpAmqpLib\Connection\AbstractConnection;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
+use Psr\Log\LoggerInterface;
 
 /**
- * Class AmqpFactoryTest.
+ * Class AmqpIntegrationTest.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-class AmqpFactoryTest extends AbstractTestCase
+class AmqpIntegrationTest extends AbstractTestCase
 {
-    private ?AmqpFactory $amqpFactory;
+    private ?AmqpIntegration $amqpIntegration;
     /**
      * @var (MockInterface&AmqplibConnection)|null
      */
@@ -39,7 +41,11 @@ class AmqpFactoryTest extends AbstractTestCase
     /**
      * @var (MockInterface&ConnectionConfigInterface)|null
      */
-    private $config;
+    private $connectionConfig;
+    /**
+     * @var (MockInterface&ConfigurationInterface)|null
+     */
+    private $configuration;
     /**
      * @var (MockInterface&ConnectorInterface)|null
      */
@@ -48,11 +54,19 @@ class AmqpFactoryTest extends AbstractTestCase
      * @var (MockInterface&HeartbeatSenderInterface)|null
      */
     private $heartbeatSender;
+    /**
+     * @var (MockInterface&LoggerInterface)|null
+     */
+    private $logger;
 
     public function setUp(): void
     {
         $this->amqplibConnection = mock(AbstractConnection::class);
-        $this->config = mock(ConnectionConfigInterface::class);
+        $this->logger = mock(LoggerInterface::class);
+        $this->configuration = mock(ConfigurationInterface::class, [
+            'getLogger' => $this->logger,
+        ]);
+        $this->connectionConfig = mock(ConnectionConfigInterface::class);
         $this->connector = mock(ConnectorInterface::class, [
             'connect' => $this->amqplibConnection,
         ]);
@@ -60,21 +74,21 @@ class AmqpFactoryTest extends AbstractTestCase
             'register' => null,
         ]);
 
-        $this->amqpFactory = new AmqpFactory($this->connector, $this->heartbeatSender);
+        $this->amqpIntegration = new AmqpIntegration($this->connector, $this->heartbeatSender, $this->configuration);
     }
 
     public function testConnectConnectsViaTheConnector(): void
     {
         $this->connector->expects()
-            ->connect($this->config)
+            ->connect($this->connectionConfig)
             ->once();
 
-        $this->amqpFactory->connect($this->config);
+        $this->amqpIntegration->connect($this->connectionConfig);
     }
 
     public function testConnectReturnsAConnectionBridgeUsingTheAmqplibConnection(): void
     {
-        $connectionBridge = $this->amqpFactory->connect($this->config);
+        $connectionBridge = $this->amqpIntegration->connect($this->connectionConfig);
 
         static::assertSame($this->amqplibConnection, $connectionBridge->getAmqplibConnection());
     }
@@ -85,12 +99,12 @@ class AmqpFactoryTest extends AbstractTestCase
             ->register(Mockery::type(AmqpConnectionBridgeInterface::class))
             ->once();
 
-        $this->amqpFactory->connect($this->config);
+        $this->amqpIntegration->connect($this->connectionConfig);
     }
 
     public function testCreateConnectionConfigUsesCorrectDefaults(): void
     {
-        $config = $this->amqpFactory->createConnectionConfig([]);
+        $config = $this->amqpIntegration->createConnectionConfig([]);
 
         static::assertSame('localhost', $config->getHost());
         static::assertSame(5672, $config->getPort());
@@ -106,7 +120,7 @@ class AmqpFactoryTest extends AbstractTestCase
 
     public function testCreateConnectionConfigUsesGivenSettings(): void
     {
-        $config = $this->amqpFactory->createConnectionConfig([
+        $config = $this->amqpIntegration->createConnectionConfig([
             'host' => 'myhost',
             'port' => 1234,
             'login' => 'myuser',

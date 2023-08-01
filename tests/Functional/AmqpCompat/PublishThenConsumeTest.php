@@ -18,18 +18,19 @@ use AMQPConnection;
 use AMQPEnvelope;
 use AMQPExchange;
 use AMQPQueue;
-use Asmblah\PhpAmqpCompat\AmqpFactoryInterface;
 use Asmblah\PhpAmqpCompat\AmqpManager;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
 use Asmblah\PhpAmqpCompat\Connection\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
+use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery;
 use Mockery\MockInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 use PhpAmqpLib\Message\AMQPMessage;
+use Psr\Log\LoggerInterface;
 
 /**
  * Class PublishThenConsumeTest.
@@ -43,9 +44,9 @@ class PublishThenConsumeTest extends AbstractTestCase
     private AmqpConnectionBridge|null $amqpConnectionBridge;
     private AMQPExchange|null $amqpExchange;
     /**
-     * @var (MockInterface&AmqpFactoryInterface)|null
+     * @var (MockInterface&AmqpIntegrationInterface)|null
      */
-    private $amqpFactory;
+    private $amqpIntegration;
     private AMQPQueue|null $amqpQueue;
     private AmqplibChannel|null $amqplibChannel;
     private AmqplibConnection|null $amqplibConnection;
@@ -53,14 +54,22 @@ class PublishThenConsumeTest extends AbstractTestCase
      * @var (MockInterface&ConnectionConfigInterface)|null
      */
     private $connectionConfig;
+    /**
+     * @var (MockInterface&LoggerInterface)|null
+     */
+    private $logger;
 
     public function setUp(): void
     {
         AmqpBridge::initialise();
 
-        $this->connectionConfig = mock(ConnectionConfigInterface::class);
-        $this->amqpFactory = mock(AmqpFactoryInterface::class, [
+        $this->connectionConfig = mock(ConnectionConfigInterface::class, [
+            'getConnectionTimeout' => 0,
+        ]);
+        $this->logger = mock(LoggerInterface::class);
+        $this->amqpIntegration = mock(AmqpIntegrationInterface::class, [
             'createConnectionConfig' => $this->connectionConfig,
+            'getLogger' => $this->logger,
         ]);
         $this->amqplibChannel = mock(AmqplibChannel::class, [
             'basic_consume' => 'my-consumer-tag',
@@ -79,11 +88,11 @@ class PublishThenConsumeTest extends AbstractTestCase
 
         $this->amqpConnectionBridge = new AmqpConnectionBridge($this->amqplibConnection);
 
-        $this->amqpFactory->allows()
+        $this->amqpIntegration->allows()
             ->connect($this->connectionConfig)
             ->andReturn($this->amqpConnectionBridge);
 
-        AmqpManager::setAmqpFactory($this->amqpFactory);
+        AmqpManager::setAmqpIntegration($this->amqpIntegration);
 
         $this->amqpConnection = new AMQPConnection();
         AmqpBridge::bridgeConnection($this->amqpConnection, $this->amqpConnectionBridge);

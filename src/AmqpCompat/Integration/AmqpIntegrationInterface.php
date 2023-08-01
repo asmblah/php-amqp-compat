@@ -11,20 +11,21 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat;
+namespace Asmblah\PhpAmqpCompat\Integration;
 
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Connection\ConnectionConfigInterface;
 use Exception;
+use Psr\Log\LoggerInterface;
 
 /**
- * Interface AmqpFactoryInterface.
+ * Interface AmqpIntegrationInterface.
  *
  * May be implemented by a custom class and set on the AmqpManager to allow extension.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-interface AmqpFactoryInterface
+interface AmqpIntegrationInterface
 {
     /**
      * Connects to the AMQP server.
@@ -37,4 +38,11 @@ interface AmqpFactoryInterface
      * Creates a configuration for later connection.
      */
     public function createConnectionConfig(array $credentials): ConnectionConfigInterface;
+
+    /**
+     * Fetches a logger to use for additional/internal logging by this library.
+     *
+     * @return LoggerInterface
+     */
+    public function getLogger(): LoggerInterface;
 }

@@ -13,6 +13,13 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Connection;
 
+/**
+ * Class ConnectionConfig.
+ *
+ * Represents the configuration for an upcoming connection that will be made by AMQPConnection.
+ *
+ * @author Dan Phillimore <dan@ovms.co>
+ */
 class ConnectionConfig implements ConnectionConfigInterface
 {
     /**
@@ -38,28 +45,32 @@ class ConnectionConfig implements ConnectionConfigInterface
     private string $virtualHost;
 
     public function __construct(
-        string $host,
-        int $port,
-        string $user,
-        string $password,
-        string $virtualHost = '/',
-        int $heartbeatInterval = 0,
+        string $host = self::DEFAULT_HOST,
+        int $port = self::DEFAULT_PORT,
+        string $user = self::DEFAULT_USER,
+        string $password = self::DEFAULT_PASSWORD,
+        string $virtualHost = self::DEFAULT_VIRTUAL_HOST,
+        int $heartbeatInterval = self::DEFAULT_HEARTBEAT_INTERVAL,
         /**
          * Timeout (in seconds) to wait for the AMQP connection to open.
          */
-        private float $connectionTimeout = 0,
+        private float $connectionTimeout = self::DEFAULT_CONNECTION_TIMEOUT,
         /**
          * Timeout (in seconds) to wait for incoming activity from the AMQP broker.
          */
-        private float $readTimeout = 0,
+        private float $readTimeout = self::DEFAULT_READ_TIMEOUT,
         /**
          * Timeout (in seconds) to wait for outgoing activity to the AMQP broker.
          */
-        private float $writeTimeout = 0,
+        private float $writeTimeout = self::DEFAULT_WRITE_TIMEOUT,
         /**
          * Timeout (in seconds) to wait for RPC.
          */
-        private float $rpcTimeout = 0
+        private float $rpcTimeout = self::DEFAULT_RPC_TIMEOUT,
+        /**
+         * Optional name for the connection, null if none.
+         */
+        private ?string $connectionName = null
     ) {
         $this->heartbeatInterval = $heartbeatInterval;
         $this->host = $host;
@@ -67,6 +78,14 @@ class ConnectionConfig implements ConnectionConfigInterface
         $this->port = $port;
         $this->user = $user;
         $this->virtualHost = $virtualHost;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getConnectionName(): ?string
+    {
+        return $this->connectionName;
     }
 
     /**
@@ -147,6 +166,14 @@ class ConnectionConfig implements ConnectionConfigInterface
     public function getWriteTimeout(): float
     {
         return $this->writeTimeout;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setConnectionName(?string $connectionName): void
+    {
+        $this->connectionName = $connectionName;
     }
 
     /**

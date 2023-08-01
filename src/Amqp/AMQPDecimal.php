@@ -18,21 +18,15 @@ declare(strict_types=1);
  *
  * @see {@link https://github.com/php-amqp/php-amqp/blob/v1.11.0/stubs/AMQPDecimal.php}
  */
-class AMQPDecimal
+final class AMQPDecimal
 {
-    const EXPONENT_MIN = 0;
-    const EXPONENT_MAX = 255;
-    const SIGNIFICAND_MIN = 0;
-    const SIGNIFICAND_MAX = 4294967295;
+    public const EXPONENT_MIN = 0;
+    public const EXPONENT_MAX = 255;
+    public const SIGNIFICAND_MIN = 0;
+    public const SIGNIFICAND_MAX = 4294967295;
 
-    /**
-     * @var int
-     */
-    private $exponent;
-    /**
-     * @var int
-     */
-    private $significand;
+    private readonly int $exponent;
+    private readonly int $significand;
 
     /**
      * @param int $exponent
@@ -42,13 +36,39 @@ class AMQPDecimal
      */
     public function __construct(int $exponent, int $significand)
     {
-        // TODO: Throw exception(s) when applicable?
+        if ($exponent < self::EXPONENT_MIN) {
+            throw new AMQPValueException('Decimal exponent value must be unsigned.');
+        }
+
+        if ($exponent > self::EXPONENT_MAX) {
+            throw new AMQPValueException(
+                sprintf(
+                    'Decimal exponent value must be less than %u.',
+                    self::EXPONENT_MAX
+                )
+            );
+        }
+
+        if ($significand < self::SIGNIFICAND_MIN) {
+            throw new AMQPValueException('Decimal significand value must be unsigned.');
+        }
+
+        if ($significand > self::SIGNIFICAND_MAX) {
+            throw new AMQPValueException(
+                sprintf(
+                    'Decimal significand value must be less than %u.',
+                    self::SIGNIFICAND_MAX
+                )
+            );
+        }
 
         $this->exponent = $exponent;
         $this->significand = $significand;
     }
 
     /**
+     * Fetches the exponent of the decimal number.
+     *
      * @return int
      */
     public function getExponent(): int
@@ -57,6 +77,8 @@ class AMQPDecimal
     }
 
     /**
+     * Fetches the significand of the decimal number.
+     *
      * @return int
      */
     public function getSignificand(): int

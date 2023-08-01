@@ -13,8 +13,31 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Connection;
 
+/**
+ * Interface ConnectionConfigInterface.
+ *
+ * Represents the configuration for an upcoming connection that will be made by AMQPConnection.
+ *
+ * @author Dan Phillimore <dan@ovms.co>
+ */
 interface ConnectionConfigInterface
 {
+    public const DEFAULT_CONNECTION_TIMEOUT = 3.0;
+    public const DEFAULT_HEARTBEAT_INTERVAL = 0;
+    public const DEFAULT_HOST = 'localhost';
+    public const DEFAULT_PASSWORD = 'guest';
+    public const DEFAULT_PORT = 5672;
+    public const DEFAULT_READ_TIMEOUT = 3.0;
+    public const DEFAULT_RPC_TIMEOUT = 0.0;
+    public const DEFAULT_USER = 'guest';
+    public const DEFAULT_VIRTUAL_HOST = '/';
+    public const DEFAULT_WRITE_TIMEOUT = 3.0;
+
+    /**
+     * Fetches the configured name for the connection, or null if none was given.
+     */
+    public function getConnectionName(): ?string;
+
     /**
      * Fetches the configured connection timeout (in seconds), or the default if none was given.
      */
@@ -65,6 +88,11 @@ interface ConnectionConfigInterface
      * Fetches the configured write timeout (in seconds), or the default if none was given.
      */
     public function getWriteTimeout(): float;
+
+    /**
+     * Sets the configured name for the connection.
+     */
+    public function setConnectionName(?string $connectionName): void;
 
     /**
      * Sets the configured connection timeout (in seconds), overriding any default if used.

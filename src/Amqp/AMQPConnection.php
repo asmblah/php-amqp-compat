@@ -11,13 +11,14 @@
 
 declare(strict_types=1);
 
-use Asmblah\PhpAmqpCompat\AmqpFactoryInterface;
 use Asmblah\PhpAmqpCompat\AmqpManager;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Connection\ConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
 use PhpAmqpLib\Connection\AbstractConnection;
 use PhpAmqpLib\Exception\AMQPExceptionInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * Class AMQPConnection.
@@ -28,10 +29,11 @@ use PhpAmqpLib\Exception\AMQPExceptionInterface;
  */
 class AMQPConnection
 {
-    private AmqpFactoryInterface $amqpFactory;
+    private readonly AmqpIntegrationInterface $amqpIntegration;
     private ?AbstractConnection $amqplibConnection = null;
     private ?AmqpConnectionBridgeInterface $connectionBridge = null;
-    private ConnectionConfigInterface $connectionConfig;
+    private readonly ConnectionConfigInterface $connectionConfig;
+    private readonly LoggerInterface $logger;
 
     /**
      * Represents a connection to an AMQP broker.
@@ -68,18 +70,27 @@ class AMQPConnection
      *
      * @param array $credentials Optional array of credential information for
      *                           connecting to the AMQP broker.
+     * @throws AMQPConnectionException
      */
     public function __construct(array $credentials = [])
     {
-        $this->amqpFactory = AmqpManager::getAmqpFactory();
+        // Note that the static AmqpManager mechanism is required to allow us to support ext-amqp's class API.
+        $this->amqpIntegration = AmqpManager::getAmqpIntegration();
+        $this->logger = $this->amqpIntegration->getLogger();
 
-        $this->connectionConfig = $this->amqpFactory->createConnectionConfig($credentials);
+        $this->connectionConfig = $this->amqpIntegration->createConnectionConfig($credentials);
+
+        if ($this->connectionConfig->getConnectionTimeout() < 0) {
+            throw new AMQPConnectionException(
+                'Parameter \'connect_timeout\' must be greater than or equal to zero.'
+            );
+        }
     }
 
     /**
      * Establishes a transient connection with the AMQP broker.
      *
-     * @return boolean TRUE on success or throw an exception on failure.
+     * @return boolean true on success, on failure an exception will be thrown instead.
      * @throws AMQPConnectionException
      */
     public function connect(): bool
@@ -89,10 +100,18 @@ class AMQPConnection
         }
 
         try {
-            $this->connectionBridge = $this->amqpFactory->connect($this->connectionConfig);
+            $this->connectionBridge = $this->amqpIntegration->connect($this->connectionConfig);
         } catch (AMQPExceptionInterface $exception) {
             // TODO: Handle errors identically to php-amqp.
-            throw new AMQPConnectionException(__METHOD__ . ' failed: ' . $exception->getMessage());
+
+            // Log details of the internal php-amqplib exception,
+            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
+            $this->logger->error(__METHOD__ . ' failed', [
+                'exception' => get_class($exception),
+                'message' => $exception->getMessage(),
+            ]);
+
+            throw new AMQPConnectionException('Socket error: could not connect to host.');
         }
 
         AmqpBridge::bridgeConnection($this, $this->connectionBridge);
@@ -146,15 +165,15 @@ class AMQPConnection
     }
 
     /**
-     * @return string|null
+     * Fetches the name of this connection.
      */
     public function getConnectionName(): ?string
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        return $this->connectionConfig->getConnectionName();
     }
 
     /**
-     * Get number of seconds between heartbeats of the connection in seconds.
+     * Fetches the number of seconds between heartbeats of the connection in seconds.
      *
      * When connection is connected, effective connection value returned, which is normally the same as original
      * correspondent value passed to constructor, otherwise original value passed to constructor returned.
@@ -318,7 +337,7 @@ class AMQPConnection
      */
     public function getVhost(): string
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        return $this->connectionConfig->getVirtualHost();
     }
 
     /**
@@ -353,8 +372,8 @@ class AMQPConnection
      */
     public function isPersistent(): bool
     {
-        // TODO: Not sure persistent connections are possible from userland?
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        // Persistent connections are not possible from userland.
+        return false;
     }
 
     /**
@@ -426,11 +445,11 @@ class AMQPConnection
     }
 
     /**
-     * @param string|null $connection_name
+     * Sets a name for this connection.
      */
-    public function setConnectionName(?string $connection_name): void
+    public function setConnectionName(?string $connectionName): void
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        $this->connectionConfig->setConnectionName($connectionName);
     }
 
     /**

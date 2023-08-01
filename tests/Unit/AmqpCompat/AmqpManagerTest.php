@@ -13,10 +13,12 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat;
 
-use Asmblah\PhpAmqpCompat\AmqpFactory;
-use Asmblah\PhpAmqpCompat\AmqpFactoryInterface;
 use Asmblah\PhpAmqpCompat\AmqpManager;
+use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
+use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
+use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
+use LogicException;
 
 /**
  * Class AmqpManagerTest.
@@ -27,31 +29,69 @@ class AmqpManagerTest extends AbstractTestCase
 {
     public function setUp(): void
     {
-        AmqpManager::setAmqpFactory(null);
+        AmqpManager::setAmqpIntegration(null);
+        AmqpManager::setConfiguration(null);
     }
 
     public function tearDown(): void
     {
-        AmqpManager::setAmqpFactory(null);
+        AmqpManager::setAmqpIntegration(null);
+        AmqpManager::setConfiguration(null);
     }
 
-    public function testGetAmqpFactoryFetchesDefaultImplementationByDefault(): void
+    public function testGetAmqpIntegrationFetchesDefaultImplementationByDefault(): void
     {
-        $amqpFactory = AmqpManager::getAmqpFactory();
+        $amqpIntegration = AmqpManager::getAmqpIntegration();
 
-        static::assertInstanceOf(AmqpFactory::class, $amqpFactory);
+        static::assertInstanceOf(AmqpIntegration::class, $amqpIntegration);
     }
 
-    public function testGetAmqpFactoryReturnsSameInstanceOnSubsequentCalls(): void
+    public function testGetAmqpIntegrationReturnsSameInstanceOnSubsequentCalls(): void
     {
-        static::assertSame(AmqpManager::getAmqpFactory(), AmqpManager::getAmqpFactory());
+        static::assertSame(AmqpManager::getAmqpIntegration(), AmqpManager::getAmqpIntegration());
     }
 
-    public function testSetAmqpFactorySetsSpecifiedFactory(): void
+    public function testGetConfigurationReturnsDefaultConfigurationIfNotOverridden(): void
     {
-        $amqpFactory = mock(AmqpFactoryInterface::class);
-        AmqpManager::setAmqpFactory($amqpFactory);
+        static::assertInstanceOf(ConfigurationInterface::class, AmqpManager::getConfiguration());
+    }
 
-        static::assertSame($amqpFactory, AmqpManager::getAmqpFactory());
+    public function testSetAmqpIntegrationSetsSpecifiedIntegration(): void
+    {
+        $amqpIntegration = mock(AmqpIntegrationInterface::class);
+
+        AmqpManager::setAmqpIntegration($amqpIntegration);
+
+        static::assertSame($amqpIntegration, AmqpManager::getAmqpIntegration());
+    }
+
+    public function testSetConfigurationSetsSpecifiedConfiguration(): void
+    {
+        $configuration = mock(ConfigurationInterface::class);
+
+        AmqpManager::setConfiguration($configuration);
+
+        static::assertSame($configuration, AmqpManager::getConfiguration());
+    }
+
+    public function testSetConfigurationThrowsWhenIntegrationHasAlreadyBeenFetchedImplicitly(): void
+    {
+        AmqpManager::getAmqpIntegration();
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Cannot set configuration while an AmqpIntegration has already been set');
+
+        AmqpManager::setConfiguration(mock(ConfigurationInterface::class));
+    }
+
+    public function testSetConfigurationThrowsWhenIntegrationHasAlreadyBeenSetExplicitly(): void
+    {
+        $amqpIntegration = mock(AmqpIntegrationInterface::class);
+        AmqpManager::setAmqpIntegration($amqpIntegration);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Cannot set configuration while an AmqpIntegration has already been set');
+
+        AmqpManager::setConfiguration(mock(ConfigurationInterface::class));
     }
 }

@@ -13,42 +13,79 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat;
 
+use Asmblah\PhpAmqpCompat\Configuration\Configuration;
+use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Connection\Connector;
 use Asmblah\PhpAmqpCompat\Heartbeat\PcntlHeartbeatSender;
+use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
+use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
 use Asmblah\PhpAmqpCompat\Misc\Clock;
+use LogicException;
 
 /**
  * Class AmqpManager.
  *
- * Allows the AmqpFactory to be replaced while supporting ext-amqp's API
+ * Allows the AmqpIntegration to be replaced while supporting ext-amqp's API
  * that does not allow for dependency injection, providing the default implementation otherwise.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
 class AmqpManager
 {
-    private static ?AmqpFactoryInterface $amqpFactory = null;
+    private static ?AmqpIntegrationInterface $amqpIntegration = null;
+    private static ?ConfigurationInterface $configuration = null;
 
     /**
-     * Fetches the AmqpFactory to use. Will create one by default if not overridden.
+     * Fetches the AmqpIntegration to use. Will create one by default if not overridden.
      */
-    public static function getAmqpFactory(): AmqpFactoryInterface
+    public static function getAmqpIntegration(): AmqpIntegrationInterface
     {
-        if (self::$amqpFactory === null) {
-            self::$amqpFactory = new AmqpFactory(
+        if (self::$amqpIntegration === null) {
+            self::$amqpIntegration = new AmqpIntegration(
                 new Connector(),
-                new PcntlHeartbeatSender(new Clock())
+                new PcntlHeartbeatSender(new Clock()),
+                self::getConfiguration()
             );
         }
 
-        return self::$amqpFactory;
+        return self::$amqpIntegration;
     }
 
     /**
-     * Overrides the AmqpFactory to use.
+     * Fetches the Configuration to use. Will create one by default if not overridden.
      */
-    public static function setAmqpFactory(?AmqpFactoryInterface $amqpFactory): void
+    public static function getConfiguration(): ConfigurationInterface
     {
-        self::$amqpFactory = $amqpFactory;
+        if (self::$configuration === null) {
+            self::$configuration = new Configuration();
+        }
+
+        return self::$configuration;
+    }
+
+    /**
+     * Overrides the AmqpIntegration to use.
+     *
+     * If null is given, the default implementation will be used.
+     */
+    public static function setAmqpIntegration(?AmqpIntegrationInterface $amqpIntegration): void
+    {
+        self::$amqpIntegration = $amqpIntegration;
+    }
+
+    /**
+     * Overrides the Configuration to use.
+     *
+     * If null is given, the default implementation will be used.
+     */
+    public static function setConfiguration(?ConfigurationInterface $configuration): void
+    {
+        if (self::$amqpIntegration !== null) {
+            // Raise an error, because the configuration would not be used by the current AmqpIntegration
+            // which would be inconsistent.
+            throw new LogicException('Cannot set configuration while an AmqpIntegration has already been set');
+        }
+
+        self::$configuration = $configuration;
     }
 }
