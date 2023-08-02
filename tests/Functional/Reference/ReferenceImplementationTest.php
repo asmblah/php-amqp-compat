@@ -26,6 +26,17 @@ use Generator;
  */
 class ReferenceImplementationTest extends AbstractTestCase
 {
+    private ?string $runTestsPath = null;
+
+    public function tearDown(): void
+    {
+        // Clear up the temporary file if it was created.
+        // Note that others may have been generated, e.g. run-test-info.php.
+        if ($this->runTestsPath !== null) {
+            @unlink($this->runTestsPath);
+        }
+    }
+
     /**
      * @dataProvider referenceImplementationTestProvider
      */
@@ -43,7 +54,29 @@ class ReferenceImplementationTest extends AbstractTestCase
             '--no-color'
         ];
 
-        $runTestsPath = realpath(dirname(dirname(PHP_BINARY)) . '/lib/php/build/run-tests.php');
+        $phpBasePath = dirname(dirname(PHP_BINARY));
+        $runTestsPaths = glob($phpBasePath . '/lib/php{,/**}/build/run-tests.php', GLOB_BRACE);
+
+        if (empty($runTestsPaths)) {
+            $this->fail('Failed to find run-tests.php');
+        }
+
+        // Multiple scripts may be found, if so they should be sorted so take the most recent one.
+        $runTestsPath = end($runTestsPaths);
+
+        // Copy run-tests.php to a temp dir as files will need to be created alongside it (see below).
+        $tempRunTestsCopyPath = tempnam(sys_get_temp_dir(), 'run-tests.php');
+
+        if ($tempRunTestsCopyPath === false) {
+            $this->fail('Failed to create temporary file for run-tests.php');
+        }
+
+        file_put_contents($tempRunTestsCopyPath, file_get_contents($runTestsPath));
+
+        // Use the copy, so that when it attempts to create `run-test-info.php` it should be in a writable dir.
+        $runTestsPath = $tempRunTestsCopyPath;
+
+        $this->runTestsPath = $runTestsPath;
 
         $command = sprintf(
             '%s %s %s %s %s',
