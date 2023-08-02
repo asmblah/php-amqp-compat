@@ -23,6 +23,7 @@
         "psr/log": "^3.0"
     },
     "require-dev": {
+        "asmblah/php-code-shift": "^0.0.1",
         "mockery/mockery": "^1.6",
         "phpunit/phpunit": "^10.2"
     },

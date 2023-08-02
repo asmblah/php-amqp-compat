@@ -75,8 +75,10 @@ class AMQPConnectionTest extends AbstractTestCase
             'getUser' => 'myuser',
             'getVirtualHost' => '/my/vhost',
             'getWriteTimeout' => 9.1,
+            'toLoggableArray' => ['my' => 'loggable connection config'],
         ]);
         $this->logger = mock(LoggerInterface::class, [
+            'debug' => null,
             'error' => null,
         ]);
         $this->amqpIntegration = mock(AmqpIntegrationInterface::class, [
@@ -101,6 +103,22 @@ class AMQPConnectionTest extends AbstractTestCase
             ->createConnectionConfig(['my' => 'config'])
             ->once()
             ->andReturn($this->connectionConfig);
+
+        new AMQPConnection(['my' => 'config']);
+    }
+
+    public function testConstructorCorrectlyBridgesTheConnectionToTheCreatedConnectionConfig(): void
+    {
+        static::assertSame($this->connectionConfig, AmqpBridge::getConnectionConfig($this->amqpConnection));
+    }
+
+    public function testConstructorLogsConnectionConfigAsDebugLog(): void
+    {
+        $this->logger->expects()
+            ->debug('AMQPConnection::__construct() connection created (not yet opened)', [
+                'config' => ['my' => 'loggable connection config'],
+            ])
+            ->once();
 
         new AMQPConnection(['my' => 'config']);
     }
@@ -139,6 +157,17 @@ class AMQPConnectionTest extends AbstractTestCase
         static::assertSame($this->connectionBridge, AmqpBridge::getBridgeConnection($this->amqpConnection));
     }
 
+    public function testConnectLogsConnectionConfigAsDebugLog(): void
+    {
+        $this->logger->expects()
+            ->debug('AMQPConnection::connect() connection attempt', [
+                'config' => ['my' => 'loggable connection config'],
+            ])
+            ->once();
+
+        $this->amqpConnection->connect();
+    }
+
     public function testConnectThrowsCompatibleExceptionOnFailure(): void
     {
         $amqplibException = mock(Exception::class, AMQPExceptionInterface::class);
@@ -161,7 +190,7 @@ class AMQPConnectionTest extends AbstractTestCase
             ->andThrow($amqplibException);
 
         $this->logger->expects()
-            ->error('AMQPConnection::connect failed', [
+            ->error('AMQPConnection::connect() failed', [
                 'exception' => $amqplibException::class,
                 'message' => 'Bang! from amqplib',
             ])

@@ -20,6 +20,9 @@ use Psr\Log\LoggerInterface;
  *
  * May be implemented by a custom class and set on the AmqpManager to allow extension.
  *
+ * Note that this is different from ConnectionConfig as it allows PHP AMQP-Compat itself to be configured
+ * rather than configuring the connection to the AMQP broker.
+ *
  * @author Dan Phillimore <dan@ovms.co>
  */
 interface ConfigurationInterface
@@ -28,4 +31,11 @@ interface ConfigurationInterface
      * Fetches a logger to use for additional/internal logging by this library.
      */
     public function getLogger(): LoggerInterface;
+
+    /**
+     * Fetches the timeout to use when none has been set, implying no timeout.
+     *
+     * This is indicated with 0 in php-amqp/ext-amqp, but one must be specified for php-amqplib.
+     */
+    public function getUnlimitedTimeout(): float;
 }

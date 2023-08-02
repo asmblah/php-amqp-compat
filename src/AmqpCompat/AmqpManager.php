@@ -15,6 +15,7 @@ namespace Asmblah\PhpAmqpCompat;
 
 use Asmblah\PhpAmqpCompat\Configuration\Configuration;
 use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
+use Asmblah\PhpAmqpCompat\Connection\Amqplib\ConnectionFactory;
 use Asmblah\PhpAmqpCompat\Connection\Connector;
 use Asmblah\PhpAmqpCompat\Heartbeat\PcntlHeartbeatSender;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
@@ -41,10 +42,15 @@ class AmqpManager
     public static function getAmqpIntegration(): AmqpIntegrationInterface
     {
         if (self::$amqpIntegration === null) {
+            $configuration = self::getConfiguration();
+
             self::$amqpIntegration = new AmqpIntegration(
-                new Connector(),
+                new Connector(
+                    new ConnectionFactory(),
+                    $configuration->getUnlimitedTimeout()
+                ),
                 new PcntlHeartbeatSender(new Clock()),
-                self::getConfiguration()
+                $configuration
             );
         }
 

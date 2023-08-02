@@ -65,8 +65,11 @@ class PublishThenConsumeTest extends AbstractTestCase
 
         $this->connectionConfig = mock(ConnectionConfigInterface::class, [
             'getConnectionTimeout' => 0,
+            'toLoggableArray' => ['my' => 'loggable connection config'],
         ]);
-        $this->logger = mock(LoggerInterface::class);
+        $this->logger = mock(LoggerInterface::class, [
+            'debug' => null,
+        ]);
         $this->amqpIntegration = mock(AmqpIntegrationInterface::class, [
             'createConnectionConfig' => $this->connectionConfig,
             'getLogger' => $this->logger,

@@ -112,10 +112,10 @@ class AmqpIntegrationTest extends AbstractTestCase
         static::assertSame('guest', $config->getPassword());
         static::assertSame('/', $config->getVirtualHost());
         static::assertSame(0, $config->getHeartbeatInterval());
-        static::assertSame(3.0, $config->getConnectionTimeout());
-        static::assertSame(3.0, $config->getReadTimeout());
-        static::assertSame(3.0, $config->getWriteTimeout());
-        static::assertSame(0.0, $config->getRpcTimeout());
+        static::assertSame(ConnectionConfigInterface::DEFAULT_CONNECTION_TIMEOUT, $config->getConnectionTimeout());
+        static::assertSame(ConnectionConfigInterface::DEFAULT_READ_TIMEOUT, $config->getReadTimeout());
+        static::assertSame(ConnectionConfigInterface::DEFAULT_WRITE_TIMEOUT, $config->getWriteTimeout());
+        static::assertSame(ConnectionConfigInterface::DEFAULT_RPC_TIMEOUT, $config->getRpcTimeout());
     }
 
     public function testCreateConnectionConfigUsesGivenSettings(): void

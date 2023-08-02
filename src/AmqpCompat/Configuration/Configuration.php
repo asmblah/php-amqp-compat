@@ -25,12 +25,19 @@ use Psr\Log\NullLogger;
  */
 class Configuration implements ConfigurationInterface
 {
+    // Use 30 minutes as the default "unlimited" timeout.
+    public const DEFAULT_UNLIMITED_TIMEOUT = 1800.0;
+
     private LoggerInterface $logger;
+    private float $unlimitedTimeout;
 
     public function __construct(
-        ?LoggerInterface $logger = null
+        ?LoggerInterface $logger = null,
+        ?float $unlimitedTimeout = null
     ) {
         $this->logger = $logger ?? new NullLogger();
+
+        $this->unlimitedTimeout = $unlimitedTimeout ?? self::DEFAULT_UNLIMITED_TIMEOUT;
     }
 
     /**
@@ -39,5 +46,13 @@ class Configuration implements ConfigurationInterface
     public function getLogger(): LoggerInterface
     {
         return $this->logger;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getUnlimitedTimeout(): float
+    {
+        return $this->unlimitedTimeout;
     }
 }

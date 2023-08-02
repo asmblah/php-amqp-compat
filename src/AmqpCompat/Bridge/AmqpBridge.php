@@ -17,6 +17,7 @@ use AMQPChannel;
 use AMQPConnection;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
+use Asmblah\PhpAmqpCompat\Connection\ConnectionConfigInterface;
 use WeakMap;
 
 /**
@@ -26,8 +27,8 @@ use WeakMap;
 class AmqpBridge
 {
     private static WeakMap $amqpChannelBridgeMap;
-
     private static WeakMap $amqpConnectionBridgeMap;
+    private static WeakMap $connectionConfigMap;
 
     /**
      * Installs the corresponding AmqpChannelBridge for a given AMQPChannel.
@@ -50,6 +51,16 @@ class AmqpBridge
     }
 
     /**
+     * Installs the corresponding ConnectionConfig for a given AMQPConnection.
+     */
+    public static function bridgeConnectionConfig(
+        AMQPConnection $amqpConnection,
+        ConnectionConfigInterface $connectionConfig
+    ): void {
+        self::$connectionConfigMap[$amqpConnection] = $connectionConfig;
+    }
+
+    /**
      * Fetches the corresponding AmqpChannelBridge for a given AMQPChannel.
      */
     public static function getBridgeChannel(AMQPChannel $amqpChannel): AmqpChannelBridgeInterface
@@ -66,11 +77,20 @@ class AmqpBridge
     }
 
     /**
+     * Fetches the corresponding ConnectionConfig for a given AMQPConnection.
+     */
+    public static function getConnectionConfig(AMQPConnection $amqpConnection): ConnectionConfigInterface
+    {
+        return self::$connectionConfigMap[$amqpConnection];
+    }
+
+    /**
      * Called by bootstrap.php.
      */
     public static function initialise(): void
     {
         self::$amqpChannelBridgeMap = new WeakMap();
         self::$amqpConnectionBridgeMap = new WeakMap();
+        self::$connectionConfigMap = new WeakMap();
     }
 }

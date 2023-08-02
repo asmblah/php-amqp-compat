@@ -22,16 +22,16 @@ namespace Asmblah\PhpAmqpCompat\Connection;
  */
 interface ConnectionConfigInterface
 {
-    public const DEFAULT_CONNECTION_TIMEOUT = 3.0;
+    public const DEFAULT_CONNECTION_TIMEOUT = 0.0;
     public const DEFAULT_HEARTBEAT_INTERVAL = 0;
     public const DEFAULT_HOST = 'localhost';
     public const DEFAULT_PASSWORD = 'guest';
     public const DEFAULT_PORT = 5672;
-    public const DEFAULT_READ_TIMEOUT = 3.0;
+    public const DEFAULT_READ_TIMEOUT = 0.0;
     public const DEFAULT_RPC_TIMEOUT = 0.0;
     public const DEFAULT_USER = 'guest';
     public const DEFAULT_VIRTUAL_HOST = '/';
-    public const DEFAULT_WRITE_TIMEOUT = 3.0;
+    public const DEFAULT_WRITE_TIMEOUT = 0.0;
 
     /**
      * Fetches the configured name for the connection, or null if none was given.
@@ -144,4 +144,9 @@ interface ConnectionConfigInterface
      * Sets the configured write timeout (in seconds), overriding any default if used.
      */
     public function setWriteTimeout(float $timeout): void;
+
+    /**
+     * Fetches the config structure as an array suitable for logging, with sensitive credentials obfuscated.
+     */
+    public function toLoggableArray(): array;
 }

@@ -79,6 +79,11 @@ class AMQPConnection
         $this->logger = $this->amqpIntegration->getLogger();
 
         $this->connectionConfig = $this->amqpIntegration->createConnectionConfig($credentials);
+        AmqpBridge::bridgeConnectionConfig($this, $this->connectionConfig);
+
+        $this->logger->debug(__METHOD__ . '() connection created (not yet opened)', [
+            'config' => $this->connectionConfig->toLoggableArray(),
+        ]);
 
         if ($this->connectionConfig->getConnectionTimeout() < 0) {
             throw new AMQPConnectionException(
@@ -99,6 +104,10 @@ class AMQPConnection
             return true; // Already connected.
         }
 
+        $this->logger->debug(__METHOD__ . '() connection attempt', [
+            'config' => $this->connectionConfig->toLoggableArray(),
+        ]);
+
         try {
             $this->connectionBridge = $this->amqpIntegration->connect($this->connectionConfig);
         } catch (AMQPExceptionInterface $exception) {
@@ -106,7 +115,7 @@ class AMQPConnection
 
             // Log details of the internal php-amqplib exception,
             // that cannot be included in the php-amqp/ext-amqp -compatible exception.
-            $this->logger->error(__METHOD__ . ' failed', [
+            $this->logger->error(__METHOD__ . '() failed', [
                 'exception' => get_class($exception),
                 'message' => $exception->getMessage(),
             ]);

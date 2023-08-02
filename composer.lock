@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5eb101d8ec862073e30318864b74d9ac",
+    "content-hash": "21a0e330f81e5c870b2abcd30f89810b",
     "packages": [
         {
             "name": "paragonie/constant_time_encoding",
@@ -366,6 +366,47 @@
         }
     ],
     "packages-dev": [
+        {
+            "name": "asmblah/php-code-shift",
+            "version": "v0.0.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/asmblah/php-code-shift.git",
+                "reference": "77a790c3cd1e53823ab344ab699bd65ed671cccf"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/asmblah/php-code-shift/zipball/77a790c3cd1e53823ab344ab699bd65ed671cccf",
+                "reference": "77a790c3cd1e53823ab344ab699bd65ed671cccf",
+                "shasum": ""
+            },
+            "require": {
+                "nikic/php-parser": "^4.16",
+                "php": ">=8.1"
+            },
+            "require-dev": {
+                "mockery/mockery": "^1.6",
+                "phpunit/phpunit": "^10.2"
+            },
+            "type": "project",
+            "autoload": {
+                "files": [
+                    "src/bootstrap.php"
+                ],
+                "psr-4": {
+                    "Asmblah\\PhpCodeShift\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "support": {
+                "issues": "https://github.com/asmblah/php-code-shift/issues",
+                "source": "https://github.com/asmblah/php-code-shift/tree/v0.0.1"
+            },
+            "time": "2023-08-01T15:09:49+00:00"
+        },
         {
             "name": "hamcrest/hamcrest-php",
             "version": "v2.0.1",

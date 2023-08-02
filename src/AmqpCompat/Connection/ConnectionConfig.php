@@ -255,4 +255,25 @@ class ConnectionConfig implements ConnectionConfigInterface
     {
         $this->writeTimeout = $timeout;
     }
+
+    /**
+     * @inheritDoc
+     */
+    public function toLoggableArray(): array
+    {
+        return [
+            'connection_name' => $this->connectionName,
+            'connection_timeout' => $this->connectionTimeout,
+            'heartbeat_interval' => $this->heartbeatInterval,
+            'host' => $this->host,
+            // Obfuscate the password as it is sensitive.
+            'password' => str_pad(substr($this->password, 0, 2), 8, '*'),
+            'port' => $this->port,
+            'read_timeout' => $this->readTimeout,
+            'rpc_timeout' => $this->rpcTimeout,
+            'user' => $this->user,
+            'virtual_host' => $this->virtualHost,
+            'write_timeout' => $this->writeTimeout,
+        ];
+    }
 }

@@ -10,6 +10,15 @@ jobs:
       matrix:
         php-version: [8.1, 8.2]
 
+    services:
+      rabbitmq:
+        image: rabbitmq:3.5.7
+        ports:
+          - 5671:5671
+          - 5672:5672
+          - 15671:15671
+          - 15672:15672
+
     steps:
       # Check out the repository under $GITHUB_WORKSPACE, so this job can access it.
       - uses: actions/checkout@v2

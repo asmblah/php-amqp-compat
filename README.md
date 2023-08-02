@@ -29,8 +29,15 @@ $ composer install asmblah/php-amqp-compat
 
 That should be all the changes required - this userland library is designed as a drop-in replacement.
 
-## See also
+## Limitations
+- Persistent connections are not and cannot be supported from userland.
+- If existing logic is checking for the `amqp` extension via `extension_loaded('amqp')`,
+  it will fail because this library does not define an extension.
+  During functional testing, `extension_loaded(...)` is hooked using [PHP Code Shift][5]
+  to allow running tests from the reference implementation [php-amqp/ext-amqp][1],
+  see [ReferenceImplementationTest](tests/Functional/Reference/ReferenceImplementationTest.php).
 
+## See also
 - The original php-amqp extension that this compatibility layer replaces: [php-amqp/ext-amqp][1]
 - `php-amqplib`, which this library uses under the hood: [php-amqplib][2]
 
@@ -38,3 +45,4 @@ That should be all the changes required - this userland library is designed as a
 [2]: https://github.com/php-amqplib/php-amqplib
 [3]: https://github.com/php-amqplib/php-amqplib/blob/v3.5.4/PhpAmqpLib/Connection/Heartbeat/PCNTLHeartbeatSender.php
 [4]: https://www.rabbitmq.com/heartbeats.html
+[5]: https://github.com/asmblah/php-code-shift
