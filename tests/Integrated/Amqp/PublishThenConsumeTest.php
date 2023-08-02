@@ -11,7 +11,7 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Tests\Functional\AmqpCompat;
+namespace Asmblah\PhpAmqpCompat\Tests\Integrated\Amqp;
 
 use AMQPChannel;
 use AMQPConnection;
@@ -34,6 +34,8 @@ use Psr\Log\LoggerInterface;
 
 /**
  * Class PublishThenConsumeTest.
+ *
+ * Drives the AMQP* API without actually talking to a real AMQP broker server instance.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */

@@ -21,11 +21,9 @@ use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Connection\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
-use Exception;
 use Mockery\MockInterface;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
-use PhpAmqpLib\Exception\AMQPExceptionInterface;
-use PhpAmqpLib\Exception\AMQPLogicException;
+use PhpAmqpLib\Exception\AMQPIOException;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -170,7 +168,7 @@ class AMQPConnectionTest extends AbstractTestCase
 
     public function testConnectThrowsCompatibleExceptionOnFailure(): void
     {
-        $amqplibException = mock(Exception::class, AMQPExceptionInterface::class);
+        $amqplibException = new AMQPIOException('Bang! from amqplib');
         $this->amqpIntegration->allows()
             ->connect($this->connectionConfig)
             ->andThrow($amqplibException);
@@ -184,7 +182,7 @@ class AMQPConnectionTest extends AbstractTestCase
 
     public function testConnectLogsSpecificAmqplibExceptionViaLoggerOnFailure(): void
     {
-        $amqplibException = new AMQPLogicException('Bang! from amqplib');
+        $amqplibException = new AMQPIOException('Bang! from amqplib');
         $this->amqpIntegration->allows()
             ->connect($this->connectionConfig)
             ->andThrow($amqplibException);

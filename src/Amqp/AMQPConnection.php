@@ -18,6 +18,7 @@ use Asmblah\PhpAmqpCompat\Connection\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
 use PhpAmqpLib\Connection\AbstractConnection;
 use PhpAmqpLib\Exception\AMQPExceptionInterface;
+use PhpAmqpLib\Exception\AMQPIOException;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -120,7 +121,13 @@ class AMQPConnection
                 'message' => $exception->getMessage(),
             ]);
 
-            throw new AMQPConnectionException('Socket error: could not connect to host.');
+            if ($exception instanceof AMQPIOException) {
+                $message = 'Socket error: could not connect to host.';
+            } else {
+                $message = 'Library error: connection closed unexpectedly - Potential login failure.';
+            }
+
+            throw new AMQPConnectionException($message);
         }
 
         AmqpBridge::bridgeConnection($this, $this->connectionBridge);
