@@ -6,7 +6,7 @@
  * https://github.com/asmblah/php-amqp-compat/
  *
  * Released under the MIT license.
- * https://github.com/asmblah/php-amqp-compat/raw/master/MIT-LICENSE.txt
+ * https://github.com/asmblah/php-amqp-compat/raw/main/MIT-LICENSE.txt
  */
 
 declare(strict_types=1);
