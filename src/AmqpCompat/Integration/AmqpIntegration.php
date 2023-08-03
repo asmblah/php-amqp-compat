@@ -16,8 +16,9 @@ namespace Asmblah\PhpAmqpCompat\Integration;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
-use Asmblah\PhpAmqpCompat\Connection\ConnectionConfig;
-use Asmblah\PhpAmqpCompat\Connection\ConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfig;
+use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Connection\Config\DefaultConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\ConnectorInterface;
 use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSenderInterface;
 use Psr\Log\LoggerInterface;
@@ -36,7 +37,8 @@ class AmqpIntegration implements AmqpIntegrationInterface
     public function __construct(
         private readonly ConnectorInterface $connector,
         private readonly HeartbeatSenderInterface $heartbeatSender,
-        ConfigurationInterface $configuration
+        ConfigurationInterface $configuration,
+        private readonly DefaultConnectionConfigInterface $defaultConnectionConfig
     ) {
         $this->logger = $configuration->getLogger();
     }
@@ -65,34 +67,34 @@ class AmqpIntegration implements AmqpIntegrationInterface
     {
         $host = array_key_exists('host', $credentials) ?
             (string) $credentials['host'] :
-            ConnectionConfigInterface::DEFAULT_HOST;
+            $this->defaultConnectionConfig->getHost();
         $port = array_key_exists('port', $credentials) ?
             (int) $credentials['port'] :
-            ConnectionConfigInterface::DEFAULT_PORT;
+            $this->defaultConnectionConfig->getPort();
         $user = array_key_exists('login', $credentials) ?
             (string) $credentials['login'] :
-            ConnectionConfigInterface::DEFAULT_USER;
+            $this->defaultConnectionConfig->getUser();
         $password = array_key_exists('password', $credentials) ?
             (string) $credentials['password'] :
-            ConnectionConfigInterface::DEFAULT_PASSWORD;
+            $this->defaultConnectionConfig->getPassword();
         $virtualHost = array_key_exists('vhost', $credentials) ?
             (string) $credentials['vhost'] :
-            ConnectionConfigInterface::DEFAULT_VIRTUAL_HOST;
+            $this->defaultConnectionConfig->getVirtualHost();
         $heartbeatInterval = array_key_exists('heartbeat', $credentials) ?
             (int) $credentials['heartbeat'] :
-            ConnectionConfigInterface::DEFAULT_HEARTBEAT_INTERVAL;
+            $this->defaultConnectionConfig->getHeartbeatInterval();
         $connectionTimeout = array_key_exists('connect_timeout', $credentials) ?
             (float) $credentials['connect_timeout'] :
-            ConnectionConfigInterface::DEFAULT_CONNECTION_TIMEOUT;
+            $this->defaultConnectionConfig->getConnectionTimeout();
         $readTimeout = array_key_exists('read_timeout', $credentials) ?
             (float) $credentials['read_timeout'] :
-            ConnectionConfigInterface::DEFAULT_READ_TIMEOUT;
+            $this->defaultConnectionConfig->getReadTimeout();
         $writeTimeout = array_key_exists('write_timeout', $credentials) ?
             (float) $credentials['write_timeout'] :
-            ConnectionConfigInterface::DEFAULT_WRITE_TIMEOUT;
+            $this->defaultConnectionConfig->getWriteTimeout();
         $rpcTimeout = array_key_exists('rpc_timeout', $credentials) ?
             (float) $credentials['rpc_timeout'] :
-            ConnectionConfigInterface::DEFAULT_RPC_TIMEOUT;
+            $this->defaultConnectionConfig->getRpcTimeout();
         // Note that connection name may explicitly be specified as null.
         $connectionName = isset($credentials['connection_name']) ?
             (string) $credentials['connection_name'] :

@@ -43,19 +43,22 @@ class ReferenceImplementationTest extends AbstractTestCase
             '--no-color'
         ];
 
-        $phpBasePath = dirname(dirname(PHP_BINARY));
-        $runTestsPaths = glob($phpBasePath . '/lib/php{,/**}/build/run-tests.php', GLOB_BRACE);
-
-        if (empty($runTestsPaths)) {
-            $this->fail('Failed to find run-tests.php');
-        }
-
-        // Multiple scripts may be found, if so they should be sorted so take the most recent one.
-        $originalRunTestsPath = end($runTestsPaths);
-
-        // Copy run-tests.php to a temp dir as files will need to be created alongside it (see below).
         $runTestsPath = realpath(__DIR__ . '/../../../var') . '/run-tests.php';
-        copy($originalRunTestsPath, $runTestsPath);
+
+        if (!file_exists($runTestsPath)) {
+            $phpBasePath = dirname(dirname(PHP_BINARY));
+            $runTestsPaths = glob($phpBasePath . '/lib/php{,/**}/build/run-tests.php', GLOB_BRACE);
+
+            if (empty($runTestsPaths)) {
+                $this->fail('Failed to find run-tests.php');
+            }
+
+            // Multiple scripts may be found, if so they should be sorted so take the most recent one.
+            $originalRunTestsPath = end($runTestsPaths);
+
+            // Copy run-tests.php to a temp dir as files will need to be created alongside it (see below).
+            copy($originalRunTestsPath, $runTestsPath);
+        }
 
         $command = sprintf(
             '%s %s %s %s %s',
@@ -88,7 +91,7 @@ class ReferenceImplementationTest extends AbstractTestCase
 
         // TODO: Have all possible tests passing with `glob($basePath . '/*.phpt')`.
         $phptFiles = glob(
-            $basePath . '/{amqpconnection_construct_with_limits,amqpconnection_connect_login_failure,amqpdecimal}.phpt',
+            $basePath . '/{amqpconnection_construct_ini_read_timeout,amqpconnection_construct_with_limits,amqpconnection_connect_login_failure,amqpdecimal}.phpt',
             GLOB_BRACE
         );
 

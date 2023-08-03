@@ -17,7 +17,7 @@ use AMQPChannel;
 use AMQPConnection;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
-use Asmblah\PhpAmqpCompat\Connection\ConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use WeakMap;
 
 /**

@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Connection;
 
+use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Exception;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 

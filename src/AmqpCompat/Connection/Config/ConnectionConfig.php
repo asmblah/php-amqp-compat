@@ -11,7 +11,7 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Connection;
+namespace Asmblah\PhpAmqpCompat\Connection\Config;
 
 /**
  * Class ConnectionConfig.
@@ -45,28 +45,28 @@ class ConnectionConfig implements ConnectionConfigInterface
     private string $virtualHost;
 
     public function __construct(
-        string $host = self::DEFAULT_HOST,
-        int $port = self::DEFAULT_PORT,
-        string $user = self::DEFAULT_USER,
-        string $password = self::DEFAULT_PASSWORD,
-        string $virtualHost = self::DEFAULT_VIRTUAL_HOST,
-        int $heartbeatInterval = self::DEFAULT_HEARTBEAT_INTERVAL,
+        string $host = DefaultConnectionConfigInterface::DEFAULT_HOST,
+        int $port = DefaultConnectionConfigInterface::DEFAULT_PORT,
+        string $user = DefaultConnectionConfigInterface::DEFAULT_USER,
+        string $password = DefaultConnectionConfigInterface::DEFAULT_PASSWORD,
+        string $virtualHost = DefaultConnectionConfigInterface::DEFAULT_VIRTUAL_HOST,
+        int $heartbeatInterval = DefaultConnectionConfigInterface::DEFAULT_HEARTBEAT_INTERVAL,
         /**
          * Timeout (in seconds) to wait for the AMQP connection to open.
          */
-        private float $connectionTimeout = self::DEFAULT_CONNECTION_TIMEOUT,
+        private float $connectionTimeout = DefaultConnectionConfigInterface::DEFAULT_CONNECTION_TIMEOUT,
         /**
          * Timeout (in seconds) to wait for incoming activity from the AMQP broker.
          */
-        private float $readTimeout = self::DEFAULT_READ_TIMEOUT,
+        private float $readTimeout = DefaultConnectionConfigInterface::DEFAULT_READ_TIMEOUT,
         /**
          * Timeout (in seconds) to wait for outgoing activity to the AMQP broker.
          */
-        private float $writeTimeout = self::DEFAULT_WRITE_TIMEOUT,
+        private float $writeTimeout = DefaultConnectionConfigInterface::DEFAULT_WRITE_TIMEOUT,
         /**
          * Timeout (in seconds) to wait for RPC.
          */
-        private float $rpcTimeout = self::DEFAULT_RPC_TIMEOUT,
+        private float $rpcTimeout = DefaultConnectionConfigInterface::DEFAULT_RPC_TIMEOUT,
         /**
          * Optional name for the connection, null if none.
          */

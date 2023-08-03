@@ -16,6 +16,7 @@ namespace Asmblah\PhpAmqpCompat;
 use Asmblah\PhpAmqpCompat\Configuration\Configuration;
 use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Connection\Amqplib\ConnectionFactory;
+use Asmblah\PhpAmqpCompat\Connection\Config\DefaultConnectionConfig;
 use Asmblah\PhpAmqpCompat\Connection\Connector;
 use Asmblah\PhpAmqpCompat\Heartbeat\PcntlHeartbeatSender;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
@@ -50,7 +51,8 @@ class AmqpManager
                     $configuration->getUnlimitedTimeout()
                 ),
                 new PcntlHeartbeatSender(new Clock()),
-                $configuration
+                $configuration,
+                new DefaultConnectionConfig()
             );
         }
 

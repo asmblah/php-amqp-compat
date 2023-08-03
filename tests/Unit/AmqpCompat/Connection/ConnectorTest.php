@@ -14,7 +14,7 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Connection;
 
 use Asmblah\PhpAmqpCompat\Connection\Amqplib\ConnectionFactoryInterface;
-use Asmblah\PhpAmqpCompat\Connection\ConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Connector;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery;

@@ -11,9 +11,9 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Connection;
+namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Connection\Config;
 
-use Asmblah\PhpAmqpCompat\Connection\ConnectionConfig;
+use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfig;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 
 /**

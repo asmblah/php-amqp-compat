@@ -14,7 +14,7 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Integration;
 
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
-use Asmblah\PhpAmqpCompat\Connection\ConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Exception;
 use Psr\Log\LoggerInterface;
 

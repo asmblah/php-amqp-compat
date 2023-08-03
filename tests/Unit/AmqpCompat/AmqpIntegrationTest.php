@@ -15,7 +15,8 @@ namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat;
 
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
-use Asmblah\PhpAmqpCompat\Connection\ConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Connection\Config\DefaultConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\ConnectorInterface;
 use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSenderInterface;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
@@ -51,6 +52,10 @@ class AmqpIntegrationTest extends AbstractTestCase
      */
     private $connector;
     /**
+     * @var (MockInterface&DefaultConnectionConfigInterface)|null
+     */
+    private $defaultConnectionConfig;
+    /**
      * @var (MockInterface&HeartbeatSenderInterface)|null
      */
     private $heartbeatSender;
@@ -62,6 +67,18 @@ class AmqpIntegrationTest extends AbstractTestCase
     public function setUp(): void
     {
         $this->amqplibConnection = mock(AbstractConnection::class);
+        $this->defaultConnectionConfig = mock(DefaultConnectionConfigInterface::class, [
+            'getConnectionTimeout' => 123.0,
+            'getHeartbeatInterval' => 234,
+            'getHost' => 'my.default.host',
+            'getPassword' => 'mydefaultpass',
+            'getPort' => 345,
+            'getReadTimeout' => 456.0,
+            'getRpcTimeout' => 567.0,
+            'getUser' => 'mydefaultuser',
+            'getVirtualHost' => '/my/default/vhost',
+            'getWriteTimeout' => 678.0,
+        ]);
         $this->logger = mock(LoggerInterface::class);
         $this->configuration = mock(ConfigurationInterface::class, [
             'getLogger' => $this->logger,
@@ -74,7 +91,12 @@ class AmqpIntegrationTest extends AbstractTestCase
             'register' => null,
         ]);
 
-        $this->amqpIntegration = new AmqpIntegration($this->connector, $this->heartbeatSender, $this->configuration);
+        $this->amqpIntegration = new AmqpIntegration(
+            $this->connector,
+            $this->heartbeatSender,
+            $this->configuration,
+            $this->defaultConnectionConfig
+        );
     }
 
     public function testConnectConnectsViaTheConnector(): void
@@ -106,16 +128,16 @@ class AmqpIntegrationTest extends AbstractTestCase
     {
         $config = $this->amqpIntegration->createConnectionConfig([]);
 
-        static::assertSame('localhost', $config->getHost());
-        static::assertSame(5672, $config->getPort());
-        static::assertSame('guest', $config->getUser());
-        static::assertSame('guest', $config->getPassword());
-        static::assertSame('/', $config->getVirtualHost());
-        static::assertSame(0, $config->getHeartbeatInterval());
-        static::assertSame(ConnectionConfigInterface::DEFAULT_CONNECTION_TIMEOUT, $config->getConnectionTimeout());
-        static::assertSame(ConnectionConfigInterface::DEFAULT_READ_TIMEOUT, $config->getReadTimeout());
-        static::assertSame(ConnectionConfigInterface::DEFAULT_WRITE_TIMEOUT, $config->getWriteTimeout());
-        static::assertSame(ConnectionConfigInterface::DEFAULT_RPC_TIMEOUT, $config->getRpcTimeout());
+        static::assertSame(123.0, $config->getConnectionTimeout());
+        static::assertSame(234, $config->getHeartbeatInterval());
+        static::assertSame('my.default.host', $config->getHost());
+        static::assertSame('mydefaultpass', $config->getPassword());
+        static::assertSame(345, $config->getPort());
+        static::assertSame(456.0, $config->getReadTimeout());
+        static::assertSame(567.0, $config->getRpcTimeout());
+        static::assertSame('mydefaultuser', $config->getUser());
+        static::assertSame('/my/default/vhost', $config->getVirtualHost());
+        static::assertSame(678.0, $config->getWriteTimeout());
     }
 
     public function testCreateConnectionConfigUsesGivenSettings(): void

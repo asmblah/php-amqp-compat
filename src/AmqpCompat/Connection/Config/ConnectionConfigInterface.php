@@ -11,7 +11,7 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Connection;
+namespace Asmblah\PhpAmqpCompat\Connection\Config;
 
 /**
  * Interface ConnectionConfigInterface.
@@ -20,75 +20,8 @@ namespace Asmblah\PhpAmqpCompat\Connection;
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-interface ConnectionConfigInterface
+interface ConnectionConfigInterface extends ConnectionConfigProviderInterface
 {
-    public const DEFAULT_CONNECTION_TIMEOUT = 0.0;
-    public const DEFAULT_HEARTBEAT_INTERVAL = 0;
-    public const DEFAULT_HOST = 'localhost';
-    public const DEFAULT_PASSWORD = 'guest';
-    public const DEFAULT_PORT = 5672;
-    public const DEFAULT_READ_TIMEOUT = 0.0;
-    public const DEFAULT_RPC_TIMEOUT = 0.0;
-    public const DEFAULT_USER = 'guest';
-    public const DEFAULT_VIRTUAL_HOST = '/';
-    public const DEFAULT_WRITE_TIMEOUT = 0.0;
-
-    /**
-     * Fetches the configured name for the connection, or null if none was given.
-     */
-    public function getConnectionName(): ?string;
-
-    /**
-     * Fetches the configured connection timeout (in seconds), or the default if none was given.
-     */
-    public function getConnectionTimeout(): float;
-
-    /**
-     * Fetches the configured heartbeat interval in seconds.
-     */
-    public function getHeartbeatInterval(): int;
-
-    /**
-     * Fetches the configured hostname, or the default if none was given.
-     */
-    public function getHost(): string;
-
-    /**
-     * Fetches the configured password, or the default if none was given.
-     */
-    public function getPassword(): string;
-
-    /**
-     * Fetches the configured port, or the default if none was given.
-     */
-    public function getPort(): int;
-
-    /**
-     * Fetches the configured read timeout (in seconds), or the default if none was given.
-     */
-    public function getReadTimeout(): float;
-
-    /**
-     * Fetches the configured RPC timeout (in seconds), or the default if none was given.
-     */
-    public function getRpcTimeout(): float;
-
-    /**
-     * Fetches the configured username, or the default if none was given.
-     */
-    public function getUser(): string;
-
-    /**
-     * Fetches the configured virtual host (vhost) to connect to on the AMQP broker,
-     * or the default if none was given.
-     */
-    public function getVirtualHost(): string;
-
-    /**
-     * Fetches the configured write timeout (in seconds), or the default if none was given.
-     */
-    public function getWriteTimeout(): float;
-
     /**
      * Sets the configured name for the connection.
      */
