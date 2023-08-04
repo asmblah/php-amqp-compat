@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Connection\Config;
 
+use Asmblah\PhpAmqpCompat\Misc\IniInterface;
 use RuntimeException;
 
 /**
@@ -25,6 +26,12 @@ use RuntimeException;
  */
 class DefaultConnectionConfig implements DefaultConnectionConfigInterface
 {
+    private TimeoutDeprecationUsageEnum $deprecatedTimeoutIniSettingUsage = TimeoutDeprecationUsageEnum::NOT_USED;
+
+    public function __construct(private readonly IniInterface $ini)
+    {
+    }
+
     /**
      * @inheritDoc
      */
@@ -43,6 +50,14 @@ class DefaultConnectionConfig implements DefaultConnectionConfigInterface
         return $iniSetting !== null ?
             (float)$iniSetting :
             static::DEFAULT_CONNECTION_TIMEOUT;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getDeprecatedTimeoutIniSettingUsage(): TimeoutDeprecationUsageEnum
+    {
+        return $this->deprecatedTimeoutIniSettingUsage;
     }
 
     /**
@@ -79,7 +94,7 @@ class DefaultConnectionConfig implements DefaultConnectionConfigInterface
          *       however this still means the settings cannot be read at runtime with ini_get(...)
          *       nor changed at runtime with ini_set(...).
          */
-        $iniSetting = get_cfg_var($name);
+        $iniSetting = $this->ini->getRawIniSetting($name);
 
         if ($iniSetting === false) {
             return null;
@@ -121,11 +136,26 @@ class DefaultConnectionConfig implements DefaultConnectionConfigInterface
      */
     public function getReadTimeout(): float
     {
-        $iniSetting = $this->getIniSetting('amqp.read_timeout');
+        $deprecatedIniSetting = $this->getIniSetting('amqp.timeout');
+        $readTimeoutIniSetting = $this->getIniSetting('amqp.read_timeout');
 
-        return $iniSetting !== null ?
-            (float)$iniSetting :
-            static::DEFAULT_READ_TIMEOUT;
+        if ($readTimeoutIniSetting && $deprecatedIniSetting) {
+            $this->deprecatedTimeoutIniSettingUsage = TimeoutDeprecationUsageEnum::SHADOWED;
+
+            return (float)$readTimeoutIniSetting;
+        }
+
+        if ($readTimeoutIniSetting) {
+            return (float)$readTimeoutIniSetting;
+        }
+
+        if ($deprecatedIniSetting) {
+            $this->deprecatedTimeoutIniSettingUsage = TimeoutDeprecationUsageEnum::USED_ALONE;
+
+            return (float)$deprecatedIniSetting;
+        }
+
+        return static::DEFAULT_READ_TIMEOUT;
     }
 
     /**

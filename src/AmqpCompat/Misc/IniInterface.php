@@ -14,17 +14,16 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Misc;
 
 /**
- * Class Clock.
+ * Interface IniInterface.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-class Clock implements ClockInterface
+interface IniInterface
 {
     /**
-     * @inheritDoc
+     * Fetches the given unprocessed raw INI setting.
+     *
+     * Useful to allow stubbing.
      */
-    public function getUnixTimestamp(): int
-    {
-        return time();
-    }
+    public function getRawIniSetting(string $option): array|false|string;
 }

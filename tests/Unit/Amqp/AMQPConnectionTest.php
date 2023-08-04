@@ -19,8 +19,11 @@ use Asmblah\PhpAmqpCompat\AmqpManager;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
+use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
+use Mockery;
 use Mockery\MockInterface;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 use PhpAmqpLib\Exception\AMQPIOException;
@@ -51,6 +54,10 @@ class AMQPConnectionTest extends AbstractTestCase
      */
     private $connectionConfig;
     /**
+     * @var (MockInterface&ErrorReporterInterface)|null
+     */
+    private $errorReporter;
+    /**
      * @var (MockInterface&LoggerInterface)|null
      */
     private $logger;
@@ -64,6 +71,8 @@ class AMQPConnectionTest extends AbstractTestCase
         $this->connectionConfig = mock(ConnectionConfigInterface::class, [
             'getConnectionName' => 'my-connection-name',
             'getConnectionTimeout' => 0,
+            'getDeprecatedTimeoutCredentialUsage' => TimeoutDeprecationUsageEnum::NOT_USED,
+            'getDeprecatedTimeoutIniSettingUsage' => TimeoutDeprecationUsageEnum::NOT_USED,
             'getHeartbeatInterval' => 123,
             'getHost' => 'my.host',
             'getPassword' => 'mypa55w0rd',
@@ -75,6 +84,11 @@ class AMQPConnectionTest extends AbstractTestCase
             'getWriteTimeout' => 9.1,
             'toLoggableArray' => ['my' => 'loggable connection config'],
         ]);
+        $this->errorReporter = mock(ErrorReporterInterface::class, [
+            'raiseDeprecation' => null,
+            'raiseNotice' => null,
+            'raiseWarning' => null,
+        ]);
         $this->logger = mock(LoggerInterface::class, [
             'debug' => null,
             'error' => null,
@@ -82,6 +96,7 @@ class AMQPConnectionTest extends AbstractTestCase
         $this->amqpIntegration = mock(AmqpIntegrationInterface::class, [
             'connect' => $this->connectionBridge,
             'createConnectionConfig' => $this->connectionConfig,
+            'getErrorReporter' => $this->errorReporter,
             'getLogger' => $this->logger,
         ]);
         AmqpManager::setAmqpIntegration($this->amqpIntegration);
@@ -119,6 +134,96 @@ class AMQPConnectionTest extends AbstractTestCase
             ->once();
 
         new AMQPConnection(['my' => 'config']);
+    }
+
+    public function testConstructorRaisesNoErrorWhenNeitherDeprecatedTimeoutCredentialNorIniSettingUsed(): void
+    {
+        $this->errorReporter->expects()
+            ->raiseDeprecation(Mockery::any())
+            ->never();
+        $this->errorReporter->expects()
+            ->raiseNotice(Mockery::any())
+            ->never();
+
+        new AMQPConnection();
+    }
+
+    public function testConstructorRaisesOnlyDeprecationWhenDeprecatedTimeoutCredentialUsedAlone(): void
+    {
+        $this->connectionConfig->allows()
+            ->getDeprecatedTimeoutCredentialUsage()
+            ->andReturn(TimeoutDeprecationUsageEnum::USED_ALONE);
+
+        $this->errorReporter->expects()
+            ->raiseDeprecation(
+                'AMQPConnection::__construct(): Parameter \'timeout\' is deprecated; ' .
+                'use \'read_timeout\' instead'
+            )
+            ->once();
+        $this->errorReporter->expects()
+            ->raiseNotice(Mockery::any())
+            ->never();
+
+        new AMQPConnection(['timeout' => 12.34]);
+    }
+
+    public function testConstructorRaisesOnlyNoticeWhenDeprecatedTimeoutCredentialShadowed(): void
+    {
+        $this->connectionConfig->allows()
+            ->getDeprecatedTimeoutCredentialUsage()
+            ->andReturn(TimeoutDeprecationUsageEnum::SHADOWED);
+
+        $this->errorReporter->expects()
+            ->raiseDeprecation(Mockery::any())
+            ->never();
+        $this->errorReporter->expects()
+            ->raiseNotice(
+                'AMQPConnection::__construct(): Parameter \'timeout\' is deprecated, ' .
+                '\'read_timeout\' used instead'
+            )
+            ->once();
+
+        new AMQPConnection(['timeout' => 12.34, 'read_timeout' => 56.78]);
+    }
+
+    public function testConstructorRaisesOnlyDeprecationWhenDeprecatedTimeoutIniSettingUsedAlone(): void
+    {
+        $this->connectionConfig->allows()
+            ->getDeprecatedTimeoutIniSettingUsage()
+            ->andReturn(TimeoutDeprecationUsageEnum::USED_ALONE);
+
+        $this->errorReporter->expects()
+            ->raiseDeprecation(
+                'AMQPConnection::__construct(): INI setting \'amqp.timeout\' is deprecated; ' .
+                'use \'amqp.read_timeout\' instead'
+            )
+            ->once();
+        $this->errorReporter->expects()
+            ->raiseNotice(Mockery::any())
+            ->never();
+
+        new AMQPConnection(['timeout' => 12.34]);
+    }
+
+    public function testConstructorRaisesBothDeprecationAndNoticeWhenDeprecatedTimeoutIniSettingShadowed(): void
+    {
+        $this->connectionConfig->allows()
+            ->getDeprecatedTimeoutIniSettingUsage()
+            ->andReturn(TimeoutDeprecationUsageEnum::SHADOWED);
+
+        $this->errorReporter->expects()
+            ->raiseDeprecation(
+                'AMQPConnection::__construct(): INI setting \'amqp.timeout\' is deprecated; ' .
+                'use \'amqp.read_timeout\' instead'
+            )
+            ->once();
+        $this->errorReporter->expects()
+            ->raiseNotice(
+                'AMQPConnection::__construct(): INI setting \'amqp.read_timeout\' will be used instead of \'amqp.timeout\''
+            )
+            ->once();
+
+        new AMQPConnection(['timeout' => 12.34, 'read_timeout' => 56.78]);
     }
 
     public function testConstructorThrowsWhenConnectionTimeoutIsSpecifiedAsNegative(): void
@@ -246,29 +351,14 @@ class AMQPConnectionTest extends AbstractTestCase
 
     public function testGetTimeoutRaisesDeprecationWarning(): void
     {
-        $triggeredErrorNumber = null;
-        $triggeredErrorMessage = null;
-        set_error_handler(
-            function (int $number, string $string) use (&$triggeredErrorNumber, &$triggeredErrorMessage) {
-                $triggeredErrorNumber = $number;
-                $triggeredErrorMessage = $string;
-            },
-            E_USER_DEPRECATED
-        );
+        $this->errorReporter->expects()
+            ->raiseDeprecation(
+                'AMQPConnection::getTimeout() method is deprecated; ' .
+                'use AMQPConnection::getReadTimeout() instead'
+            )
+            ->once();
 
-        try {
-            $result = $this->amqpConnection->getTimeout();
-        } finally {
-            restore_error_handler();
-        }
-
-        static::assertSame(12.34, $result);
-        static::assertSame(E_USER_DEPRECATED, $triggeredErrorNumber);
-        static::assertSame(
-            'AMQPConnection::getTimeout() method is deprecated; ' .
-            'use AMQPConnection::getReadTimeout() instead',
-            $triggeredErrorMessage
-        );
+        $this->amqpConnection->getTimeout();
     }
 
     public function testGetVHostFetchesFromConfig(): void
@@ -305,6 +395,30 @@ class AMQPConnectionTest extends AbstractTestCase
             ->once();
 
         $this->amqpConnection->setConnectionName('my-new-connection-name');
+    }
+
+    public function testSetTimeoutSetsTheNameOnConfig(): void
+    {
+        $this->connectionConfig->expects()
+            ->setReadTimeout(12.34)
+            ->once();
+
+        $this->amqpConnection->setTimeout(12.34);
+    }
+
+    public function testSetTimeoutRaisesDeprecationWarning(): void
+    {
+        $this->connectionConfig->allows()
+            ->setReadTimeout(12.34);
+
+        $this->errorReporter->expects()
+            ->raiseDeprecation(
+                'AMQPConnection::setTimeout($timeout) method is deprecated; ' .
+                'use AMQPConnection::setReadTimeout($timeout) instead'
+            )
+            ->once();
+
+        $this->amqpConnection->setTimeout(12.34);
     }
 
     // TODO: Test (and implement) remaining API.

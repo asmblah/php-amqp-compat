@@ -23,6 +23,11 @@ namespace Asmblah\PhpAmqpCompat\Connection\Config;
 interface ConnectionConfigInterface extends ConnectionConfigProviderInterface
 {
     /**
+     * Determines whether and how the deprecated 'timeout' credential was used.
+     */
+    public function getDeprecatedTimeoutCredentialUsage(): TimeoutDeprecationUsageEnum;
+
+    /**
      * Sets the configured name for the connection.
      */
     public function setConnectionName(?string $connectionName): void;

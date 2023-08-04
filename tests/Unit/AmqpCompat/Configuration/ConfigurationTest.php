@@ -14,6 +14,8 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Configuration;
 
 use Asmblah\PhpAmqpCompat\Configuration\Configuration;
+use Asmblah\PhpAmqpCompat\Error\ErrorReporter;
+use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -25,6 +27,28 @@ use Psr\Log\NullLogger;
  */
 class ConfigurationTest extends AbstractTestCase
 {
+    public function testGetErrorReporterReturnsTheProvidedErrorReporter(): void
+    {
+        $errorReporter = mock(ErrorReporterInterface::class);
+        $configuration = new Configuration(null, $errorReporter);
+
+        static::assertSame($errorReporter, $configuration->getErrorReporter());
+    }
+
+    public function testGetErrorReporterReturnsADefaultErrorReporterByDefault(): void
+    {
+        $configuration = new Configuration();
+
+        static::assertInstanceOf(ErrorReporter::class, $configuration->getErrorReporter());
+    }
+
+    public function testGetErrorReporterReturnsTheSameNullErrorReporterOnSubsequentCallsByDefault(): void
+    {
+        $configuration = new Configuration();
+
+        static::assertSame($configuration->getErrorReporter(), $configuration->getErrorReporter());
+    }
+
     public function testGetLoggerReturnsTheProvidedLogger(): void
     {
         $logger = mock(LoggerInterface::class);
@@ -49,7 +73,7 @@ class ConfigurationTest extends AbstractTestCase
 
     public function testGetUnlimitedTimeoutReturnsTheProvidedUnlimitedTimeout(): void
     {
-        $configuration = new Configuration(null, 123.456);
+        $configuration = new Configuration(null, null, 123.456);
 
         static::assertSame(123.456, $configuration->getUnlimitedTimeout());
     }

@@ -14,7 +14,7 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Heartbeat;
 
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
-use Asmblah\PhpAmqpCompat\Misc\Clock;
+use Asmblah\PhpAmqpCompat\Misc\ClockInterface;
 use SplObjectStorage;
 
 /**
@@ -35,7 +35,7 @@ class PcntlHeartbeatSender implements HeartbeatSenderInterface
     private SplObjectStorage $connectionBridges;
     private int $interval = 0;
 
-    public function __construct(private Clock $clock)
+    public function __construct(private ClockInterface $clock)
     {
         $this->connectionBridges = new SplObjectStorage();
 

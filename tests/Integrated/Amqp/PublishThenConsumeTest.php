@@ -22,6 +22,8 @@ use Asmblah\PhpAmqpCompat\AmqpManager;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
+use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
@@ -57,6 +59,10 @@ class PublishThenConsumeTest extends AbstractTestCase
      */
     private $connectionConfig;
     /**
+     * @var (MockInterface&ErrorReporterInterface)|null
+     */
+    private $errorReporter;
+    /**
      * @var (MockInterface&LoggerInterface)|null
      */
     private $logger;
@@ -67,13 +73,17 @@ class PublishThenConsumeTest extends AbstractTestCase
 
         $this->connectionConfig = mock(ConnectionConfigInterface::class, [
             'getConnectionTimeout' => 0,
+            'getDeprecatedTimeoutCredentialUsage' => TimeoutDeprecationUsageEnum::NOT_USED,
+            'getDeprecatedTimeoutIniSettingUsage' => TimeoutDeprecationUsageEnum::NOT_USED,
             'toLoggableArray' => ['my' => 'loggable connection config'],
         ]);
         $this->logger = mock(LoggerInterface::class, [
             'debug' => null,
         ]);
+        $this->errorReporter = mock(ErrorReporterInterface::class);
         $this->amqpIntegration = mock(AmqpIntegrationInterface::class, [
             'createConnectionConfig' => $this->connectionConfig,
+            'getErrorReporter' => $this->errorReporter,
             'getLogger' => $this->logger,
         ]);
         $this->amqplibChannel = mock(AmqplibChannel::class, [

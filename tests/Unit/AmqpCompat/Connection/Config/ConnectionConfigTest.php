@@ -14,7 +14,10 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Connection\Config;
 
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfig;
+use Asmblah\PhpAmqpCompat\Connection\Config\DefaultConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
+use Mockery\MockInterface;
 
 /**
  * Class ConnectionConfigTest.
@@ -24,16 +27,23 @@ use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 class ConnectionConfigTest extends AbstractTestCase
 {
     private ?ConnectionConfig $config;
+    /**
+     * @var (MockInterface&DefaultConnectionConfigInterface)|null
+     */
+    private $defaultConnectionConfig;
 
     public function setUp(): void
     {
-        $this->config = new ConnectionConfig();
+        $this->defaultConnectionConfig = mock(DefaultConnectionConfigInterface::class);
+
+        $this->config = new ConnectionConfig($this->defaultConnectionConfig);
     }
 
     public function testGettersReturnCorrectValues(): void
     {
         // Test the getters in isolation by fetching values initialised by constructor.
         $config = new ConnectionConfig(
+            $this->defaultConnectionConfig,
             'myhostname',
             1234,
             'myusername',
@@ -87,6 +97,46 @@ class ConnectionConfigTest extends AbstractTestCase
         static::assertSame(98.76, $this->config->getWriteTimeout());
     }
 
+    /**
+     * @dataProvider deprecatedUsageDataProvider
+     */
+    public function testGetDeprecatedTimeoutCredentialUsageReturnsTheUsage(
+        TimeoutDeprecationUsageEnum $deprecationUsage
+    ): void {
+        $config = new ConnectionConfig(
+            $this->defaultConnectionConfig,
+            DefaultConnectionConfigInterface::DEFAULT_HOST,
+            DefaultConnectionConfigInterface::DEFAULT_PORT,
+            DefaultConnectionConfigInterface::DEFAULT_USER,
+            DefaultConnectionConfigInterface::DEFAULT_PASSWORD,
+            DefaultConnectionConfigInterface::DEFAULT_VIRTUAL_HOST,
+            DefaultConnectionConfigInterface::DEFAULT_HEARTBEAT_INTERVAL,
+            DefaultConnectionConfigInterface::DEFAULT_CONNECTION_TIMEOUT,
+            DefaultConnectionConfigInterface::DEFAULT_READ_TIMEOUT,
+            DefaultConnectionConfigInterface::DEFAULT_WRITE_TIMEOUT,
+            DefaultConnectionConfigInterface::DEFAULT_RPC_TIMEOUT,
+            null,
+            $deprecationUsage
+        );
+
+        static::assertSame($deprecationUsage, $config->getDeprecatedTimeoutCredentialUsage());
+    }
+
+    /**
+     * @dataProvider deprecatedUsageDataProvider
+     */
+    public function testGetDeprecatedTimeoutIniSettingUsageReturnsTheUsageFromDefaultConfig(
+        TimeoutDeprecationUsageEnum $deprecationUsage
+    ): void {
+        $this->defaultConnectionConfig->allows()
+            ->getDeprecatedTimeoutIniSettingUsage()
+            ->andReturn($deprecationUsage);
+
+        $config = new ConnectionConfig($this->defaultConnectionConfig);
+
+        static::assertSame($deprecationUsage, $config->getDeprecatedTimeoutIniSettingUsage());
+    }
+
     public function testToLoggableArrayReturnsCorrectDefaultStructure(): void
     {
         static::assertEquals(
@@ -137,5 +187,14 @@ class ConnectionConfigTest extends AbstractTestCase
             ],
             $this->config->toLoggableArray()
         );
+    }
+
+    public static function deprecatedUsageDataProvider(): array
+    {
+        return [
+            '::NOT_USED' => [TimeoutDeprecationUsageEnum::NOT_USED],
+            '::SHADOWED' => [TimeoutDeprecationUsageEnum::SHADOWED],
+            '::USED_ALONE' => [TimeoutDeprecationUsageEnum::USED_ALONE],
+        ];
     }
 }

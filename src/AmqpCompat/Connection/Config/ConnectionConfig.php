@@ -45,6 +45,7 @@ class ConnectionConfig implements ConnectionConfigInterface
     private string $virtualHost;
 
     public function __construct(
+        private readonly DefaultConnectionConfigInterface $defaultConnectionConfig,
         string $host = DefaultConnectionConfigInterface::DEFAULT_HOST,
         int $port = DefaultConnectionConfigInterface::DEFAULT_PORT,
         string $user = DefaultConnectionConfigInterface::DEFAULT_USER,
@@ -70,7 +71,11 @@ class ConnectionConfig implements ConnectionConfigInterface
         /**
          * Optional name for the connection, null if none.
          */
-        private ?string $connectionName = null
+        private ?string $connectionName = null,
+        /**
+         * Whether and how the deprecated "timeout" credential was used.
+         */
+        private readonly TimeoutDeprecationUsageEnum $deprecatedTimeoutCredentialUsage = TimeoutDeprecationUsageEnum::NOT_USED
     ) {
         $this->heartbeatInterval = $heartbeatInterval;
         $this->host = $host;
@@ -94,6 +99,22 @@ class ConnectionConfig implements ConnectionConfigInterface
     public function getConnectionTimeout(): float
     {
         return $this->connectionTimeout;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getDeprecatedTimeoutCredentialUsage(): TimeoutDeprecationUsageEnum
+    {
+        return $this->deprecatedTimeoutCredentialUsage;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getDeprecatedTimeoutIniSettingUsage(): TimeoutDeprecationUsageEnum
+    {
+        return $this->defaultConnectionConfig->getDeprecatedTimeoutIniSettingUsage();
     }
 
     /**

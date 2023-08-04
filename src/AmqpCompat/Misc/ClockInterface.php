@@ -14,17 +14,16 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Misc;
 
 /**
- * Class Clock.
+ * Interface ClockInterface.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-class Clock implements ClockInterface
+interface ClockInterface
 {
     /**
-     * @inheritDoc
+     * Fetches the current Unix timestamp in seconds.
+     *
+     * Useful to allow stubbing.
      */
-    public function getUnixTimestamp(): int
-    {
-        return time();
-    }
+    public function getUnixTimestamp(): int;
 }

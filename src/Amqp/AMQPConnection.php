@@ -15,6 +15,8 @@ use Asmblah\PhpAmqpCompat\AmqpManager;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
+use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
 use PhpAmqpLib\Connection\AbstractConnection;
 use PhpAmqpLib\Exception\AMQPExceptionInterface;
@@ -34,6 +36,7 @@ class AMQPConnection
     private ?AbstractConnection $amqplibConnection = null;
     private ?AmqpConnectionBridgeInterface $connectionBridge = null;
     private readonly ConnectionConfigInterface $connectionConfig;
+    private readonly ErrorReporterInterface $errorReporter;
     private readonly LoggerInterface $logger;
 
     /**
@@ -77,6 +80,7 @@ class AMQPConnection
     {
         // Note that the static AmqpManager mechanism is required to allow us to support ext-amqp's class API.
         $this->amqpIntegration = AmqpManager::getAmqpIntegration();
+        $this->errorReporter = $this->amqpIntegration->getErrorReporter();
         $this->logger = $this->amqpIntegration->getLogger();
 
         $this->connectionConfig = $this->amqpIntegration->createConnectionConfig($credentials);
@@ -85,6 +89,32 @@ class AMQPConnection
         $this->logger->debug(__METHOD__ . '() connection created (not yet opened)', [
             'config' => $this->connectionConfig->toLoggableArray(),
         ]);
+
+        $deprecatedTimeoutCredentialUsage = $this->connectionConfig->getDeprecatedTimeoutCredentialUsage();
+        $deprecatedTimeoutIniSettingUsage = $this->connectionConfig->getDeprecatedTimeoutIniSettingUsage();
+
+        if ($deprecatedTimeoutCredentialUsage === TimeoutDeprecationUsageEnum::USED_ALONE) {
+            $this->errorReporter->raiseDeprecation(
+                __METHOD__ . '(): Parameter \'timeout\' is deprecated; use \'read_timeout\' instead'
+            );
+        } elseif ($deprecatedTimeoutCredentialUsage === TimeoutDeprecationUsageEnum::SHADOWED) {
+            $this->errorReporter->raiseNotice(
+                __METHOD__ . '(): Parameter \'timeout\' is deprecated, \'read_timeout\' used instead'
+            );
+        }
+
+        // NB: Unlike credential handling, for INI handling both messages can be displayed.
+        if ($deprecatedTimeoutIniSettingUsage !== TimeoutDeprecationUsageEnum::NOT_USED) {
+            $this->errorReporter->raiseDeprecation(
+                 __METHOD__ . '(): INI setting \'amqp.timeout\' is deprecated; use \'amqp.read_timeout\' instead'
+             );
+        }
+
+        if ($deprecatedTimeoutIniSettingUsage === TimeoutDeprecationUsageEnum::SHADOWED) {
+            $this->errorReporter->raiseNotice(
+                __METHOD__ . '(): INI setting \'amqp.read_timeout\' will be used instead of \'amqp.timeout\''
+            );
+        }
 
         if ($this->connectionConfig->getConnectionTimeout() < 0) {
             throw new AMQPConnectionException(
@@ -317,10 +347,9 @@ class AMQPConnection
      */
     public function getTimeout(): float
     {
-        trigger_error(
+        $this->errorReporter->raiseDeprecation(
             'AMQPConnection::getTimeout() method is deprecated; ' .
-            'use AMQPConnection::getReadTimeout() instead',
-            E_USER_DEPRECATED
+            'use AMQPConnection::getReadTimeout() instead'
         );
 
         return $this->connectionConfig->getReadTimeout();
@@ -638,10 +667,9 @@ class AMQPConnection
      */
     public function setTimeout(float $timeout): bool
     {
-        trigger_error(
+        $this->errorReporter->raiseDeprecation(
             'AMQPConnection::setTimeout($timeout) method is deprecated; ' .
-            'use AMQPConnection::setReadTimeout($timeout) instead',
-            E_USER_DEPRECATED
+            'use AMQPConnection::setReadTimeout($timeout) instead'
         );
 
         if ($timeout < 0) {

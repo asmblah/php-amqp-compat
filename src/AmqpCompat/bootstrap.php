@@ -11,13 +11,15 @@
 
 declare(strict_types=1);
 
+namespace Asmblah\PhpAmqpCompat;
+
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 
 if (extension_loaded('amqp') && !defined('PHP_AMQP_COMPAT')) {
-    trigger_error(
-        'ext-amqp must be uninstalled to use php-amqp-compat, ext-amqp will still be used',
-        E_USER_WARNING
-    );
+    AmqpManager::getConfiguration()->getErrorReporter()
+        ->raiseWarning(
+            'ext-amqp must be uninstalled to use php-amqp-compat, ext-amqp will still be used'
+        );
 
     return;
 }

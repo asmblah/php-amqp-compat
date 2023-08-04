@@ -17,7 +17,9 @@ use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\DefaultConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
 use Asmblah\PhpAmqpCompat\Connection\ConnectorInterface;
+use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSenderInterface;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
@@ -56,6 +58,10 @@ class AmqpIntegrationTest extends AbstractTestCase
      */
     private $defaultConnectionConfig;
     /**
+     * @var (MockInterface&ErrorReporterInterface)|null
+     */
+    private $errorReporter;
+    /**
      * @var (MockInterface&HeartbeatSenderInterface)|null
      */
     private $heartbeatSender;
@@ -80,7 +86,9 @@ class AmqpIntegrationTest extends AbstractTestCase
             'getWriteTimeout' => 678.0,
         ]);
         $this->logger = mock(LoggerInterface::class);
+        $this->errorReporter = mock(ErrorReporterInterface::class);
         $this->configuration = mock(ConfigurationInterface::class, [
+            'getErrorReporter' => $this->errorReporter,
             'getLogger' => $this->logger,
         ]);
         $this->connectionConfig = mock(ConnectionConfigInterface::class);
@@ -165,5 +173,46 @@ class AmqpIntegrationTest extends AbstractTestCase
         static::assertSame(56.78, $config->getReadTimeout());
         static::assertSame(90.12, $config->getWriteTimeout());
         static::assertSame(34.56, $config->getRpcTimeout());
+    }
+
+    public function testCreateConnectionConfigHandlesDeprecatedTimeoutUsageCorrectlyWhenNotUsed(): void
+    {
+        $config = $this->amqpIntegration->createConnectionConfig([
+            'read_timeout' => 678.9,
+        ]);
+
+        static::assertSame(TimeoutDeprecationUsageEnum::NOT_USED, $config->getDeprecatedTimeoutCredentialUsage());
+        static::assertSame(678.9, $config->getReadTimeout());
+    }
+
+    public function testCreateConnectionConfigHandlesDeprecatedTimeoutUsageCorrectlyWhenUsedAlone(): void
+    {
+        $config = $this->amqpIntegration->createConnectionConfig([
+            'timeout' => 123.4,
+        ]);
+
+        static::assertSame(TimeoutDeprecationUsageEnum::USED_ALONE, $config->getDeprecatedTimeoutCredentialUsage());
+        static::assertSame(123.4, $config->getReadTimeout());
+    }
+
+    public function testCreateConnectionConfigHandlesDeprecatedTimeoutUsageCorrectlyWhenShadowed(): void
+    {
+        $config = $this->amqpIntegration->createConnectionConfig([
+            'read_timeout' => 456.7,
+            'timeout' => 123.4,
+        ]);
+
+        static::assertSame(TimeoutDeprecationUsageEnum::SHADOWED, $config->getDeprecatedTimeoutCredentialUsage());
+        static::assertSame(456.7, $config->getReadTimeout());
+    }
+
+    public function testGetErrorReporterReturnsTheErrorReporter(): void
+    {
+        static::assertSame($this->errorReporter, $this->amqpIntegration->getErrorReporter());
+    }
+
+    public function testGetLoggerReturnsTheLogger(): void
+    {
+        static::assertSame($this->logger, $this->amqpIntegration->getLogger());
     }
 }

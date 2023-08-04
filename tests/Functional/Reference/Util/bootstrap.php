@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util;
 
+use Asmblah\PhpAmqpCompat\AmqpManager;
+use Asmblah\PhpAmqpCompat\Configuration\Configuration;
 use RuntimeException;
 
 // Allow the main library bootstrap to silently allow us to continue.
@@ -21,6 +23,7 @@ const PHP_AMQP_COMPAT = true;
 require_once __DIR__ . '/../../../../vendor/autoload.php';
 
 CodeShifts::install();
+AmqpManager::setConfiguration(new Configuration(null, new TestErrorReporter()));
 
 if (isset($argv)) {
     // Force the actual test script to be loaded via file:// stream wrapper,

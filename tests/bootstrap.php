@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+Mockery::getConfiguration()->allowMockingNonExistentMethods(false);
 Mockery::globalHelpers();
 
 // Check out the php-amqp/ext-amqp project in order to run its tests against this library in ReferenceImplementationTest.

@@ -15,6 +15,7 @@ namespace Asmblah\PhpAmqpCompat\Integration;
 
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Exception;
 use Psr\Log\LoggerInterface;
 
@@ -38,6 +39,11 @@ interface AmqpIntegrationInterface
      * Creates a configuration for later connection.
      */
     public function createConnectionConfig(array $credentials): ConnectionConfigInterface;
+
+    /**
+     * Fetches an ErrorReporter to use when raising warnings/notices etc.
+     */
+    public function getErrorReporter(): ErrorReporterInterface;
 
     /**
      * Fetches a logger to use for additional/internal logging by this library.

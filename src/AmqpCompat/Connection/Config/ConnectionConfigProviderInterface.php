@@ -33,6 +33,11 @@ interface ConnectionConfigProviderInterface
     public function getConnectionTimeout(): float;
 
     /**
+     * Determines whether and how the deprecated 'amqp.timeout' INI setting was used.
+     */
+    public function getDeprecatedTimeoutIniSettingUsage(): TimeoutDeprecationUsageEnum;
+
+    /**
      * Fetches the configured heartbeat interval in seconds.
      */
     public function getHeartbeatInterval(): int;

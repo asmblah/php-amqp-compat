@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Configuration;
 
+use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -27,6 +28,11 @@ use Psr\Log\LoggerInterface;
  */
 interface ConfigurationInterface
 {
+    /**
+     * Fetches an ErrorReporter to use when raising warnings/notices etc.
+     */
+    public function getErrorReporter(): ErrorReporterInterface;
+
     /**
      * Fetches a logger to use for additional/internal logging by this library.
      */

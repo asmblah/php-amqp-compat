@@ -19,7 +19,9 @@ use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfig;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\DefaultConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
 use Asmblah\PhpAmqpCompat\Connection\ConnectorInterface;
+use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSenderInterface;
 use Psr\Log\LoggerInterface;
 
@@ -32,6 +34,7 @@ use Psr\Log\LoggerInterface;
  */
 class AmqpIntegration implements AmqpIntegrationInterface
 {
+    private readonly ErrorReporterInterface $errorReporter;
     private readonly LoggerInterface $logger;
 
     public function __construct(
@@ -40,6 +43,7 @@ class AmqpIntegration implements AmqpIntegrationInterface
         ConfigurationInterface $configuration,
         private readonly DefaultConnectionConfigInterface $defaultConnectionConfig
     ) {
+        $this->errorReporter = $configuration->getErrorReporter();
         $this->logger = $configuration->getLogger();
     }
 
@@ -86,9 +90,6 @@ class AmqpIntegration implements AmqpIntegrationInterface
         $connectionTimeout = array_key_exists('connect_timeout', $credentials) ?
             (float) $credentials['connect_timeout'] :
             $this->defaultConnectionConfig->getConnectionTimeout();
-        $readTimeout = array_key_exists('read_timeout', $credentials) ?
-            (float) $credentials['read_timeout'] :
-            $this->defaultConnectionConfig->getReadTimeout();
         $writeTimeout = array_key_exists('write_timeout', $credentials) ?
             (float) $credentials['write_timeout'] :
             $this->defaultConnectionConfig->getWriteTimeout();
@@ -100,7 +101,27 @@ class AmqpIntegration implements AmqpIntegrationInterface
             (string) $credentials['connection_name'] :
             null;
 
+        $readTimeoutCredentialUsed = array_key_exists('read_timeout', $credentials);
+        $deprecatedTimeoutCredentialUsed = array_key_exists('timeout', $credentials);
+
+        $deprecatedTimeoutCredentialUsage = TimeoutDeprecationUsageEnum::NOT_USED;
+
+        if ($readTimeoutCredentialUsed) {
+            if ($deprecatedTimeoutCredentialUsed) {
+                $deprecatedTimeoutCredentialUsage = TimeoutDeprecationUsageEnum::SHADOWED;
+            }
+
+            $readTimeout = (float)$credentials['read_timeout'];
+        } elseif ($deprecatedTimeoutCredentialUsed) {
+            $deprecatedTimeoutCredentialUsage = TimeoutDeprecationUsageEnum::USED_ALONE;
+
+            $readTimeout = (float)$credentials['timeout'];
+        } else {
+            $readTimeout = $this->defaultConnectionConfig->getReadTimeout();
+        }
+
         return new ConnectionConfig(
+            $this->defaultConnectionConfig,
             $host,
             $port,
             $user,
@@ -111,8 +132,17 @@ class AmqpIntegration implements AmqpIntegrationInterface
             $readTimeout,
             $writeTimeout,
             $rpcTimeout,
-            $connectionName
+            $connectionName,
+            $deprecatedTimeoutCredentialUsage
         );
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getErrorReporter(): ErrorReporterInterface
+    {
+        return $this->errorReporter;
     }
 
     /**

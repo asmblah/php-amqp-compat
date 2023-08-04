@@ -22,6 +22,7 @@ use Asmblah\PhpAmqpCompat\Heartbeat\PcntlHeartbeatSender;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
 use Asmblah\PhpAmqpCompat\Misc\Clock;
+use Asmblah\PhpAmqpCompat\Misc\Ini;
 use LogicException;
 
 /**
@@ -52,7 +53,7 @@ class AmqpManager
                 ),
                 new PcntlHeartbeatSender(new Clock()),
                 $configuration,
-                new DefaultConnectionConfig()
+                new DefaultConnectionConfig(new Ini())
             );
         }
 
