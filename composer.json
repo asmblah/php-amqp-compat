@@ -20,7 +20,7 @@
         "php": ">=8.1",
         "ext-pcntl": "*",
         "php-amqplib/php-amqplib": "v3.5.4",
-        "psr/log": "^3.0"
+        "psr/log": "^1|^2|^3"
     },
     "require-dev": {
         "asmblah/php-code-shift": "^0.0.1",
