@@ -368,7 +368,7 @@ class AMQPConnectionTest extends AbstractTestCase
     {
         $this->errorReporter->expects()
             ->raiseDeprecation(
-                'AMQPConnection::getTimeout() method is deprecated; ' .
+                'AMQPConnection::getTimeout(): AMQPConnection::getTimeout() method is deprecated; ' .
                 'use AMQPConnection::getReadTimeout() instead'
             )
             ->once();
@@ -449,7 +449,7 @@ class AMQPConnectionTest extends AbstractTestCase
 
         $this->errorReporter->expects()
             ->raiseDeprecation(
-                'AMQPConnection::setTimeout($timeout) method is deprecated; ' .
+                'AMQPConnection::setTimeout(): AMQPConnection::setTimeout($timeout) method is deprecated; ' .
                 'use AMQPConnection::setReadTimeout($timeout) instead'
             )
             ->once();

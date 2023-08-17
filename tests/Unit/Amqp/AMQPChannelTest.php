@@ -76,7 +76,7 @@ class AMQPChannelTest extends AbstractTestCase
     public function testConstructorCorrectlyBridgesTheChannelToTheCreatedChannelBridge(): void
     {
         $this->connectionBridge->expects()
-            ->createChannelBridge($this->connectionBridge)
+            ->createChannelBridge()
             ->once()
             ->andReturn($this->channelBridge);
 
