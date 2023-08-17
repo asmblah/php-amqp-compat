@@ -21,14 +21,26 @@ interface AmqpConnectionBridgeInterface
     /**
      * Creates an AmqpChannelBridge for the given connection.
      */
-    public function createChannelBridge(
-        AmqpConnectionBridgeInterface $connectionBridge
-    ): AmqpChannelBridgeInterface;
+    public function createChannelBridge(): AmqpChannelBridgeInterface;
 
     /**
      * Fetches the internal php-amqplib connection.
      */
     public function getAmqplibConnection(): AmqplibConnection;
 
+    /**
+     * Fetches the configured interval between heartbeats,
+     * which will actually be half of "amqp.heartbeat" if set.
+     */
     public function getHeartbeatInterval(): int;
+
+    /**
+     * Fetches the number of channels currently in use on this connection.
+     */
+    public function getUsedChannels(): int;
+
+    /**
+     * Unregisters the given AmqpChannelBridge.
+     */
+    public function unregisterChannelBridge(AmqpChannelBridgeInterface $channelBridge): void;
 }

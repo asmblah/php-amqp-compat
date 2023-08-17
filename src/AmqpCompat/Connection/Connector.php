@@ -58,7 +58,9 @@ class Connector implements ConnectorInterface
             $readTimeout,
             false,
             $config->getHeartbeatInterval(),
-            $rpcTimeout
+            $rpcTimeout,
+            $config->getMaxChannels(),
+            $config->getMaxFrameSize()
         );
     }
 

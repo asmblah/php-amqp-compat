@@ -54,6 +54,8 @@ class ConnectionConfigTest extends AbstractTestCase
             567.89,
             456.78,
             678.9,
+            123,
+            321,
             'my-special-connection-name'
         );
 
@@ -61,6 +63,8 @@ class ConnectionConfigTest extends AbstractTestCase
         static::assertSame(123.45, $config->getConnectionTimeout());
         static::assertSame(432, $config->getHeartbeatInterval());
         static::assertSame('myhostname', $config->getHost());
+        static::assertSame(123, $config->getMaxChannels());
+        static::assertSame(321, $config->getMaxFrameSize());
         static::assertSame('mysecretpassword', $config->getPassword());
         static::assertSame(1234, $config->getPort());
         static::assertSame(567.89, $config->getReadTimeout());
@@ -76,6 +80,8 @@ class ConnectionConfigTest extends AbstractTestCase
         $this->config->setConnectionTimeout(123.45);
         $this->config->setHeartbeatInterval(21);
         $this->config->setHost('myhost');
+        $this->config->setMaxChannels(456);
+        $this->config->setMaxFrameSize(789);
         $this->config->setPassword('secret');
         $this->config->setPort(321);
         $this->config->setReadTimeout(12.34);
@@ -88,6 +94,8 @@ class ConnectionConfigTest extends AbstractTestCase
         static::assertSame(123.45, $this->config->getConnectionTimeout());
         static::assertSame(21, $this->config->getHeartbeatInterval());
         static::assertSame('myhost', $this->config->getHost());
+        static::assertSame(456, $this->config->getMaxChannels());
+        static::assertSame(789, $this->config->getMaxFrameSize());
         static::assertSame('secret', $this->config->getPassword());
         static::assertSame(321, $this->config->getPort());
         static::assertSame(12.34, $this->config->getReadTimeout());
@@ -115,6 +123,8 @@ class ConnectionConfigTest extends AbstractTestCase
             DefaultConnectionConfigInterface::DEFAULT_READ_TIMEOUT,
             DefaultConnectionConfigInterface::DEFAULT_WRITE_TIMEOUT,
             DefaultConnectionConfigInterface::DEFAULT_RPC_TIMEOUT,
+            DefaultConnectionConfigInterface::DEFAULT_MAX_CHANNELS,
+            DefaultConnectionConfigInterface::DEFAULT_MAX_FRAME_SIZE,
             null,
             $deprecationUsage
         );
@@ -142,16 +152,18 @@ class ConnectionConfigTest extends AbstractTestCase
         static::assertEquals(
             [
                 'connection_name' => null,
-                'connection_timeout' => 0.0,
-                'heartbeat_interval' => 0.0,
-                'host' => 'localhost',
-                'password' => 'gu******',
-                'port' => 5672,
-                'read_timeout' => 0.0,
-                'rpc_timeout' => 0.0,
-                'user' => 'guest',
-                'virtual_host' => '/',
-                'write_timeout' => 0.0,
+                'connection_timeout' => DefaultConnectionConfigInterface::DEFAULT_CONNECTION_TIMEOUT,
+                'heartbeat_interval' => DefaultConnectionConfigInterface::DEFAULT_HEARTBEAT_INTERVAL,
+                'host' => DefaultConnectionConfigInterface::DEFAULT_HOST,
+                'max_channels' => DefaultConnectionConfigInterface::DEFAULT_MAX_CHANNELS,
+                'max_frame_size' => DefaultConnectionConfigInterface::DEFAULT_MAX_FRAME_SIZE,
+                'password' => 'gu******', // Should be obfuscated.
+                'port' => DefaultConnectionConfigInterface::DEFAULT_PORT,
+                'read_timeout' => DefaultConnectionConfigInterface::DEFAULT_READ_TIMEOUT,
+                'rpc_timeout' => DefaultConnectionConfigInterface::DEFAULT_RPC_TIMEOUT,
+                'user' => DefaultConnectionConfigInterface::DEFAULT_USER,
+                'virtual_host' => DefaultConnectionConfigInterface::DEFAULT_VIRTUAL_HOST,
+                'write_timeout' => DefaultConnectionConfigInterface::DEFAULT_WRITE_TIMEOUT,
             ],
             $this->config->toLoggableArray()
         );
@@ -163,6 +175,8 @@ class ConnectionConfigTest extends AbstractTestCase
         $this->config->setConnectionTimeout(123.45);
         $this->config->setHeartbeatInterval(21);
         $this->config->setHost('myhost');
+        $this->config->setMaxChannels(89);
+        $this->config->setMaxFrameSize(67);
         $this->config->setPassword('secret');
         $this->config->setPort(321);
         $this->config->setReadTimeout(12.34);
@@ -177,6 +191,8 @@ class ConnectionConfigTest extends AbstractTestCase
                 'connection_timeout' => 123.45,
                 'heartbeat_interval' => 21,
                 'host' => 'myhost',
+                'max_channels' => 89,
+                'max_frame_size' => 67,
                 'password' => 'se******',
                 'port' => 321,
                 'read_timeout' => 12.34,

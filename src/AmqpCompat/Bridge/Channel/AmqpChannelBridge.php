@@ -87,6 +87,14 @@ class AmqpChannelBridge implements AmqpChannelBridgeInterface
     /**
      * @inheritDoc
      */
+    public function unregisterChannel(): void
+    {
+        $this->connectionBridge->unregisterChannelBridge($this);
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function unsubscribeConsumer(string $consumerTag): void
     {
         unset($this->consumerTags[$consumerTag]);

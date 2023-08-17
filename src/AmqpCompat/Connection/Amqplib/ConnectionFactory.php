@@ -41,8 +41,13 @@ class ConnectionFactory implements ConnectionFactoryInterface
         float $readWriteTimeout,
         bool $keepAlive,
         int $heartbeatInterval,
-        float $rpcTimeout
+        float $rpcTimeout,
+        int $maxChannels,
+        int $maxFrameSize
     ): AmqplibConnection {
+        // TODO: Decide how to handle max channels & max frame size. Php-amqplib does support these
+        //       in the protocol with "tune" methods, but does not seem to offer a public API.
+
         return new AMQPStreamConnection(
             $host,
             $port,

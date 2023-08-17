@@ -24,13 +24,15 @@ namespace Asmblah\PhpAmqpCompat\Connection\Config;
 interface DefaultConnectionConfigInterface extends ConnectionConfigProviderInterface
 {
     public const DEFAULT_CONNECTION_TIMEOUT = 0.0;
-    public const DEFAULT_PORT = 5672;
-    public const DEFAULT_VIRTUAL_HOST = '/';
-    public const DEFAULT_PASSWORD = 'guest';
     public const DEFAULT_HEARTBEAT_INTERVAL = 0;
-    public const DEFAULT_READ_TIMEOUT = 0.0;
-    public const DEFAULT_USER = 'guest';
     public const DEFAULT_HOST = 'localhost';
+    public const DEFAULT_MAX_CHANNELS = 256;
+    public const DEFAULT_MAX_FRAME_SIZE = 131072;
+    public const DEFAULT_PASSWORD = 'guest';
+    public const DEFAULT_PORT = 5672;
+    public const DEFAULT_READ_TIMEOUT = 0.0;
     public const DEFAULT_RPC_TIMEOUT = 0.0;
+    public const DEFAULT_USER = 'guest';
+    public const DEFAULT_VIRTUAL_HOST = '/';
     public const DEFAULT_WRITE_TIMEOUT = 0.0;
 }

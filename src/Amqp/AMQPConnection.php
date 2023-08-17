@@ -124,6 +124,18 @@ class AMQPConnection
     }
 
     /**
+     * Checks whether the internal php-amqplib connection is still valid,
+     * clearing the internal connection reference if not.
+     */
+    private function checkConnection(): void
+    {
+        if ($this->amqplibConnection && !$this->amqplibConnection->isConnected()) {
+            $this->amqplibConnection = null;
+            $this->connectionBridge = null;
+        }
+    }
+
+    /**
      * Establishes a transient connection with the AMQP broker.
      *
      * @return boolean true on success, on failure an exception will be thrown instead.
@@ -174,7 +186,9 @@ class AMQPConnection
      */
     public function disconnect(): bool
     {
-        if ($this->amqplibConnection === null || !$this->amqplibConnection->isConnected()) {
+        $this->checkConnection();
+
+        if ($this->amqplibConnection === null) {
             return true; // Nothing to do; not connected anyway.
         }
 
@@ -186,6 +200,9 @@ class AMQPConnection
             // TODO: Handle errors identically to php-amqp.
             throw new AMQPConnectionException(__METHOD__ . ' failed: ' . $exception->getMessage());
         }
+
+        $this->amqplibConnection = null;
+        $this->connectionBridge = null;
 
         return true;
     }
@@ -263,15 +280,10 @@ class AMQPConnection
 
     /**
      * Fetches the maximum number of channels the connection can handle.
-     *
-     * When connection is connected, effective connection value returned, which is normally the same as original
-     * correspondent value passed to constructor, otherwise original value passed to constructor returned.
-     *
-     * @return int
      */
     public function getMaxChannels(): int
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        return $this->connectionConfig->getMaxChannels();
     }
 
     /**
@@ -284,7 +296,7 @@ class AMQPConnection
      */
     public function getMaxFrameSize(): int
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        return $this->connectionConfig->getMaxFrameSize();
     }
 
     /**
@@ -348,6 +360,7 @@ class AMQPConnection
     public function getTimeout(): float
     {
         $this->errorReporter->raiseDeprecation(
+            __METHOD__ . '(): ' .
             'AMQPConnection::getTimeout() method is deprecated; ' .
             'use AMQPConnection::getReadTimeout() instead'
         );
@@ -356,13 +369,19 @@ class AMQPConnection
     }
 
     /**
-     * Return last used channel id during current connection session.
-     *
-     * @return int
+     * Fetches the number of channels that are currently in use on this connection.
      */
     public function getUsedChannels(): int
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        $this->checkConnection();
+
+        if ($this->connectionBridge === null) {
+            $this->errorReporter->raiseWarning(__METHOD__ . '(): Connection is not connected.');
+
+            return 0;
+        }
+
+        return $this->connectionBridge->getUsedChannels();
     }
 
     /**
@@ -668,6 +687,7 @@ class AMQPConnection
     public function setTimeout(float $timeout): bool
     {
         $this->errorReporter->raiseDeprecation(
+            __METHOD__ . '(): ' .
             'AMQPConnection::setTimeout($timeout) method is deprecated; ' .
             'use AMQPConnection::setReadTimeout($timeout) instead'
         );

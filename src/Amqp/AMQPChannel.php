@@ -43,10 +43,21 @@ class AMQPChannel
         $connectionBridge = AmqpBridge::getBridgeConnection($amqpConnection);
         $this->amqplibConnection = $connectionBridge->getAmqplibConnection();
 
-        $this->channelBridge = $connectionBridge->createChannelBridge($connectionBridge);
+        $this->channelBridge = $connectionBridge->createChannelBridge();
         AmqpBridge::bridgeChannel($this, $this->channelBridge);
 
         $this->amqplibChannel = $this->channelBridge->getAmqplibChannel();
+    }
+
+    public function __destruct()
+    {
+        // Match the behaviour of php-amqp/ext-amqp: on destruction, close the channel.
+        if ($this->amqplibChannel->is_open()) {
+            $this->amqplibChannel->close();
+        }
+
+        // Ensure we unregister the channel so that e.g. AMQPConnection->getUsedChannels() returns the correct value.
+        $this->channelBridge->unregisterChannel();
     }
 
     /**

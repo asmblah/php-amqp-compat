@@ -16,24 +16,35 @@ namespace Asmblah\PhpAmqpCompat\Bridge\Connection;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\Consumer;
+use InvalidArgumentException;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
+use SplObjectStorage;
 
 class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
 {
+    /**
+     * @var SplObjectStorage<AmqpChannelBridgeInterface>
+     */
+    private readonly SplObjectStorage $channelBridges;
+
     public function __construct(
         private readonly AmqplibConnection $amqplibConnection
     ) {
+        $this->channelBridges = new SplObjectStorage();
     }
 
     /**
      * @inheritDoc
      */
-    public function createChannelBridge(
-        AmqpConnectionBridgeInterface $connectionBridge
-    ): AmqpChannelBridgeInterface {
-        $amqplibChannel = $connectionBridge->getAmqplibConnection()->channel();
+    public function createChannelBridge(): AmqpChannelBridgeInterface
+    {
+        $amqplibChannel = $this->amqplibConnection->channel();
 
-        return new AmqpChannelBridge($connectionBridge, $amqplibChannel, new Consumer());
+        $channelBridge = new AmqpChannelBridge($this, $amqplibChannel, new Consumer());
+
+        $this->channelBridges->attach($channelBridge);
+
+        return $channelBridge;
     }
 
     /**
@@ -52,5 +63,27 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
         $timeout = $this->amqplibConnection->getHeartbeat();
 
         return (int)ceil($timeout / 2);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getUsedChannels(): int
+    {
+        return count($this->channelBridges);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function unregisterChannelBridge(AmqpChannelBridgeInterface $channelBridge): void
+    {
+        if (!$this->channelBridges->contains($channelBridge)) {
+            throw new InvalidArgumentException(
+                __METHOD__ . '(): Channel bridge is not registered'
+            );
+        }
+
+        $this->channelBridges->detach($channelBridge);
     }
 }

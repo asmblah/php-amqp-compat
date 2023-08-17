@@ -77,6 +77,8 @@ class AmqpIntegrationTest extends AbstractTestCase
             'getConnectionTimeout' => 123.0,
             'getHeartbeatInterval' => 234,
             'getHost' => 'my.default.host',
+            'getMaxChannels' => 12,
+            'getMaxFrameSize' => 34,
             'getPassword' => 'mydefaultpass',
             'getPort' => 345,
             'getReadTimeout' => 456.0,
@@ -139,6 +141,8 @@ class AmqpIntegrationTest extends AbstractTestCase
         static::assertSame(123.0, $config->getConnectionTimeout());
         static::assertSame(234, $config->getHeartbeatInterval());
         static::assertSame('my.default.host', $config->getHost());
+        static::assertSame(12, $config->getMaxChannels());
+        static::assertSame(34, $config->getMaxFrameSize());
         static::assertSame('mydefaultpass', $config->getPassword());
         static::assertSame(345, $config->getPort());
         static::assertSame(456.0, $config->getReadTimeout());
@@ -151,28 +155,32 @@ class AmqpIntegrationTest extends AbstractTestCase
     public function testCreateConnectionConfigUsesGivenSettings(): void
     {
         $config = $this->amqpIntegration->createConnectionConfig([
+            'channel_max' => 567,
+            'connect_timeout' => 12.34,
+            'frame_max' => 678,
+            'heartbeat' => 123,
             'host' => 'myhost',
-            'port' => 1234,
             'login' => 'myuser',
             'password' => 'my password',
-            'vhost' => '/my/vhost',
-            'heartbeat' => 123,
-            'connect_timeout' => 12.34,
+            'port' => 1234,
             'read_timeout' => 56.78,
+            'rpc_timeout' => 34.56,
+            'vhost' => '/my/vhost',
             'write_timeout' => 90.12,
-            'rpc_timeout' => 34.56
         ]);
 
-        static::assertSame('myhost', $config->getHost());
-        static::assertSame(1234, $config->getPort());
-        static::assertSame('myuser', $config->getUser());
-        static::assertSame('my password', $config->getPassword());
-        static::assertSame('/my/vhost', $config->getVirtualHost());
-        static::assertSame(123, $config->getHeartbeatInterval());
         static::assertSame(12.34, $config->getConnectionTimeout());
+        static::assertSame(123, $config->getHeartbeatInterval());
+        static::assertSame('myhost', $config->getHost());
+        static::assertSame(567, $config->getMaxChannels());
+        static::assertSame(678, $config->getMaxFrameSize());
+        static::assertSame('my password', $config->getPassword());
+        static::assertSame(1234, $config->getPort());
         static::assertSame(56.78, $config->getReadTimeout());
-        static::assertSame(90.12, $config->getWriteTimeout());
         static::assertSame(34.56, $config->getRpcTimeout());
+        static::assertSame('myuser', $config->getUser());
+        static::assertSame('/my/vhost', $config->getVirtualHost());
+        static::assertSame(90.12, $config->getWriteTimeout());
     }
 
     public function testCreateConnectionConfigHandlesDeprecatedTimeoutUsageCorrectlyWhenNotUsed(): void

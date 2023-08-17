@@ -40,6 +40,8 @@ interface ConnectionFactoryInterface
         float $readWriteTimeout,
         bool $keepAlive,
         int $heartbeatInterval,
-        float $rpcTimeout
+        float $rpcTimeout,
+        int $maxChannels,
+        int $maxFrameSize
     ): AmqplibConnection;
 }

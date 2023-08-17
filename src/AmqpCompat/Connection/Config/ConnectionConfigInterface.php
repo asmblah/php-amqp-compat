@@ -48,6 +48,17 @@ interface ConnectionConfigInterface extends ConnectionConfigProviderInterface
     public function setHost(string $host): void;
 
     /**
+     * Sets the maximum number of channels that may be open on a connection,
+     * overriding any default if used.
+     */
+    public function setMaxChannels(int $maxChannels): void;
+
+    /**
+     * Sets the maximum supported size of a frame in bytes, overriding any default if used.
+     */
+    public function setMaxFrameSize(int $maxFrameSize): void;
+
+    /**
      * Sets the configured password, overriding any default if used.
      */
     public function setPassword(string $password): void;

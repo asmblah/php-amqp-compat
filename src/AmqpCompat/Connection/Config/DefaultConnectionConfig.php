@@ -110,6 +110,30 @@ class DefaultConnectionConfig implements DefaultConnectionConfigInterface
     /**
      * @inheritDoc
      */
+    public function getMaxChannels(): int
+    {
+        $iniSetting = $this->getIniSetting('amqp.channel_max');
+
+        return $iniSetting !== null ?
+            (int)$iniSetting :
+            static::DEFAULT_MAX_CHANNELS;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getMaxFrameSize(): int
+    {
+        $iniSetting = $this->getIniSetting('amqp.frame_max');
+
+        return $iniSetting !== null ?
+            (int)$iniSetting :
+            static::DEFAULT_MAX_FRAME_SIZE;
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function getPassword(): string
     {
         $iniSetting = $this->getIniSetting('amqp.password');

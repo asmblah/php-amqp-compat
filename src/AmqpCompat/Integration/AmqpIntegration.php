@@ -87,6 +87,12 @@ class AmqpIntegration implements AmqpIntegrationInterface
         $heartbeatInterval = array_key_exists('heartbeat', $credentials) ?
             (int) $credentials['heartbeat'] :
             $this->defaultConnectionConfig->getHeartbeatInterval();
+        $maxChannels = array_key_exists('channel_max', $credentials) ?
+            (int) $credentials['channel_max'] :
+            $this->defaultConnectionConfig->getMaxChannels();
+        $maxFrameSize = array_key_exists('frame_max', $credentials) ?
+            (int) $credentials['frame_max'] :
+            $this->defaultConnectionConfig->getMaxFrameSize();
         $connectionTimeout = array_key_exists('connect_timeout', $credentials) ?
             (float) $credentials['connect_timeout'] :
             $this->defaultConnectionConfig->getConnectionTimeout();
@@ -132,6 +138,8 @@ class AmqpIntegration implements AmqpIntegrationInterface
             $readTimeout,
             $writeTimeout,
             $rpcTimeout,
+            $maxChannels,
+            $maxFrameSize,
             $connectionName,
             $deprecatedTimeoutCredentialUsage
         );

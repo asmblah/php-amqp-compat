@@ -89,7 +89,9 @@ class PublishThenConsumeTest extends AbstractTestCase
         $this->amqplibChannel = mock(AmqplibChannel::class, [
             'basic_consume' => 'my-consumer-tag',
             'basic_publish' => null,
+            'close' => null,
             'exchange_declare' => null,
+            'is_open' => true,
             'queue_bind' => null,
         ]);
         $this->amqplibConnection = mock(AmqplibConnection::class, [

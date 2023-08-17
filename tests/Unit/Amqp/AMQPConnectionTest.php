@@ -64,9 +64,12 @@ class AMQPConnectionTest extends AbstractTestCase
 
     public function setUp(): void
     {
-        $this->amqplibConnection = mock(AmqplibConnection::class);
+        $this->amqplibConnection = mock(AmqplibConnection::class, [
+            'isConnected' => true,
+        ]);
         $this->connectionBridge = mock(AmqpConnectionBridgeInterface::class, [
             'getAmqplibConnection' => $this->amqplibConnection,
+            'getUsedChannels' => 9998,
         ]);
         $this->connectionConfig = mock(ConnectionConfigInterface::class, [
             'getConnectionName' => 'my-connection-name',
@@ -75,6 +78,8 @@ class AMQPConnectionTest extends AbstractTestCase
             'getDeprecatedTimeoutIniSettingUsage' => TimeoutDeprecationUsageEnum::NOT_USED,
             'getHeartbeatInterval' => 123,
             'getHost' => 'my.host',
+            'getMaxChannels' => 456,
+            'getMaxFrameSize' => 567,
             'getPassword' => 'mypa55w0rd',
             'getPort' => 4321,
             'getReadTimeout' => 12.34,
@@ -324,6 +329,16 @@ class AMQPConnectionTest extends AbstractTestCase
         static::assertSame('myuser', $this->amqpConnection->getLogin());
     }
 
+    public function testGetMaxChannelsFetchesMaxChannelsFromConfig(): void
+    {
+        static::assertSame(456, $this->amqpConnection->getMaxChannels());
+    }
+
+    public function testGetMaxFrameSizeFetchesMaxFrameSizeFromConfig(): void
+    {
+        static::assertSame(567, $this->amqpConnection->getMaxFrameSize());
+    }
+
     public function testGetPasswordFetchesFromConfig(): void
     {
         static::assertSame('mypa55w0rd', $this->amqpConnection->getPassword());
@@ -359,6 +374,27 @@ class AMQPConnectionTest extends AbstractTestCase
             ->once();
 
         $this->amqpConnection->getTimeout();
+    }
+
+    public function testGetUsedChannelsRaisesWarningWhenNotConnected(): void
+    {
+        $this->errorReporter->expects()
+            ->raiseWarning('AMQPConnection::getUsedChannels(): Connection is not connected.')
+            ->once();
+
+        $this->amqpConnection->getUsedChannels();
+    }
+
+    public function testGetUsedChannelsReturns0WhenNotConnected(): void
+    {
+        static::assertSame(0, $this->amqpConnection->getUsedChannels());
+    }
+
+    public function testGetUsedChannelsFetchesResultFromConnectionBridgeWhenConnected(): void
+    {
+        $this->amqpConnection->connect();
+
+        static::assertSame(9998, $this->amqpConnection->getUsedChannels());
     }
 
     public function testGetVHostFetchesFromConfig(): void

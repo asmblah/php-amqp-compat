@@ -99,6 +99,40 @@ class DefaultConnectionConfigTest extends AbstractTestCase
         );
     }
 
+    public function testGetMaxChannelsReturnsMaxChannelsWhenSetInIni(): void
+    {
+        $this->ini->allows()
+            ->getRawIniSetting('amqp.channel_max')
+            ->andReturn(1234);
+
+        static::assertSame(1234, $this->config->getMaxChannels());
+    }
+
+    public function testGetMaxChannelsReturnsDefaultMaxChannelsWhenNotSetInIni(): void
+    {
+        static::assertSame(
+            DefaultConnectionConfigInterface::DEFAULT_MAX_CHANNELS,
+            $this->config->getMaxChannels()
+        );
+    }
+
+    public function testGetMaxFrameSizeReturnsMaxFrameSizeWhenSetInIni(): void
+    {
+        $this->ini->allows()
+            ->getRawIniSetting('amqp.frame_max')
+            ->andReturn(876);
+
+        static::assertSame(876, $this->config->getMaxFrameSize());
+    }
+
+    public function testGetMaxFrameSizeReturnsDefaultMaxFrameSizeWhenNotSetInIni(): void
+    {
+        static::assertSame(
+            DefaultConnectionConfigInterface::DEFAULT_MAX_FRAME_SIZE,
+            $this->config->getMaxFrameSize()
+        );
+    }
+
     public function testGetPasswordReturnsPasswordWhenSetInIni(): void
     {
         $this->ini->allows()

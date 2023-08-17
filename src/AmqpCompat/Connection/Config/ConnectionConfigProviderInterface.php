@@ -48,6 +48,18 @@ interface ConnectionConfigProviderInterface
     public function getHost(): string;
 
     /**
+     * Fetches the maximum number of channels that may be open on a connection,
+     * or the default if none was given.
+     */
+    public function getMaxChannels(): int;
+
+    /**
+     * Fetches the maximum supported size of a frame in bytes,
+     * or the default if none was given.
+     */
+    public function getMaxFrameSize(): int;
+
+    /**
      * Fetches the configured password, or the default if none was given.
      */
     public function getPassword(): string;

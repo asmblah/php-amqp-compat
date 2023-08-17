@@ -54,7 +54,9 @@ class TestErrorReporter implements ErrorReporterInterface
 
     private function handleSeparator(): void
     {
-        if ($this->messagesCount > 0) {
+        $anyOutputHasBeenSent = headers_sent();
+
+        if ($this->messagesCount > 0 || $anyOutputHasBeenSent) {
             print PHP_EOL;
         }
 

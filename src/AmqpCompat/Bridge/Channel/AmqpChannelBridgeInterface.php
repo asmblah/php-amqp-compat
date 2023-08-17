@@ -55,6 +55,11 @@ interface AmqpChannelBridgeInterface
     public function subscribeConsumer(string $consumerTag): void;
 
     /**
+     * Unregisters this channel from its connection.
+     */
+    public function unregisterChannel(): void;
+
+    /**
      * Unsubscribes the given consumer.
      */
     public function unsubscribeConsumer(string $consumerTag): void;

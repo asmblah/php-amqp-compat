@@ -69,6 +69,14 @@ class ConnectionConfig implements ConnectionConfigInterface
          */
         private float $rpcTimeout = DefaultConnectionConfigInterface::DEFAULT_RPC_TIMEOUT,
         /**
+         * Maximum number of channels that may be opened on the connection.
+         */
+        private int $maxChannels = DefaultConnectionConfigInterface::DEFAULT_MAX_CHANNELS,
+        /**
+         * Maximum supported size of a frame in bytes.
+         */
+        private int $maxFrameSize = DefaultConnectionConfigInterface::DEFAULT_MAX_FRAME_SIZE,
+        /**
          * Optional name for the connection, null if none.
          */
         private ?string $connectionName = null,
@@ -131,6 +139,22 @@ class ConnectionConfig implements ConnectionConfigInterface
     public function getHost(): string
     {
         return $this->host;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getMaxChannels(): int
+    {
+        return $this->maxChannels;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getMaxFrameSize(): int
+    {
+        return $this->maxFrameSize;
     }
 
     /**
@@ -224,6 +248,22 @@ class ConnectionConfig implements ConnectionConfigInterface
     /**
      * @inheritDoc
      */
+    public function setMaxChannels(int $maxChannels): void
+    {
+        $this->maxChannels = $maxChannels;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setMaxFrameSize(int $maxFrameSize): void
+    {
+        $this->maxFrameSize = $maxFrameSize;
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function setPassword(string $password): void
     {
         $this->password = $password;
@@ -287,6 +327,8 @@ class ConnectionConfig implements ConnectionConfigInterface
             'connection_timeout' => $this->connectionTimeout,
             'heartbeat_interval' => $this->heartbeatInterval,
             'host' => $this->host,
+            'max_channels' => $this->maxChannels,
+            'max_frame_size' => $this->maxFrameSize,
             // Obfuscate the password as it is sensitive.
             'password' => str_pad(substr($this->password, 0, 2), 8, '*'),
             'port' => $this->port,

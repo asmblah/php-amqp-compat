@@ -44,6 +44,8 @@ class ConnectorTest extends AbstractTestCase
             'getConnectionTimeout' => 0,
             'getHeartbeatInterval' => 12,
             'getHost' => 'myhost',
+            'getMaxChannels' => 12,
+            'getMaxFrameSize' => 34,
             'getPassword' => 'mypass',
             'getPort' => 321,
             'getReadTimeout' => 0,
@@ -60,6 +62,8 @@ class ConnectorTest extends AbstractTestCase
     public function testConnectProvidesAllConfiguration(): void
     {
         $this->connectionConfig->allows()->getConnectionTimeout()->andReturn(987);
+        $this->connectionConfig->allows()->getMaxChannels()->andReturn(456);
+        $this->connectionConfig->allows()->getMaxFrameSize()->andReturn(789);
         $this->connectionConfig->allows()->getReadTimeout()->andReturn(654);
         $this->connectionConfig->allows()->getRpcTimeout()->andReturn(333);
         $this->connectionConfig->allows()->getWriteTimeout()->andReturn(222);
@@ -78,7 +82,9 @@ class ConnectorTest extends AbstractTestCase
                 654,
                 false,
                 12,
-                333
+                333,
+                456,
+                789
             )
             ->once();
 
@@ -97,11 +103,13 @@ class ConnectorTest extends AbstractTestCase
                 Mockery::any(),
                 Mockery::any(),
                 Mockery::any(),
-                1234,
+                1234, // All of these are as passed to constructor in ->setUp() above.
                 1234,
                 Mockery::any(),
                 Mockery::any(),
-                1234
+                1234,
+                Mockery::any(),
+                Mockery::any()
             )
             ->once();
 
