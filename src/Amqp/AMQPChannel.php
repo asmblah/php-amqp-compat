@@ -14,7 +14,6 @@ declare(strict_types=1);
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
-use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 use PhpAmqpLib\Exception\AMQPExceptionInterface;
 
 /**
@@ -26,8 +25,11 @@ use PhpAmqpLib\Exception\AMQPExceptionInterface;
  */
 class AMQPChannel
 {
-    private readonly AmqplibChannel $amqplibChannel;
-    private readonly AmqplibConnection $amqplibConnection;
+    /**
+     * Nullable because the implementation allows for extension,
+     * where the parent constructor may not be called.
+     */
+    private ?AmqplibChannel $amqplibChannel = null;
     private readonly AmqpChannelBridgeInterface $channelBridge;
 
     /**
@@ -41,16 +43,22 @@ class AMQPChannel
     public function __construct(private readonly AmqpConnection $amqpConnection)
     {
         $connectionBridge = AmqpBridge::getBridgeConnection($amqpConnection);
-        $this->amqplibConnection = $connectionBridge->getAmqplibConnection();
 
         $this->channelBridge = $connectionBridge->createChannelBridge();
         AmqpBridge::bridgeChannel($this, $this->channelBridge);
 
+        // Always set here in the constructor, however the API allows for the class to be extended
+        // and so this parent constructor may not be called. See reference implementation tests.
         $this->amqplibChannel = $this->channelBridge->getAmqplibChannel();
     }
 
     public function __destruct()
     {
+        if ($this->amqplibChannel === null) {
+            // See notes on property and in constructor.
+            return;
+        }
+
         // Match the behaviour of php-amqp/ext-amqp: on destruction, close the channel.
         if ($this->amqplibChannel->is_open()) {
             $this->amqplibChannel->close();
@@ -68,10 +76,10 @@ class AMQPChannel
      */
     public function basicRecover(bool $requeue = true): bool
     {
-        $this->checkChannelOrThrow('Could not redeliver unacknowledged messages.');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not redeliver unacknowledged messages.');
 
         try {
-            $this->amqplibChannel->basic_recover($requeue);
+            $amqplibChannel->basic_recover($requeue);
         } catch (AMQPExceptionInterface $exception) {
             // TODO: Handle errors identically to php-amqp.
             throw new AMQPChannelException(__METHOD__ . ' failed: ' . $exception->getMessage());
@@ -86,15 +94,25 @@ class AMQPChannel
      * @throws AMQPChannelException
      * @throws AMQPConnectionException
      */
-    private function checkChannelOrThrow(string $error): void
+    private function checkChannelOrThrow(string $error): AmqplibChannel
     {
-        if (!$this->amqplibChannel->getConnection()) {
+        if ($this->amqplibChannel === null) {
+            throw new AMQPChannelException($error . ' Stale reference to the channel object.');
+        }
+
+        if (!$this->amqplibChannel->is_open()) {
             throw new AMQPChannelException($error . ' No channel available.');
         }
 
-        if (!$this->amqplibConnection->isConnected()) {
+        if ($this->amqplibChannel->getConnection() === null) {
+            throw new AMQPChannelException($error . ' Stale reference to the connection object.');
+        }
+
+        if (!$this->amqplibChannel->getConnection()->isConnected()) {
             throw new AMQPConnectionException($error . 'No connection available.');
         }
+
+        return $this->amqplibChannel;
     }
 
     /**
@@ -116,10 +134,10 @@ class AMQPChannel
      */
     public function commitTransaction(): bool
     {
-        $this->checkChannelOrThrow('Could not commit the transaction.');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not commit the transaction.');
 
         try {
-            $this->amqplibChannel->tx_commit();
+            $amqplibChannel->tx_commit();
         } catch (AMQPExceptionInterface $exception) {
             // TODO: Handle errors identically to php-amqp.
             throw new AMQPChannelException(__METHOD__ . ' failed: ' . $exception->getMessage());
@@ -203,7 +221,9 @@ class AMQPChannel
      */
     public function isConnected(): bool
     {
-        return $this->amqplibChannel->getConnection()->isConnected();
+        $amqplibConnection = $this->amqplibChannel->getConnection();
+
+        return $amqplibConnection !== null && $amqplibConnection->isConnected();
     }
 
     /**
@@ -231,10 +251,10 @@ class AMQPChannel
      */
     public function qos(int $size, int $count, bool $global): bool
     {
-        $this->checkChannelOrThrow('Could not set qos parameters.');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not set qos parameters.');
 
         try {
-            $this->amqplibChannel->basic_qos($size, $count, $global);
+            $amqplibChannel->basic_qos($size, $count, $global);
         } catch (AMQPExceptionInterface $exception) {
             // TODO: Handle errors identically to php-amqp.
             throw new AMQPChannelException(__METHOD__ . ' failed: ' . $exception->getMessage());
@@ -256,10 +276,10 @@ class AMQPChannel
      */
     public function rollbackTransaction(): bool
     {
-        $this->checkChannelOrThrow('Could not rollback the transaction.');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not rollback the transaction.');
 
         try {
-            $this->amqplibChannel->tx_rollback();
+            $amqplibChannel->tx_rollback();
         } catch (AMQPExceptionInterface $exception) {
             // TODO: Handle errors identically to php-amqp.
             throw new AMQPChannelException(__METHOD__ . ' failed: ' . $exception->getMessage());
@@ -402,10 +422,10 @@ class AMQPChannel
      */
     public function startTransaction(): bool
     {
-        $this->checkChannelOrThrow('Could not start the transaction.');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not start the transaction.');
 
         try {
-            $this->amqplibChannel->tx_select();
+            $amqplibChannel->tx_select();
         } catch (AMQPExceptionInterface $exception) {
             // TODO: Handle errors identically to php-amqp.
             throw new AMQPChannelException(__METHOD__ . ' failed: ' . $exception->getMessage());

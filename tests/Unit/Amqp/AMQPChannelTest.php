@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\Amqp;
 
 use AMQPChannel;
+use AMQPChannelException;
 use AMQPConnection;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
@@ -71,6 +72,21 @@ class AMQPChannelTest extends AbstractTestCase
         AmqpBridge::bridgeConnection($this->amqpConnection, $this->connectionBridge);
 
         $this->amqpChannel = new AMQPChannel($this->amqpConnection);
+    }
+
+    public function testConstructorNotBeingCalledIsHandledCorrectly(): void
+    {
+        $extendedAmqpChannel = new class($this->amqpConnection) extends AMQPChannel {
+            public function __construct(AMQPConnection $amqp_connection)
+            {
+                // Deliberately omit the call to the super constructor.
+            }
+        };
+
+        $this->expectException(AMQPChannelException::class);
+        $this->expectExceptionMessage('Could not start the transaction. Stale reference to the channel object.');
+
+        $extendedAmqpChannel->startTransaction();
     }
 
     public function testConstructorCorrectlyBridgesTheChannelToTheCreatedChannelBridge(): void

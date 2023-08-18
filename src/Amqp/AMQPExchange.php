@@ -26,37 +26,22 @@ use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;
  */
 class AMQPExchange
 {
+    private readonly AMQPChannel $amqpChannel;
     /**
-     * @var AMQPChannel
+     * Nullable because the implementation allows for extension,
+     * where the parent constructor may not be called.
      */
-    private $amqpChannel;
+    private ?AmqplibChannel $amqplibChannel = null;
     /**
-     * @var AmqplibChannel
+     * @var array<string|int>
      */
-    private $amqplibChannel;
-    /**
-     * @var array<string|integer>
-     */
-    private $arguments = [];
-    /**
-     * @var string
-     */
-    private $exchangeName = '';
-    /**
-     * @var string
-     */
-    private $exchangeType = AMQP_EX_TYPE_DIRECT;
-    /**
-     * @var int
-     */
-    private $flags = 0;
+    private array $arguments = [];
+    private string $exchangeName = '';
+    private string $exchangeType = ''; // Must be set to one of the AMQP_EX__TYPE* constants.
+    private int $flags = 0;
 
     /**
-     * @param AMQPChannel $amqpChannel A valid AMQPChannel object, connected
-     *                                 to a broker.
-     *
-     * @throws AMQPExchangeException   When amqpChannel is not connected to
-     *                                 a broker.
+     * @throws AMQPChannelException When channel is not connected.
      * @throws AMQPConnectionException If the connection to the broker was
      *                                 lost.
      */
@@ -66,6 +51,8 @@ class AMQPExchange
 
         $channelBridge = AmqpBridge::getBridgeChannel($amqpChannel);
         $this->amqplibChannel = $channelBridge->getAmqplibChannel();
+
+        $this->checkChannelOrThrow('Could not create exchange.');
     }
 
     /**
@@ -82,10 +69,10 @@ class AMQPExchange
      */
     public function bind(string $exchangeName, string $routingKey = '', array $arguments = array()): bool
     {
-        $this->checkChannelOrThrow('Could not bind to exchange.');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not bind to exchange.');
 
         try {
-            $this->amqplibChannel->exchange_bind(
+            $amqplibChannel->exchange_bind(
                 $this->exchangeName,
                 $exchangeName,
                 $routingKey,
@@ -106,15 +93,25 @@ class AMQPExchange
      * @throws AMQPChannelException
      * @throws AMQPConnectionException
      */
-    private function checkChannelOrThrow(string $error): void
+    private function checkChannelOrThrow(string $error): AmqplibChannel
     {
-        if (!$this->amqplibChannel->getConnection()) {
+        if ($this->amqplibChannel === null) {
+            throw new AMQPChannelException($error . ' Stale reference to the channel object.');
+        }
+
+        if (!$this->amqplibChannel->is_open()) {
             throw new AMQPChannelException($error . ' No channel available.');
+        }
+
+        if ($this->amqplibChannel->getConnection() === null) {
+            throw new AMQPChannelException($error . ' Stale reference to the connection object.');
         }
 
         if (!$this->amqplibChannel->getConnection()->isConnected()) {
             throw new AMQPConnectionException($error . 'No connection available.');
         }
+
+        return $this->amqplibChannel;
     }
 
     /**
@@ -128,21 +125,37 @@ class AMQPExchange
      */
     public function declareExchange(): bool
     {
-        $this->checkChannelOrThrow('Could not declare exchange.');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not declare exchange.');
+
+        if ($this->exchangeName === '') {
+            throw new AMQPExchangeException('Could not declare exchange. Exchanges must have a name.');
+        }
+
+        if ($this->exchangeType === '') {
+            throw new AMQPExchangeException('Could not declare exchange. Exchanges must have a type.');
+        }
 
         try {
-            $this->amqplibChannel->exchange_declare(
+            $amqplibChannel->exchange_declare(
                 $this->exchangeName,
                 $this->exchangeType,
                 $this->flags & AMQP_PASSIVE,
                 $this->flags & AMQP_DURABLE,
                 $this->flags & AMQP_AUTODELETE,
                 $this->flags & AMQP_INTERNAL,
-                $this->flags & AMQP_NOWAIT
+                $this->flags & AMQP_NOWAIT,
+                new AmqplibTable($this->arguments)
             );
         } catch (AMQPExceptionInterface $exception) {
-            // TODO: Handle errors identically to php-amqp.
-            throw new AMQPExchangeException(__METHOD__ . ' failed: ' . $exception->getMessage());
+            throw new AMQPExchangeException(
+                sprintf(
+                    'Server channel error: %d, message: %s',
+                    $exception->getCode(),
+                    $exception->getMessage()
+                ),
+                $exception->getCode(),
+                $exception
+            );
         }
 
         return true;
@@ -165,10 +178,10 @@ class AMQPExchange
      */
     public function delete(?string $exchangeName = null, int $flags = AMQP_NOPARAM): bool
     {
-        $this->checkChannelOrThrow('Could not delete exchange.');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not delete exchange.');
 
         try {
-            $this->amqplibChannel->exchange_delete(
+            $amqplibChannel->exchange_delete(
                 $exchangeName ?? $this->exchangeName,
                 $this->flags & AMQP_IFUNUSED,
                 $this->flags & AMQP_NOWAIT
@@ -293,7 +306,7 @@ class AMQPExchange
         int $flags = AMQP_NOPARAM,
         array $attributes = array()
     ): bool {
-        $this->checkChannelOrThrow('Could not publish to exchange.');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not publish to exchange.');
 
         if (array_key_exists('headers', $attributes)) {
             // Amqplib expects "application_headers" instead.
@@ -305,7 +318,7 @@ class AMQPExchange
         $amqplibMessage = new AmqplibMessage($message, $attributes);
 
         try {
-            $this->amqplibChannel->basic_publish(
+            $amqplibChannel->basic_publish(
                 $amqplibMessage,
                 $this->exchangeName,
                 $routingKey,
@@ -411,10 +424,10 @@ class AMQPExchange
      */
     public function unbind(string $exchangeName, string $routingKey = '', array $arguments = array()): bool
     {
-        $this->checkChannelOrThrow('Could not unbind from exchange.');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not unbind from exchange.');
 
         try {
-            $this->amqplibChannel->exchange_unbind(
+            $amqplibChannel->exchange_unbind(
                 $this->exchangeName,
                 $exchangeName,
                 $routingKey,

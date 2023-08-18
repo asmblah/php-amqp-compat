@@ -117,6 +117,7 @@ class PublishThenConsumeTest extends AbstractTestCase
 
         $this->amqpExchange = new AMQPExchange($this->amqpChannel);
         $this->amqpExchange->setName('my_exchange');
+        $this->amqpExchange->setType(AMQP_EX_TYPE_DIRECT);
         $this->amqpExchange->declareExchange();
 
         $this->amqpQueue = new AMQPQueue($this->amqpChannel);
