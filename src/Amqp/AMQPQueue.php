@@ -17,6 +17,7 @@ use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Exception\AMQPExceptionInterface;
 use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
+use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;
 
 /**
  * Class AMQPQueue.
@@ -28,11 +29,16 @@ use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
 class AMQPQueue
 {
     private readonly AmqplibChannel $amqplibChannel;
+    /**
+     * @var array<string|int>
+     */
+    private $arguments = [];
     private bool $autoDelete = false;
     private readonly AmqpChannelBridgeInterface $channelBridge;
     private ?string $lastConsumerTag;
     private bool $durable = false;
     private bool $exclusive = false;
+    private bool $noWait = false;
     private bool $passive = false;
     private string $queueName = '';
 
@@ -268,7 +274,7 @@ class AMQPQueue
     }
 
     /**
-     * Declares a new queue on the broker.
+     * Declares a new or existing queue on the broker.
      *
      * @return integer the message count.
      *
@@ -278,7 +284,28 @@ class AMQPQueue
      */
     public function declareQueue(): int
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        $this->checkChannelOrThrow('Could not declare queue.');
+
+        try {
+            $result = $this->amqplibChannel->queue_declare(
+                $this->queueName,
+                $this->passive,
+                $this->durable,
+                $this->exclusive,
+                $this->autoDelete,
+                $this->noWait,
+                new AmqplibTable($this->arguments)
+            );
+        } catch (AMQPExceptionInterface $exception) {
+            // TODO: Handle errors identically to php-amqp.
+            throw new AMQPExchangeException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
+        }
+
+        if (!is_array($result)) {
+            throw new AMQPExchangeException(__METHOD__ . '(): Amqplib result was not an array');
+        }
+
+        return (int) $result[1];
     }
 
     /**
@@ -340,7 +367,7 @@ class AMQPQueue
      */
     public function getArgument(string $key)
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        return $this->arguments[$key] ?? false;
     }
 
     /**
@@ -350,7 +377,7 @@ class AMQPQueue
      */
     public function getArguments(): array
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        return $this->arguments;
     }
 
     /**
@@ -393,19 +420,23 @@ class AMQPQueue
         $flags = 0;
 
         if ($this->autoDelete) {
-            $flags &= AMQP_AUTODELETE;
+            $flags |= AMQP_AUTODELETE;
         }
 
         if ($this->durable) {
-            $flags &= AMQP_DURABLE;
+            $flags |= AMQP_DURABLE;
         }
 
         if ($this->exclusive) {
-            $flags &= AMQP_EXCLUSIVE;
+            $flags |= AMQP_EXCLUSIVE;
+        }
+
+        if ($this->noWait) {
+            $flags |= AMQP_NOWAIT;
         }
 
         if ($this->passive) {
-            $flags &= AMQP_PASSIVE;
+            $flags |= AMQP_PASSIVE;
         }
 
         return $flags;
@@ -430,7 +461,7 @@ class AMQPQueue
      */
     public function hasArgument(string $key): bool
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        return array_key_exists($key, $this->arguments);
     }
 
     /**
@@ -497,29 +528,30 @@ class AMQPQueue
 
     /**
      * Sets a queue argument.
-     *
-     * @param string $key The key to set.
-     * @param mixed $value The value to set.
-     *
-     * @return boolean
      */
-    public function setArgument(string $key, $value): bool
+    public function setArgument(string $key, mixed $value): bool
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        if ($value !== 'null' && !is_int($value) && !is_float($value) && !is_string($value)) {
+            throw new AMQPQueueException(
+                'The value parameter must be of type NULL, int, double or string.'
+            );
+        }
+
+        $this->arguments[$key] = $value;
+
+        return true;
     }
 
     /**
      * Sets all arguments on the given queue.
      *
      * All other argument settings will be wiped.
-     *
-     * @param array $arguments An array of key/value pairs of arguments.
-     *
-     * @return bool
      */
     public function setArguments(array $arguments): bool
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        $this->arguments = $arguments;
+
+        return true;
     }
 
     /**
@@ -528,14 +560,13 @@ class AMQPQueue
      * @param integer $flags A bitmask of flags:
      *                       AMQP_DURABLE, AMQP_PASSIVE,
      *                       AMQP_EXCLUSIVE, AMQP_AUTODELETE.
-     *
-     * @return bool
      */
     public function setFlags(int $flags): bool
     {
         $this->autoDelete = (bool)($flags & AMQP_AUTODELETE);
         $this->durable = (bool)($flags & AMQP_DURABLE);
         $this->exclusive = (bool)($flags & AMQP_EXCLUSIVE);
+        $this->noWait = (bool)($flags & AMQP_NOWAIT);
         $this->passive = (bool)($flags & AMQP_PASSIVE);
 
         return true;
@@ -543,10 +574,6 @@ class AMQPQueue
 
     /**
      * Sets the queue name.
-     *
-     * @param string $queueName The name of the queue.
-     *
-     * @return boolean
      */
     public function setName(string $queueName): bool
     {

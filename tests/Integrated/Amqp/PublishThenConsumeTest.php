@@ -93,6 +93,7 @@ class PublishThenConsumeTest extends AbstractTestCase
             'exchange_declare' => null,
             'is_open' => true,
             'queue_bind' => null,
+            'queue_declare' => ['my_queue', 21, 7],
         ]);
         $this->amqplibConnection = mock(AmqplibConnection::class, [
             'channel' => $this->amqplibChannel,
@@ -123,7 +124,7 @@ class PublishThenConsumeTest extends AbstractTestCase
         $this->amqpQueue = new AMQPQueue($this->amqpChannel);
         $this->amqpQueue->setName('my_queue');
         $this->amqpQueue->bind('my_exchange', 'my_routing_key');
-//        $this->amqpQueue->declareQueue();
+        $this->amqpQueue->declareQueue();
     }
 
     public function testPublishThenConsumeWorksAsExpected(): void

@@ -74,7 +74,7 @@ class AMQPExchangeTest extends AbstractTestCase
         $this->amqpExchange->setName('my_exchange');
         $this->amqpExchange->setType(AMQP_EX_TYPE_FANOUT);
         $this->amqpExchange->setFlags(AMQP_PASSIVE | AMQP_AUTODELETE | AMQP_INTERNAL);
-        $this->amqpExchange->setArguments(['x-dead-letter-exchange' => 'my_retry_exchange']);
+        $this->amqpExchange->setArguments(['x-my-arg' => 'my value']);
 
         $this->amqplibChannel->expects()
             ->exchange_declare(
@@ -99,7 +99,7 @@ class AMQPExchangeTest extends AbstractTestCase
                 AmqplibTable $arguments
             ) {
                 static::assertEquals(
-                    ['x-dead-letter-exchange' => 'my_retry_exchange'],
+                    ['x-my-arg' => 'my value'],
                     $arguments->getNativeData()
                 );
             });
