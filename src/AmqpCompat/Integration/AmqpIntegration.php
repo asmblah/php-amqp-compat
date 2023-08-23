@@ -23,7 +23,8 @@ use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
 use Asmblah\PhpAmqpCompat\Connection\ConnectorInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSenderInterface;
-use Psr\Log\LoggerInterface;
+use Asmblah\PhpAmqpCompat\Logger\Logger;
+use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 
 /**
  * Class AmqpIntegration.
@@ -44,7 +45,7 @@ class AmqpIntegration implements AmqpIntegrationInterface
         private readonly DefaultConnectionConfigInterface $defaultConnectionConfig
     ) {
         $this->errorReporter = $configuration->getErrorReporter();
-        $this->logger = $configuration->getLogger();
+        $this->logger = new Logger($configuration->getLogger());
     }
 
     /**
@@ -56,7 +57,11 @@ class AmqpIntegration implements AmqpIntegrationInterface
         $amqplibConnection = $this->connector->connect($config);
 
         // Internal representation of the AMQP connection that this compatibility layer uses.
-        $connectionBridge = new AmqpConnectionBridge($amqplibConnection);
+        $connectionBridge = new AmqpConnectionBridge(
+            $amqplibConnection,
+            $this->errorReporter,
+            $this->logger
+        );
 
         // Install AMQP heartbeat handling (via php-amqplib) as applicable.
         $this->heartbeatSender->register($connectionBridge);

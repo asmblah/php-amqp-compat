@@ -91,7 +91,7 @@ class ReferenceImplementationTest extends AbstractTestCase
 
         // TODO: Have all possible tests passing with `glob($basePath . '/*.phpt')`.
         $phptFiles = glob(
-            $basePath . '/{amqpconnection_construct_*,amqpconnection_connect_login_failure,amqpconnection_getUsedChannels,amqpconnection_connection_getters,amqpdecimal,amqpexchange_declare*}.phpt',
+            $basePath . '/{amqpconnection_construct_*,amqpconnection_connect_login_failure,amqpconnection_getUsedChannels,amqpconnection_connection_getters,amqpdecimal,amqpexchange_declare*,amqpqueue_declare*}.phpt',
             GLOB_BRACE
         );
 

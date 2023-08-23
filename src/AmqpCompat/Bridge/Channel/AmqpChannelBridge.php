@@ -14,9 +14,18 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Bridge\Channel;
 
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
+use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
+use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
 
+/**
+ * Class AmqpChannelBridge.
+ *
+ * Defines the internal representation of an AMQP channel for this library.
+ *
+ * @author Dan Phillimore <dan@ovms.co>
+ */
 class AmqpChannelBridge implements AmqpChannelBridgeInterface
 {
     private array $consumerTags = [];
@@ -58,6 +67,22 @@ class AmqpChannelBridge implements AmqpChannelBridgeInterface
     public function getConsumptionCallback(): callable
     {
         return $this->consumer->getConsumptionCallback();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getErrorReporter(): ErrorReporterInterface
+    {
+        return $this->connectionBridge->getErrorReporter();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getLogger(): LoggerInterface
+    {
+        return $this->connectionBridge->getLogger();
     }
 
     /**

@@ -77,7 +77,7 @@ class AMQPChannelTest extends AbstractTestCase
     public function testConstructorNotBeingCalledIsHandledCorrectly(): void
     {
         $extendedAmqpChannel = new class($this->amqpConnection) extends AMQPChannel {
-            public function __construct(AMQPConnection $amqp_connection)
+            public function __construct(AMQPConnection $amqpConnection)
             {
                 // Deliberately omit the call to the super constructor.
             }

@@ -14,16 +14,18 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\Amqp;
 
 use AMQPChannel;
-use AMQPExchangeException;
+use AMQPChannelException;
 use AMQPQueue;
 use AMQPQueueException;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
+use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery;
 use Mockery\MockInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
+use PhpAmqpLib\Exception\AMQPIOException;
 use PhpAmqpLib\Exception\AMQPProtocolChannelException;
 use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;
 use stdClass;
@@ -52,6 +54,10 @@ class AMQPQueueTest extends AbstractTestCase
      * @var (MockInterface&AmqpChannelBridgeInterface)|null
      */
     private $channelBridge;
+    /**
+     * @var (MockInterface&LoggerInterface)|null
+     */
+    private $logger;
 
     public function setUp(): void
     {
@@ -60,15 +66,80 @@ class AMQPQueueTest extends AbstractTestCase
             'isConnected' => true,
         ]);
         $this->amqplibChannel = mock(AmqplibChannel::class, [
+            'basic_ack' => null,
             'getConnection' => $this->amqplibConnection,
             'is_open' => true,
         ]);
+        $this->logger = mock(LoggerInterface::class, [
+            'debug' => null,
+        ]);
         $this->channelBridge = mock(AmqpChannelBridgeInterface::class, [
             'getAmqplibChannel' => $this->amqplibChannel,
+            'getLogger' => $this->logger,
         ]);
         AmqpBridge::bridgeChannel($this->amqpChannel, $this->channelBridge);
 
         $this->amqpQueue = new AMQPQueue($this->amqpChannel);
+    }
+
+    public function testConstructorNotBeingCalledIsHandledCorrectly(): void
+    {
+        $extendedAmqpQueue = new class($this->amqpChannel) extends AMQPQueue {
+            public function __construct(AMQPChannel $amqpChannel)
+            {
+                // Deliberately omit the call to the super constructor.
+            }
+        };
+
+        $this->expectException(AMQPChannelException::class);
+        $this->expectExceptionMessage('Could not declare queue. Stale reference to the channel object.');
+
+        $extendedAmqpQueue->declareQueue();
+    }
+
+    public function testAckLogsAttemptAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->basic_ack(123, false);
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::ack(): Acknowledgement attempt', [
+                'delivery_tag' => 123,
+                'flags' => AMQP_NOPARAM,
+            ])
+            ->once();
+
+        $this->amqpQueue->ack(123);
+    }
+
+    public function testAckAcknowledgesViaAmqplib(): void
+    {
+        $this->amqplibChannel->expects()
+            ->basic_ack(321, false)
+            ->once();
+
+        $this->amqpQueue->ack(321);
+    }
+
+    public function testAckHandlesAmqplibExceptionCorrectly(): void
+    {
+        $exception = new AMQPIOException('Bang!', 123);
+        $this->amqplibChannel->allows()
+            ->basic_ack(123, false)
+            ->andThrow($exception);
+
+        $this->expectException(AMQPQueueException::class);
+        $this->expectExceptionMessage('AMQPQueue::ack failed: Bang!');
+        $this->logger->expects()
+            ->logAmqplibException('AMQPQueue::ack', $exception)
+            ->once();
+
+        $this->amqpQueue->ack(123);
+    }
+
+    public function testAckReturnsTrue(): void
+    {
+        static::assertTrue($this->amqpQueue->ack(321));
     }
 
     public function testDeclareQueueDeclaresViaAmqplib(): void
@@ -128,7 +199,7 @@ class AMQPQueueTest extends AbstractTestCase
             )
             ->andThrow(new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]));
 
-        $this->expectException(AMQPExchangeException::class);
+        $this->expectException(AMQPQueueException::class);
         $this->expectExceptionMessage('AMQPQueue::declareQueue(): Amqplib failure: my text');
 
         $this->amqpQueue->declareQueue();
@@ -150,7 +221,7 @@ class AMQPQueueTest extends AbstractTestCase
             )
             ->andReturn('I should be an array');
 
-        $this->expectException(AMQPExchangeException::class);
+        $this->expectException(AMQPQueueException::class);
         $this->expectExceptionMessage('AMQPQueue::declareQueue(): Amqplib result was not an array');
 
         $this->amqpQueue->declareQueue();

@@ -13,10 +13,18 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Bridge\Connection;
 
+use Asmblah\PhpAmqpCompat\Bridge\AmqpBridgeResourceInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 
-interface AmqpConnectionBridgeInterface
+/**
+ * Interface AmqpConnectionBridgeInterface.
+ *
+ * Defines the internal representation of an AMQP connection for this library.
+ *
+ * @author Dan Phillimore <dan@ovms.co>
+ */
+interface AmqpConnectionBridgeInterface extends AmqpBridgeResourceInterface
 {
     /**
      * Creates an AmqpChannelBridge for the given connection.

@@ -39,8 +39,8 @@ class LoginFailureTest extends AbstractTestCase
     public function setUp(): void
     {
         $this->logger = mock(LoggerInterface::class, [
-            'debug' => null,
             'error' => null,
+            'log' => null,
         ]);
 
         AmqpManager::setConfiguration(new Configuration($this->logger));
@@ -65,11 +65,12 @@ class LoginFailureTest extends AbstractTestCase
         );
         $this->logger->expects()
             ->error(
-                'AMQPConnection::connect() failed',
+                'AMQPConnection::connect(): Amqplib failure',
                 [
                     'exception' => AMQPConnectionClosedException::class,
                     'message' => 'ACCESS_REFUSED - Login was refused using authentication mechanism AMQPLAIN. ' .
-                        'For details see the broker logfile.(0, 0)'
+                        'For details see the broker logfile.(0, 0)',
+                    'code' => 403,
                 ]
             )
             ->once();

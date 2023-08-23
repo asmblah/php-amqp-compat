@@ -50,6 +50,9 @@ class AMQPExchange
         $this->amqpChannel = $amqpChannel;
 
         $channelBridge = AmqpBridge::getBridgeChannel($amqpChannel);
+
+        // Always set here in the constructor, however the API allows for the class to be extended
+        // and so this parent constructor may not be called. See reference implementation tests.
         $this->amqplibChannel = $channelBridge->getAmqplibChannel();
 
         $this->checkChannelOrThrow('Could not create exchange.');

@@ -22,12 +22,12 @@ use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
+use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery;
 use Mockery\MockInterface;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 use PhpAmqpLib\Exception\AMQPIOException;
-use Psr\Log\LoggerInterface;
 
 /**
  * Class AMQPConnectionTest.
@@ -96,7 +96,7 @@ class AMQPConnectionTest extends AbstractTestCase
         ]);
         $this->logger = mock(LoggerInterface::class, [
             'debug' => null,
-            'error' => null,
+            'logAmqplibException' => null,
         ]);
         $this->amqpIntegration = mock(AmqpIntegrationInterface::class, [
             'connect' => $this->connectionBridge,
@@ -133,7 +133,7 @@ class AMQPConnectionTest extends AbstractTestCase
     public function testConstructorLogsConnectionConfigAsDebugLog(): void
     {
         $this->logger->expects()
-            ->debug('AMQPConnection::__construct() connection created (not yet opened)', [
+            ->debug('AMQPConnection::__construct(): Connection created (not yet opened)', [
                 'config' => ['my' => 'loggable connection config'],
             ])
             ->once();
@@ -268,7 +268,7 @@ class AMQPConnectionTest extends AbstractTestCase
     public function testConnectLogsConnectionConfigAsDebugLog(): void
     {
         $this->logger->expects()
-            ->debug('AMQPConnection::connect() connection attempt', [
+            ->debug('AMQPConnection::connect(): Connection attempt', [
                 'config' => ['my' => 'loggable connection config'],
             ])
             ->once();
@@ -298,10 +298,7 @@ class AMQPConnectionTest extends AbstractTestCase
             ->andThrow($amqplibException);
 
         $this->logger->expects()
-            ->error('AMQPConnection::connect() failed', [
-                'exception' => $amqplibException::class,
-                'message' => 'Bang! from amqplib',
-            ])
+            ->logAmqplibException('AMQPConnection::connect', $amqplibException)
             ->once();
 
         try {

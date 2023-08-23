@@ -42,8 +42,8 @@ class ConnectionFailureTest extends AbstractTestCase
     public function setUp(): void
     {
         $this->logger = mock(LoggerInterface::class, [
-            'debug' => null,
             'error' => null,
+            'log' => null,
         ]);
 
         AmqpManager::setConfiguration(new Configuration($this->logger));
@@ -55,7 +55,7 @@ class ConnectionFailureTest extends AbstractTestCase
         AmqpManager::setConfiguration(null);
     }
 
-    public function testLoginFailureIsHandledCorrectly(): void
+    public function testConnectionFailureIsHandledCorrectly(): void
     {
         $amqpConnection = new AMQPConnection([
             'connect_timeout' => 0.01,
@@ -66,13 +66,14 @@ class ConnectionFailureTest extends AbstractTestCase
         $this->expectExceptionMessage('Socket error: could not connect to host.');
         $this->logger->expects()
             ->error(
-                'AMQPConnection::connect() failed',
+                'AMQPConnection::connect(): Amqplib failure',
                 IsArrayContainingInAnyOrder::arrayContainingInAnyOrder([
                     'exception' => AMQPIOException::class,
                     'message' => StringContains::containsString(
                         'stream_socket_client(): Unable to connect to tcp://my.invalid.host:5672 ' .
                         '(php_network_getaddresses: getaddrinfo for my.invalid.host failed'
-                    )
+                    ),
+                    'code' => 0,
                 ])
             )
             ->once();

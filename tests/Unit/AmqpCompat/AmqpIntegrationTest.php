@@ -22,12 +22,12 @@ use Asmblah\PhpAmqpCompat\Connection\ConnectorInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSenderInterface;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
+use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery;
 use Mockery\MockInterface;
 use PhpAmqpLib\Connection\AbstractConnection;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
-use Psr\Log\LoggerInterface;
 
 /**
  * Class AmqpIntegrationTest.
@@ -221,6 +221,6 @@ class AmqpIntegrationTest extends AbstractTestCase
 
     public function testGetLoggerReturnsTheLogger(): void
     {
-        static::assertSame($this->logger, $this->amqpIntegration->getLogger());
+        static::assertSame($this->logger, $this->amqpIntegration->getLogger()->getWrappedLogger());
     }
 }

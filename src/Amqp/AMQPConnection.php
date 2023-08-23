@@ -18,10 +18,10 @@ use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
+use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use PhpAmqpLib\Connection\AbstractConnection;
 use PhpAmqpLib\Exception\AMQPExceptionInterface;
 use PhpAmqpLib\Exception\AMQPIOException;
-use Psr\Log\LoggerInterface;
 
 /**
  * Class AMQPConnection.
@@ -86,7 +86,7 @@ class AMQPConnection
         $this->connectionConfig = $this->amqpIntegration->createConnectionConfig($credentials);
         AmqpBridge::bridgeConnectionConfig($this, $this->connectionConfig);
 
-        $this->logger->debug(__METHOD__ . '() connection created (not yet opened)', [
+        $this->logger->debug(__METHOD__ . '(): Connection created (not yet opened)', [
             'config' => $this->connectionConfig->toLoggableArray(),
         ]);
 
@@ -147,7 +147,7 @@ class AMQPConnection
             return true; // Already connected.
         }
 
-        $this->logger->debug(__METHOD__ . '() connection attempt', [
+        $this->logger->debug(__METHOD__ . '(): Connection attempt', [
             'config' => $this->connectionConfig->toLoggableArray(),
         ]);
 
@@ -158,10 +158,7 @@ class AMQPConnection
 
             // Log details of the internal php-amqplib exception,
             // that cannot be included in the php-amqp/ext-amqp -compatible exception.
-            $this->logger->error(__METHOD__ . '() failed', [
-                'exception' => get_class($exception),
-                'message' => $exception->getMessage(),
-            ]);
+            $this->logger->logAmqplibException(__METHOD__, $exception);
 
             if ($exception instanceof AMQPIOException) {
                 $message = 'Socket error: could not connect to host.';

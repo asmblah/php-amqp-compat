@@ -13,11 +13,19 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Bridge\Channel;
 
+use Asmblah\PhpAmqpCompat\Bridge\AmqpBridgeResourceInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
 
-interface AmqpChannelBridgeInterface
+/**
+ * Interface AmqpChannelBridgeInterface.
+ *
+ * Defines the internal representation of an AMQP channel for this library.
+ *
+ * @author Dan Phillimore <dan@ovms.co>
+ */
+interface AmqpChannelBridgeInterface extends AmqpBridgeResourceInterface
 {
     /**
      * Consumes the given message, returning false if further consumption should be stopped.

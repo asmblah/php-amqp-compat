@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\Amqp;
 
 use AMQPChannel;
+use AMQPChannelException;
 use AMQPExchange;
 use AMQPExchangeException;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
@@ -67,6 +68,21 @@ class AMQPExchangeTest extends AbstractTestCase
         AmqpBridge::bridgeChannel($this->amqpChannel, $this->channelBridge);
 
         $this->amqpExchange = new AMQPExchange($this->amqpChannel);
+    }
+
+    public function testConstructorNotBeingCalledIsHandledCorrectly(): void
+    {
+        $extendedAmqpExchange = new class($this->amqpChannel) extends AMQPExchange {
+            public function __construct(AMQPChannel $amqpChannel)
+            {
+                // Deliberately omit the call to the super constructor.
+            }
+        };
+
+        $this->expectException(AMQPChannelException::class);
+        $this->expectExceptionMessage('Could not declare exchange. Stale reference to the channel object.');
+
+        $extendedAmqpExchange->declareExchange();
     }
 
     public function testDeclareExchangeDeclaresViaAmqplib(): void

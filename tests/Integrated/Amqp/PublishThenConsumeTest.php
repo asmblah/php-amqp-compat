@@ -26,13 +26,13 @@ use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
+use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery;
 use Mockery\MockInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 use PhpAmqpLib\Message\AMQPMessage;
-use Psr\Log\LoggerInterface;
 
 /**
  * Class PublishThenConsumeTest.
@@ -104,7 +104,11 @@ class PublishThenConsumeTest extends AbstractTestCase
             ->getConnection()
             ->andReturn($this->amqplibConnection);
 
-        $this->amqpConnectionBridge = new AmqpConnectionBridge($this->amqplibConnection);
+        $this->amqpConnectionBridge = new AmqpConnectionBridge(
+            $this->amqplibConnection,
+            $this->errorReporter,
+            $this->logger
+        );
 
         $this->amqpIntegration->allows()
             ->connect($this->connectionConfig)

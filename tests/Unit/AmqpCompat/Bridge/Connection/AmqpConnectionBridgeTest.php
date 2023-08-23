@@ -15,6 +15,8 @@ namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Bridge\Connection;
 
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
+use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
+use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery\MockInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
@@ -32,12 +34,26 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
      */
     private $amqplibConnection;
     private ?AmqpConnectionBridge $connectionBridge;
+    /**
+     * @var (MockInterface&ErrorReporterInterface)|null
+     */
+    private $errorReporter;
+    /**
+     * @var (MockInterface&LoggerInterface)|null
+     */
+    private $logger;
 
     public function setUp(): void
     {
         $this->amqplibConnection = mock(AmqplibConnection::class);
+        $this->errorReporter = mock(ErrorReporterInterface::class);
+        $this->logger = mock(LoggerInterface::class);
 
-        $this->connectionBridge = new AmqpConnectionBridge($this->amqplibConnection);
+        $this->connectionBridge = new AmqpConnectionBridge(
+            $this->amqplibConnection,
+            $this->errorReporter,
+            $this->logger
+        );
     }
 
     public function testCreateChannelBridgeCreatesAChannelViaAmqplibConnection(): void
@@ -65,6 +81,11 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
         static::assertSame($this->amqplibConnection, $this->connectionBridge->getAmqplibConnection());
     }
 
+    public function testGetErrorReporterReturnsTheErrorReporter(): void
+    {
+        static::assertSame($this->errorReporter, $this->connectionBridge->getErrorReporter());
+    }
+
     public function testGetHeartbeatIntervalReturnsHalfTheIntervalFromAmqplib(): void
     {
         $this->amqplibConnection->allows()
@@ -72,6 +93,11 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
             ->andReturn(42);
 
         static::assertSame(21, $this->connectionBridge->getHeartbeatInterval());
+    }
+
+    public function testGetLoggerReturnsTheLogger(): void
+    {
+        static::assertSame($this->logger, $this->connectionBridge->getLogger());
     }
 
     public function testGetUsedChannelsReturnsZeroInitially(): void

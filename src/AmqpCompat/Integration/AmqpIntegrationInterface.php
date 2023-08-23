@@ -16,8 +16,8 @@ namespace Asmblah\PhpAmqpCompat\Integration;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
+use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Exception;
-use Psr\Log\LoggerInterface;
 
 /**
  * Interface AmqpIntegrationInterface.

@@ -16,10 +16,19 @@ namespace Asmblah\PhpAmqpCompat\Bridge\Connection;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\Consumer;
+use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
+use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use InvalidArgumentException;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 use SplObjectStorage;
 
+/**
+ * Class AmqpConnectionBridge.
+ *
+ * Defines the internal representation of an AMQP connection for this library.
+ *
+ * @author Dan Phillimore <dan@ovms.co>
+ */
 class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
 {
     /**
@@ -28,7 +37,9 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
     private readonly SplObjectStorage $channelBridges;
 
     public function __construct(
-        private readonly AmqplibConnection $amqplibConnection
+        private readonly AmqplibConnection $amqplibConnection,
+        private readonly ErrorReporterInterface $errorReporter,
+        private readonly LoggerInterface $logger
     ) {
         $this->channelBridges = new SplObjectStorage();
     }
@@ -58,11 +69,27 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
     /**
      * @inheritDoc
      */
+    public function getErrorReporter(): ErrorReporterInterface
+    {
+        return $this->errorReporter;
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function getHeartbeatInterval(): int
     {
         $timeout = $this->amqplibConnection->getHeartbeat();
 
         return (int)ceil($timeout / 2);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getLogger(): LoggerInterface
+    {
+        return $this->logger;
     }
 
     /**

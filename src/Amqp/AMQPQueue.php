@@ -14,6 +14,7 @@ declare(strict_types=1);
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
+use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Exception\AMQPExceptionInterface;
 use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
@@ -28,32 +29,39 @@ use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;
  */
 class AMQPQueue
 {
-    private readonly AmqplibChannel $amqplibChannel;
+    /**
+     * Nullable because the implementation allows for extension,
+     * where the parent constructor may not be called.
+     */
+    private ?AmqplibChannel $amqplibChannel = null;
     /**
      * @var array<string|int>
      */
     private $arguments = [];
     private bool $autoDelete = false;
     private readonly AmqpChannelBridgeInterface $channelBridge;
-    private ?string $lastConsumerTag;
     private bool $durable = false;
     private bool $exclusive = false;
+    private ?string $lastConsumerTag;
+    private readonly LoggerInterface $logger;
     private bool $noWait = false;
     private bool $passive = false;
     private string $queueName = '';
 
     /**
-     * @param AMQPChannel $amqpChannel The AMQP channel to use.
-     *
      * @throws AMQPQueueException When amqpChannel is not connected to a
      *                            broker.
      * @throws AMQPConnectionException If the connection to the broker was lost.
      */
-    public function __construct(
-        private readonly AMQPChannel $amqpChannel
-    ) {
+    public function __construct(private readonly AMQPChannel $amqpChannel)
+    {
         $this->channelBridge = AmqpBridge::getBridgeChannel($this->amqpChannel);
+
+        // Always set here in the constructor, however the API allows for the class to be extended
+        // and so this parent constructor may not be called. See reference implementation tests.
         $this->amqplibChannel = $this->channelBridge->getAmqplibChannel();
+
+        $this->logger = $this->channelBridge->getLogger();
     }
 
     /**
@@ -63,22 +71,30 @@ class AMQPQueue
      * without the AMQP_AUTOACK flag through AMQPQueue::get() or
      * AMQPQueue::consume().
      *
-     * @param integer $delivery_tag The message delivery tag of which to
-     *                              acknowledge receipt.
-     * @param integer $flags        The only valid flag that can be passed is
-     *                              AMQP_MULTIPLE.
+     * @param int $deliveryTag The message delivery tag of which to
+     *                         acknowledge receipt.
+     * @param int $flags The only valid flag that can be passed is
+     *                   AMQP_MULTIPLE.
      *
-     * @return boolean
-     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPChannelException If the channel is not open.
      * @throws AMQPConnectionException If the connection to the broker was lost.
      */
-    public function ack(int $delivery_tag, int $flags = AMQP_NOPARAM): bool
+    public function ack(int $deliveryTag, int $flags = AMQP_NOPARAM): bool
     {
-        $this->checkChannelOrThrow('Could not ack message.');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not ack message.');
+
+        $this->logger->debug(__METHOD__ . '(): Acknowledgement attempt', [
+            'delivery_tag' => $deliveryTag,
+            'flags' => $flags,
+        ]);
 
         try {
-            $this->amqplibChannel->basic_ack($delivery_tag, $flags & AMQP_MULTIPLE);
+            $amqplibChannel->basic_ack($deliveryTag, $flags & AMQP_MULTIPLE);
         } catch (AMQPExceptionInterface $exception) {
+            // Log details of the internal php-amqplib exception,
+            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
+            $this->logger->logAmqplibException(__METHOD__, $exception);
+
             // TODO: Handle errors identically to php-amqp.
             throw new AMQPQueueException(__METHOD__ . ' failed: ' . $exception->getMessage());
         }
@@ -99,10 +115,10 @@ class AMQPQueue
      */
     public function bind(string $exchangeName, string $routingKey = null, array $arguments = array()): bool
     {
-        $this->checkChannelOrThrow('Could not bind queue.');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not bind queue.');
 
         try {
-            $this->amqplibChannel->queue_bind(
+            $amqplibChannel->queue_bind(
                 $this->queueName,
                 $exchangeName,
                 $routingKey,
@@ -135,10 +151,10 @@ class AMQPQueue
      */
     public function cancel(string $consumerTag = ''): bool
     {
-        $this->checkChannelOrThrow('Could not cancel queue.');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not cancel queue.');
 
         try {
-            $this->amqplibChannel->basic_cancel($consumerTag);
+            $amqplibChannel->basic_cancel($consumerTag);
         } catch (AMQPExceptionInterface $exception) {
             // TODO: Handle errors identically to php-amqp.
             throw new AMQPQueueException(__METHOD__ . ' failed: ' . $exception->getMessage());
@@ -155,15 +171,25 @@ class AMQPQueue
      * @throws AMQPChannelException
      * @throws AMQPConnectionException
      */
-    private function checkChannelOrThrow(string $error): void
+    private function checkChannelOrThrow(string $error): AmqplibChannel
     {
-        if (!$this->amqplibChannel->getConnection()) {
+        if ($this->amqplibChannel === null) {
+            throw new AMQPChannelException($error . ' Stale reference to the channel object.');
+        }
+
+        if (!$this->amqplibChannel->is_open()) {
             throw new AMQPChannelException($error . ' No channel available.');
+        }
+
+        if ($this->amqplibChannel->getConnection() === null) {
+            throw new AMQPChannelException($error . ' Stale reference to the connection object.');
         }
 
         if (!$this->amqplibChannel->getConnection()->isConnected()) {
             throw new AMQPConnectionException($error . 'No connection available.');
         }
+
+        return $this->amqplibChannel;
     }
 
     /**
@@ -185,7 +211,7 @@ class AMQPQueue
      *                                  If the callback is omitted or null is passed,
      *                                  then the messages delivered to this client will
      *                                  be made available to the first real callback
-     *                                  registered. That allows one to have a single
+     *                                  registered. That allows you to have a single
      *                                  callback consuming from multiple queues.
      * @param integer $flags            A bitmask of any of the flags: AMQP_AUTOACK,
      *                                  AMQP_JUST_CONSUME. Note: when AMQP_JUST_CONSUME
@@ -208,7 +234,7 @@ class AMQPQueue
         int $flags = AMQP_NOPARAM,
         ?string $consumerTag = null
     ): void {
-        $this->checkChannelOrThrow('Could not get channel.');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not get channel.');
 
         if ($flags & AMQP_JUST_CONSUME) {
             throw new BadMethodCallException(
@@ -217,7 +243,7 @@ class AMQPQueue
         }
 
         try {
-            $consumerTag = $this->amqplibChannel->basic_consume(
+            $consumerTag = $amqplibChannel->basic_consume(
                 $this->queueName,
                 $consumerTag,
                 $flags & AMQP_NOLOCAL,
@@ -262,7 +288,7 @@ class AMQPQueue
                  * Amqplib's internal wait loop will allow async signals to still be fired,
                  * so that heartbeats can still be handled in between messages.
                  */
-                $this->amqplibChannel->wait();
+                $amqplibChannel->wait();
             } catch (StopConsumptionException $exception) {
                 // Consumer returned false, so we return control to the caller.
                 $consuming = false;
@@ -274,20 +300,18 @@ class AMQPQueue
     }
 
     /**
-     * Declares a new or existing queue on the broker.
+     * Declares a new or existing queue on the broker, returning the message count.
      *
-     * @return integer the message count.
-     *
-     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPChannelException If the channel is not open.
      * @throws AMQPConnectionException If the connection to the broker was lost.
-     * @throws AMQPQueueException      On failure.
+     * @throws AMQPQueueException On failure.
      */
     public function declareQueue(): int
     {
-        $this->checkChannelOrThrow('Could not declare queue.');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not declare queue.');
 
         try {
-            $result = $this->amqplibChannel->queue_declare(
+            $result = $amqplibChannel->queue_declare(
                 $this->queueName,
                 $this->passive,
                 $this->durable,
@@ -298,34 +322,50 @@ class AMQPQueue
             );
         } catch (AMQPExceptionInterface $exception) {
             // TODO: Handle errors identically to php-amqp.
-            throw new AMQPExchangeException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
+            throw new AMQPQueueException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
         }
 
         if (!is_array($result)) {
-            throw new AMQPExchangeException(__METHOD__ . '(): Amqplib result was not an array');
+            throw new AMQPQueueException(__METHOD__ . '(): Amqplib result was not an array');
         }
 
         return (int) $result[1];
     }
 
     /**
-     * Delete a queue from the broker.
+     * Deletes a queue from the broker, returning the number of deleted messages.
      *
-     * This includes its entire contents of unread or unacknowledged messages.
+     * This includes the entire contents of unread or unacknowledged messages.
      *
-     * @param integer $flags        Optionally AMQP_IFUNUSED can be specified
-     *                              to indicate the queue should not be
-     *                              deleted until no clients are connected to
-     *                              it.
+     * @param int $flags AMQP_IFUNUSED, indicating that the queue should not be
+     *                   deleted until no clients are connected to it,
+     *                   and/or AMQP_IFEMPTY.
      *
-     * @return integer The number of deleted messages.
-     *
-     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPChannelException If the channel is not open.
      * @throws AMQPConnectionException If the connection to the broker was lost.
+     * @throws AMQPQueueException On failure.
      */
     public function delete(int $flags = AMQP_NOPARAM): int
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not delete queue.');
+
+        try {
+            $result = $amqplibChannel->queue_delete(
+                $this->queueName,
+                $flags & AMQP_IFUNUSED,
+                $flags & AMQP_IFEMPTY,
+                $this->noWait
+            );
+        } catch (AMQPExceptionInterface $exception) {
+            // Log details of the internal php-amqplib exception,
+            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
+            $this->logger->logAmqplibException(__METHOD__, $exception);
+
+            // TODO: Handle errors identically to php-amqp.
+            throw new AMQPQueueException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
+        }
+
+        return (int) $result;
     }
 
     /**
