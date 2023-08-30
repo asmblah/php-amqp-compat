@@ -307,7 +307,7 @@ class AMQPExchange
         string $message,
         string $routingKey = null,
         int $flags = AMQP_NOPARAM,
-        array $attributes = array()
+        array $attributes = []
     ): bool {
         $amqplibChannel = $this->checkChannelOrThrow('Could not publish to exchange.');
 
@@ -316,6 +316,11 @@ class AMQPExchange
             $attributes['application_headers'] = new AmqplibTable($attributes['headers']);
 
             unset($attributes['headers']);
+        }
+
+        if (!array_key_exists('content_type', $attributes) || $attributes['content_type'] === '') {
+            // Default content type is text/plain.
+            $attributes['content_type'] = 'text/plain';
         }
 
         $amqplibMessage = new AmqplibMessage($message, $attributes);

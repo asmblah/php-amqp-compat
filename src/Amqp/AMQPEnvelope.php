@@ -21,76 +21,30 @@ declare(strict_types=1);
 class AMQPEnvelope extends AMQPBasicProperties
 {
     /**
-     * @var string
-     */
-    private $body;
-    /**
-     * @var string
-     */
-    private $consumerTag;
-    /**
-     * @var int
-     */
-    private $deliveryTag;
-    /**
-     * @var string
-     */
-    private $exchangeName;
-    /**
-     * @var bool
-     */
-    private $isRedelivery;
-    /**
-     * @var string
-     */
-    private $routingKey;
-
-    /**
      * TODO: Keep constructor empty as per reference implementation
      *       and move to static internal factory method instead?
-     *
-     * @param string $body
-     * @param string $consumerTag
-     * @param int $deliveryTag
-     * @param string $exchangeName
-     * @param bool $isRedelivery
-     * @param string $routingKey
-     * @param string $contentType
-     * @param string $contentEncoding
-     * @param array $headers
-     * @param int $deliveryMode
-     * @param int $priority
-     * @param string $correlationId
-     * @param string $replyTo
-     * @param string $expiration
-     * @param string $messageId
-     * @param int $timestamp
-     * @param string $type
-     * @param string $userId
-     * @param string $appId
-     * @param string $clusterId
      */
     public function __construct(
-        string $body,
-        string $consumerTag,
-        int $deliveryTag,
-        string $exchangeName,
-        bool $isRedelivery,
-        string $routingKey,
-        string $contentType = '',
-        string $contentEncoding = '',
+        private readonly ?string $body = null,
+        private readonly ?string $consumerTag = null,
+        private readonly ?int $deliveryTag = null,
+        private readonly ?string $exchangeName = null,
+        private readonly ?bool $isRedelivery = null,
+        private readonly ?string $routingKey = null,
+        ?string $contentType = '',
+        ?string $contentEncoding = '',
         array $headers = [],
         int $deliveryMode = AMQP_DELIVERY_MODE_TRANSIENT,
         int $priority = 0,
-        string $correlationId = '',
-        string $replyTo = '',
-        string $expiration = '',
-        string $messageId = '',
-        int $timestamp = 0,
-        string $type = '',
-        string $userId = '',
-        string $appId = '',
-        string $clusterId = ''
+        ?string $correlationId = '',
+        ?string $replyTo = '',
+        ?string $expiration = '',
+        ?string $messageId = '',
+        ?int $timestamp = 0,
+        ?string $type = '',
+        ?string $userId = '',
+        ?string $appId = '',
+        ?string $clusterId = ''
     ) {
         parent::__construct(
             $contentType,
@@ -108,51 +62,46 @@ class AMQPEnvelope extends AMQPBasicProperties
             $appId,
             $clusterId
         );
-
-        $this->body = $body;
-        $this->consumerTag = $consumerTag;
-        $this->deliveryTag = $deliveryTag;
-        $this->exchangeName = $exchangeName;
-        $this->isRedelivery = $isRedelivery;
-        $this->routingKey = $routingKey;
     }
 
     /**
-     * Fetches the body of the message.
-     *
-     * @return string The contents of the message body.
+     * Fetches the body of the message, or false if none is set.
      */
-    public function getBody(): string
+    public function getBody(): string|false
     {
+        // Note that ->getBody() is special and does not just return the underlying value,
+        // unlike the other methods.
+        if ($this->body === null) {
+            return '';
+        }
+
+        if ($this->body === '') {
+            return false;
+        }
+
         return $this->body;
     }
 
     /**
      * Fetches the consumer tag of the message.
-     *
-     * @return string The consumer tag of the message.
      */
-    public function getConsumerTag(): string
+    public function getConsumerTag(): ?string
     {
         return $this->consumerTag;
     }
 
     /**
      * Fetches the delivery tag of the message.
-     *
-     * @return int The delivery tag of the message.
      */
-    public function getDeliveryTag(): int
+    public function getDeliveryTag(): ?int
     {
         return $this->deliveryTag;
     }
 
     /**
      * Fetches the name of the exchange on which the message was published.
-     *
-     * @return string
      */
-    public function getExchangeName(): string
+    public function getExchangeName(): ?string
     {
         return $this->exchangeName;
     }
@@ -165,7 +114,7 @@ class AMQPEnvelope extends AMQPBasicProperties
      * @return string|bool The contents of the specified header or FALSE
      *                     if not set.
      */
-    public function getHeader(string $headerKey)
+    public function getHeader(string $headerKey): string|false
     {
         return $this->hasHeader($headerKey) ?
             $this->headers[$headerKey] :
@@ -174,20 +123,14 @@ class AMQPEnvelope extends AMQPBasicProperties
 
     /**
      * Fetches the routing key of the message.
-     *
-     * @return string
      */
-    public function getRoutingKey(): string
+    public function getRoutingKey(): ?string
     {
         return $this->routingKey;
     }
 
     /**
      * Determines whether the specified message header exists.
-     *
-     * @param string $headerKey Name of the header to check.
-     *
-     * @return bool
      */
     public function hasHeader(string $headerKey): bool
     {
@@ -200,10 +143,8 @@ class AMQPEnvelope extends AMQPBasicProperties
      * If this message has been delivered and AMQPEnvelope::nack() was called,
      * the message will be put back on the queue to be redelivered,
      * at which point the message will always return TRUE when this method is called.
-     *
-     * @return bool TRUE if this is a redelivery, FALSE otherwise.
      */
-    public function isRedelivery(): bool
+    public function isRedelivery(): ?bool
     {
         return $this->isRedelivery;
     }

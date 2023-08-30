@@ -13,9 +13,11 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Bridge\Channel;
 
+use AMQPQueue;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
+use LogicException;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
 
@@ -28,7 +30,10 @@ use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
  */
 class AmqpChannelBridge implements AmqpChannelBridgeInterface
 {
-    private array $consumerTags = [];
+    /**
+     * @var array<string, AMQPQueue>
+     */
+    private array $consumerTagToQueueMap = [];
 
     public function __construct(
         private readonly AmqpConnectionBridgeInterface $connectionBridge,
@@ -42,7 +47,18 @@ class AmqpChannelBridge implements AmqpChannelBridgeInterface
      */
     public function consumeMessage(AmqplibMessage $message): void
     {
-        $this->consumer->consumeMessage($message);
+        $consumerTag = $message->getConsumerTag();
+        $amqpQueue = $this->consumerTagToQueueMap[$consumerTag] ?? null;
+
+        if ($amqpQueue === null) {
+            throw new LogicException(sprintf(
+                '%s(): No consumer registered for consumer tag "%s"',
+                __METHOD__,
+                $consumerTag
+            ));
+        }
+
+        $this->consumer->consumeMessage($message, $amqpQueue);
     }
 
     /**
@@ -90,7 +106,7 @@ class AmqpChannelBridge implements AmqpChannelBridgeInterface
      */
     public function isConsumerSubscribed(string $consumerTag): bool
     {
-        return array_key_exists($consumerTag, $this->consumerTags);
+        return array_key_exists($consumerTag, $this->consumerTagToQueueMap);
     }
 
     /**
@@ -104,9 +120,9 @@ class AmqpChannelBridge implements AmqpChannelBridgeInterface
     /**
      * @inheritDoc
      */
-    public function subscribeConsumer(string $consumerTag): void
+    public function subscribeConsumer(string $consumerTag, AMQPQueue $amqpQueue): void
     {
-        $this->consumerTags[$consumerTag] = true;
+        $this->consumerTagToQueueMap[$consumerTag] = $amqpQueue;
     }
 
     /**
@@ -122,6 +138,6 @@ class AmqpChannelBridge implements AmqpChannelBridgeInterface
      */
     public function unsubscribeConsumer(string $consumerTag): void
     {
-        unset($this->consumerTags[$consumerTag]);
+        unset($this->consumerTagToQueueMap[$consumerTag]);
     }
 }

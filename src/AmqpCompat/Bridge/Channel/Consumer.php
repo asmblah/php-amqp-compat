@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Bridge\Channel;
 
 use AMQPEnvelope;
+use AMQPQueue;
 use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
 use LogicException;
 use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
@@ -40,7 +41,7 @@ class Consumer implements ConsumerInterface
     /**
      * @inheritDoc
      */
-    public function consumeMessage(AmqplibMessage $message): void
+    public function consumeMessage(AmqplibMessage $message, AMQPQueue $amqpQueue): void
     {
         if (!$this->consumptionCallback) {
             throw new LogicException(__METHOD__ . ' :: No callback is registered');
@@ -81,7 +82,7 @@ class Consumer implements ConsumerInterface
             $properties['cluster_id'] ?? ''
         );
 
-        $result = ($this->consumptionCallback)($amqpEnvelope);
+        $result = ($this->consumptionCallback)($amqpEnvelope, $amqpQueue);
 
         if ($result === false) {
             throw new StopConsumptionException();

@@ -13,11 +13,15 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util;
 
-use AMQPConnection;
-use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
+use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpBasicPropertiesEmulator;
+use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpConnectionEmulator;
+use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpEnvelopeEmulator;
+use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\DelegatingClassEmulator;
+use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\DelegatingClassEmulatorInterface;
 use Asmblah\PhpCodeShift\CodeShift;
 use Asmblah\PhpCodeShift\Shifter\Filter\FileFilter;
-use Asmblah\PhpCodeShift\Shifter\Shift\Spec\FunctionHookShiftSpec;
+use Asmblah\PhpCodeShift\Shifter\Filter\MultipleFilter;
+use Asmblah\PhpCodeShift\Shifter\Shift\Shift\FunctionHook\FunctionHookShiftSpec;
 
 /**
  * Class CodeShifts.
@@ -29,11 +33,27 @@ use Asmblah\PhpCodeShift\Shifter\Shift\Spec\FunctionHookShiftSpec;
  */
 class CodeShifts
 {
+    private static ContextResolver $contextResolver;
+    private static DelegatingClassEmulatorInterface $classEmulator;
+
+    /**
+     * Fetches the ContextResolver service in use.
+     */
+    public static function getContextResolver(): ContextResolver
+    {
+        return static::$contextResolver;
+    }
+
+    /**
+     * Installs all applicable code shifts for the test harness with PHP Code Shift.
+     */
     public static function install(): void
     {
+        static::$contextResolver = new ContextResolver();
+
         $codeShift = new CodeShift();
 
-        // Pretend that ext-amqp, that we are emulating, is installed.
+        // Pretend that php-amqp/ext-amqp, that we are emulating, is installed.
         $codeShift->shift(
             new FunctionHookShiftSpec(
                 'extension_loaded',
@@ -43,69 +63,57 @@ class CodeShifts
                     };
                 }
             ),
-            new FileFilter('*.php')
+            new MultipleFilter([
+                new FileFilter('*.php'),
+                new FileFilter('*.php.inc'),
+            ])
+        );
+
+        $classEmulator = new DelegatingClassEmulator(static::$contextResolver);
+        static::$classEmulator = $classEmulator;
+
+        $classEmulator->registerClassEmulator(new AmqpBasicPropertiesEmulator());
+        $classEmulator->registerClassEmulator(new AmqpConnectionEmulator());
+        $classEmulator->registerClassEmulator(new AmqpEnvelopeEmulator());
+
+        $codeShift->shift(
+            new FunctionHookShiftSpec(
+                'get_class_methods',
+                function ($nativeGetClassMethods) {
+                    static::$classEmulator->setNativeGetClassMethods($nativeGetClassMethods);
+
+                    return function (object|string $objectOrClass): array {
+                        $className = is_object($objectOrClass) ?
+                            $objectOrClass::class :
+                            $objectOrClass;
+
+                        return static::$classEmulator->getClassMethods($className);
+                    };
+                }
+            ),
+            new MultipleFilter([
+                new FileFilter('*.php'),
+                new FileFilter('*.php.inc'),
+            ])
         );
 
         $codeShift->shift(
             new FunctionHookShiftSpec(
                 'var_dump',
-                function ($original) {
-                    return function (...$vars) use ($original) {
+                function ($nativeVarDump) {
+                    static::$classEmulator->setNativeVarDump($nativeVarDump);
+
+                    return function (...$vars) {
                         foreach ($vars as $var) {
-                            if ($var instanceof AMQPConnection) {
-                                $connectionConfig = AmqpBridge::getConnectionConfig($var);
-
-                                print <<<OUT
-object(AMQPConnection)#1 (18) {
-  ["login":"AMQPConnection":private]=>
-  string(5) "{$connectionConfig->getUser()}"
-  ["password":"AMQPConnection":private]=>
-  string(5) "{$connectionConfig->getPassword()}"
-  ["host":"AMQPConnection":private]=>
-  string(9) "{$connectionConfig->getHost()}"
-  ["vhost":"AMQPConnection":private]=>
-  string(1) "{$connectionConfig->getVirtualHost()}"
-  ["port":"AMQPConnection":private]=>
-  int({$connectionConfig->getPort()})
-  ["read_timeout":"AMQPConnection":private]=>
-  float({$connectionConfig->getReadTimeout()})
-  ["write_timeout":"AMQPConnection":private]=>
-  float({$connectionConfig->getWriteTimeout()})
-  ["connect_timeout":"AMQPConnection":private]=>
-  float({$connectionConfig->getConnectionTimeout()})
-  ["rpc_timeout":"AMQPConnection":private]=>
-  float({$connectionConfig->getRpcTimeout()})
-  ["channel_max":"AMQPConnection":private]=>
-  int(10)
-  ["frame_max":"AMQPConnection":private]=>
-  int(10240)
-  ["heartbeat":"AMQPConnection":private]=>
-  int(5)
-  ["cacert":"AMQPConnection":private]=>
-  string(0) ""
-  ["key":"AMQPConnection":private]=>
-  string(0) ""
-  ["cert":"AMQPConnection":private]=>
-  string(0) ""
-  ["verify":"AMQPConnection":private]=>
-  bool(true)
-  ["sasl_method":"AMQPConnection":private]=>
-  int(0)
-  ["connection_name":"AMQPConnection":private]=>
-  NULL
-}
-
-OUT;
-
-                                return;
-                            }
-
-                            $original($var);
+                            print static::$classEmulator->dump($var, 0) . PHP_EOL;
                         }
                     };
                 }
             ),
-            new FileFilter('*.php')
+            new MultipleFilter([
+                new FileFilter('*.php'),
+                new FileFilter('*.php.inc'),
+            ])
         );
     }
 }

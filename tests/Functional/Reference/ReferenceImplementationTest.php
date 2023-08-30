@@ -30,7 +30,6 @@ class ReferenceImplementationTest extends AbstractTestCase
         '003-channel-consumers.phpt',
         '004-queue-consume-nested.phpt',
         '004-queue-consume-orphaned.phpt',
-        'amqpbasicproperties.phpt',
         'amqpchannel_basicRecover.phpt',
         'amqpchannel_close.phpt',
         'amqpchannel_confirmSelect.phpt',
@@ -62,9 +61,7 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpconnection_setTimeout_string.phpt',
         'amqpconnection_toomanychannels.phpt',
         'amqpconnection_var_dump.phpt',
-        'amqpenvelope_construct.phpt',
         'amqpenvelope_get_accessors.phpt',
-        'amqpenvelope_var_dump.phpt',
         'amqpexchange_bind_with_arguments.phpt',
         'amqpexchange_bind_without_key.phpt',
         'amqpexchange_bind_without_key_with_arguments.phpt',
@@ -123,6 +120,12 @@ class ReferenceImplementationTest extends AbstractTestCase
         'bug_gh53.phpt',
         'bug_gh72-2.phpt',
         'package-version.phpt',
+    ];
+    public const VAR_DUMP_OBJECT_IDS = [
+        'amqpbasicproperties.php' => [1, 2],
+        'amqpconnection_construct_with_limits.php' => [1],
+        'amqpenvelope_construct.php' => [1],
+        'amqpenvelope_var_dump.php' => [5, 5],
     ];
 
     /**

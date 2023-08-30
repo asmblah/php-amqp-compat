@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Bridge\Channel;
 
+use AMQPQueue;
 use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
 
 interface ConsumerInterface
@@ -20,7 +21,7 @@ interface ConsumerInterface
     /**
      * Consumes the given message, returning false if further consumption should be stopped.
      */
-    public function consumeMessage(AmqplibMessage $message): void;
+    public function consumeMessage(AmqplibMessage $message, AMQPQueue $amqpQueue): void;
 
     /**
      * Fetches the callback to use for consuming AMQP messages, if any.

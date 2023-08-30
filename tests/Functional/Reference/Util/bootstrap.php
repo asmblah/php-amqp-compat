@@ -23,7 +23,12 @@ const PHP_AMQP_COMPAT = true;
 require_once __DIR__ . '/../../../../vendor/autoload.php';
 
 CodeShifts::install();
-AmqpManager::setConfiguration(new Configuration(null, new TestErrorReporter()));
+
+AmqpManager::setConfiguration(
+    new Configuration(
+        errorReporter: new TestErrorReporter(CodeShifts::getContextResolver())
+    )
+);
 
 if (isset($argv)) {
     // Force the actual test script to be loaded via file:// stream wrapper,

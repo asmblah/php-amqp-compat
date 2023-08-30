@@ -20,57 +20,28 @@ declare(strict_types=1);
  */
 class AMQPBasicProperties
 {
-    private string $appId;
-    private string $clusterId;
-    private string $contentEncoding;
-    private string $contentType;
-    private string $correlationId;
-    private int $deliveryMode;
-    private string $expiration;
-    protected array $headers;
-    private string $messageId;
-    private int $priority;
-    private string $replyTo;
-    private int $timestamp;
-    private string $type;
-    private string $userId;
-
     public function __construct(
-        string $contentType = "",
-        string $contentEncoding = "",
-        array $headers = [],
-        int $deliveryMode = AMQP_DELIVERY_MODE_TRANSIENT,
-        int $priority = 0,
-        string $correlationId = "",
-        string $replyTo = "",
-        string $expiration = "",
-        string $messageId = "",
-        int $timestamp = 0,
-        string $type = "",
-        string $userId = "",
-        string $appId = "",
-        string $clusterId = ""
+        private readonly ?string $contentType = '',
+        private readonly ?string $contentEncoding = '',
+        protected readonly array $headers = [],
+        private readonly int $deliveryMode = AMQP_DELIVERY_MODE_TRANSIENT,
+        private readonly int $priority = 0,
+        private readonly ?string $correlationId = '',
+        private readonly ?string $replyTo = '',
+        private readonly ?string $expiration = '',
+        private readonly ?string $messageId = '',
+        private readonly ?int $timestamp = 0,
+        private readonly ?string $type = '',
+        private readonly ?string $userId = '',
+        private readonly ?string $appId = '',
+        private readonly ?string $clusterId = ''
     ) {
-        $this->appId = $appId;
-        $this->clusterId = $clusterId;
-        $this->contentType = $contentType;
-        $this->contentEncoding = $contentEncoding;
-        $this->correlationId = $correlationId;
-        $this->deliveryMode = $deliveryMode;
-        $this->expiration = $expiration;
-        $this->headers = $headers;
-        $this->messageId = $messageId;
-        $this->priority = $priority;
-        $this->replyTo = $replyTo;
-        $this->timestamp = $timestamp;
-        $this->type = $type;
-        $this->userId = $userId;
     }
 
     /**
      * Fetches the message's application ID.
      */
-    public function getAppId(): string
+    public function getAppId(): ?string
     {
         return $this->appId;
     }
@@ -78,7 +49,7 @@ class AMQPBasicProperties
     /**
      * Fetches the message's cluster ID.
      */
-    public function getClusterId(): string
+    public function getClusterId(): ?string
     {
         return $this->clusterId;
     }
@@ -86,7 +57,7 @@ class AMQPBasicProperties
     /**
      * Fetches the message's content encoding.
      */
-    public function getContentEncoding(): string
+    public function getContentEncoding(): ?string
     {
         return $this->contentEncoding;
     }
@@ -94,7 +65,7 @@ class AMQPBasicProperties
     /**
      * Fetches the message's content type.
      */
-    public function getContentType(): string
+    public function getContentType(): ?string
     {
         return $this->contentType;
     }
@@ -102,7 +73,7 @@ class AMQPBasicProperties
     /**
      * Fetches the message's correlation ID.
      */
-    public function getCorrelationId(): string
+    public function getCorrelationId(): ?string
     {
         return $this->correlationId;
     }
@@ -118,7 +89,7 @@ class AMQPBasicProperties
     /**
      * Fetches the expiration of the message.
      */
-    public function getExpiration(): string
+    public function getExpiration(): ?string
     {
         return $this->expiration;
     }
@@ -136,7 +107,7 @@ class AMQPBasicProperties
     /**
      * Fetches the message ID of the message.
      */
-    public function getMessageId(): string
+    public function getMessageId(): ?string
     {
         return $this->messageId;
     }
@@ -152,7 +123,7 @@ class AMQPBasicProperties
     /**
      * Fetches the message's reply-to address.
      */
-    public function getReplyTo(): string
+    public function getReplyTo(): ?string
     {
         return $this->replyTo;
     }
@@ -160,7 +131,7 @@ class AMQPBasicProperties
     /**
      * Fetches the message's timestamp.
      */
-    public function getTimestamp(): int
+    public function getTimestamp(): ?int
     {
         return $this->timestamp;
     }
@@ -168,17 +139,15 @@ class AMQPBasicProperties
     /**
      * Fetches the message's type.
      */
-    public function getType(): string
+    public function getType(): ?string
     {
         return $this->type;
     }
 
     /**
      * Fetches the message's user ID.
-     *
-     * @return string The message user id.
      */
-    public function getUserId(): string
+    public function getUserId(): ?string
     {
         return $this->userId;
     }

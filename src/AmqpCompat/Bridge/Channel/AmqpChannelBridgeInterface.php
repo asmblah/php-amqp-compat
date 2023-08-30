@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Bridge\Channel;
 
+use AMQPQueue;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridgeResourceInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
@@ -60,7 +61,7 @@ interface AmqpChannelBridgeInterface extends AmqpBridgeResourceInterface
     /**
      * Subscribes the given consumer.
      */
-    public function subscribeConsumer(string $consumerTag): void;
+    public function subscribeConsumer(string $consumerTag, AMQPQueue $amqpQueue): void;
 
     /**
      * Unregisters this channel from its connection.

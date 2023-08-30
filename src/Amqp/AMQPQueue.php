@@ -153,6 +153,10 @@ class AMQPQueue
     {
         $amqplibChannel = $this->checkChannelOrThrow('Could not cancel queue.');
 
+        if ($consumerTag === '') {
+            $consumerTag = $this->lastConsumerTag;
+        }
+
         try {
             $amqplibChannel->basic_cancel($consumerTag);
         } catch (AMQPExceptionInterface $exception) {
@@ -269,7 +273,7 @@ class AMQPQueue
         // Record the most recent consumer tag as it may be fetched by ->getConsumerTag().
         $this->lastConsumerTag = $consumerTag;
 
-        $this->channelBridge->subscribeConsumer($consumerTag);
+        $this->channelBridge->subscribeConsumer($consumerTag, $this);
 
         if ($callback === null) {
             // Queue was only being subscribed to the list for consumption; do not start processing yet.

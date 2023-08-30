@@ -27,27 +27,20 @@ class TestErrorReporter implements ErrorReporterInterface
 {
     private int $messagesCount = 0;
 
+    public function __construct(
+        private readonly ContextResolver $contextResolver
+    ) {
+    }
+
     /**
      * Fetches the userland file & line context of the actual test file as would be reported by php-amqp/ext-amqp.
      */
     private function getContext(): string
     {
-        $file = '(unknown)';
-        $line = '(unknown)';
-        $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+        $context = $this->contextResolver->getContext();
 
-        // Look for a frame that is inside a script run by the reference implementation tests.
-        $prefix = realpath(__DIR__ . '/../../../../var/ext/php-amqp/tests/');
-
-        foreach ($backtrace as $frame) {
-            $frameFile = $frame['file'] ?? null;
-
-            if ($frameFile !== null && str_starts_with($frameFile, $prefix)) {
-                $file = $frameFile;
-                $line = $frame['line'] - 1;
-                break;
-            }
-        }
+        $file = $context['file'] ?? '(unknown)';
+        $line = $context['line'] ?? '(unknown)';
 
         return ' in ' . $file . ' on line ' . $line;
     }

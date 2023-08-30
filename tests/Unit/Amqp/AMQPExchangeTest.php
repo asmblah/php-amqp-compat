@@ -25,6 +25,7 @@ use Mockery\MockInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 use PhpAmqpLib\Exception\AMQPProtocolChannelException;
+use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
 use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;
 
 /**
@@ -145,5 +146,34 @@ class AMQPExchangeTest extends AbstractTestCase
         $this->expectExceptionMessage('Server channel error: 21, message: my text');
 
         $this->amqpExchange->declareExchange();
+    }
+
+    public function testPublishPublishesViaAmqplibWhenGivenMessageOnly(): void
+    {
+        $this->amqpExchange->setName('my_exchange');
+        $this->amqplibChannel->expects()
+            ->basic_publish(
+                Mockery::type(AmqplibMessage::class),
+                'my_exchange',
+                null,
+                false,
+                false
+            )
+            ->once();
+
+        $this->amqpExchange->publish('my message');
+    }
+
+    public function testPublishSetsDefaultContentTypeIfNeeded(): void
+    {
+        $this->amqpExchange->setName('my_exchange');
+        $this->amqplibChannel->expects()
+            ->basic_publish(Mockery::andAnyOtherArgs())
+            ->once()
+            ->andReturnUsing(function (AmqplibMessage $amqpMessage) {
+                static::assertSame('text/plain', $amqpMessage->get_properties()['content_type']);
+            });
+
+        $this->amqpExchange->publish('my message');
     }
 }
