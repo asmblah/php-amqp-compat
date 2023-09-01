@@ -65,17 +65,24 @@ class AMQPExchange
      * Binds this exchange to another exchange using the specified routing key.
      *
      * @param string $exchangeName Name of the exchange to bind.
-     * @param string $routingKey   The routing key to use for binding.
-     * @param array  $arguments    Additional binding arguments.
+     * @param string $routingKey The routing key to use for binding.
+     * @param array $arguments Additional binding arguments.
      *
-     * @return boolean true on success or false on failure.
-     * @throws AMQPChannelException    If the channel is not open.
-     * @throws AMQPConnectionException If the connection to the broker was lost.
-     * @throws AMQPExchangeException   On failure.
+     * @throws AMQPChannelException When the channel is not open.
+     * @throws AMQPConnectionException When the connection to the broker was lost.
+     * @throws AMQPExchangeException On failure.
      */
-    public function bind(string $exchangeName, string $routingKey = '', array $arguments = array()): bool
+    public function bind(string $exchangeName, string $routingKey = '', array $arguments = []): bool
     {
         $amqplibChannel = $this->checkChannelOrThrow('Could not bind to exchange.');
+
+        $this->logger->debug(__METHOD__ . '(): Exchange bind attempt', [
+            'arguments' => $arguments,
+            'exchange_name' => $this->exchangeName,
+            'flags' => $this->flags,
+            'routing_key' => $routingKey,
+            'source_exchange_name' => $exchangeName,
+        ]);
 
         try {
             $amqplibChannel->exchange_bind(
@@ -86,8 +93,12 @@ class AMQPExchange
                 $arguments
             );
         } catch (AMQPExceptionInterface $exception) {
+            // Log details of the internal php-amqplib exception,
+            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
+            $this->logger->logAmqplibException(__METHOD__, $exception);
+
             // TODO: Handle errors identically to php-amqp.
-            throw new AMQPExchangeException(__METHOD__ . ' failed: ' . $exception->getMessage());
+            throw new AMQPExchangeException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
         }
 
         return true;

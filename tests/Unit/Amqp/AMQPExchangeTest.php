@@ -95,6 +95,93 @@ class AMQPExchangeTest extends AbstractTestCase
         $extendedAmqpExchange->declareExchange();
     }
 
+    /**
+     * @dataProvider bindDataProvider
+     */
+    public function testBindLogsAttemptAsDebug(
+        string $exchangeName,
+        string $sourceExchangeName,
+        string $routingKey,
+        int $flags,
+        array $arguments
+    ): void {
+        $this->amqpExchange->setFlags($flags);
+        $this->amqpExchange->setName($exchangeName);
+        $this->amqplibChannel->allows()
+            ->exchange_bind($exchangeName, $sourceExchangeName, $routingKey, $flags & AMQP_NOWAIT, $arguments);
+
+        $this->logger->expects()
+            ->debug('AMQPExchange::bind(): Exchange bind attempt', [
+                'arguments' => $arguments,
+                'exchange_name' => $exchangeName,
+                'flags' => $flags,
+                'routing_key' => $routingKey,
+                'source_exchange_name' => $sourceExchangeName,
+            ])
+            ->once();
+
+        $this->amqpExchange->bind($sourceExchangeName, $routingKey, $arguments);
+    }
+
+    /**
+     * @dataProvider bindDataProvider
+     */
+    public function testBindGoesViaAmqplib(
+        string $exchangeName,
+        string $sourceExchangeName,
+        string $routingKey,
+        int $flags,
+        array $arguments
+    ): void {
+        $this->amqpExchange->setFlags($flags);
+        $this->amqpExchange->setName($exchangeName);
+
+        $this->amqplibChannel->expects()
+            ->exchange_bind($exchangeName, $sourceExchangeName, $routingKey, $flags & AMQP_NOWAIT, $arguments)
+            ->once();
+
+        static::assertTrue($this->amqpExchange->bind($sourceExchangeName, $routingKey, $arguments));
+    }
+
+    /**
+     * @dataProvider bindDataProvider
+     */
+    public function testBindHandlesAmqplibExceptionCorrectly(
+        string $exchangeName,
+        string $sourceExchangeName,
+        string $routingKey,
+        int $flags,
+        array $arguments
+    ): void {
+        $this->amqpExchange->setFlags($flags);
+        $this->amqpExchange->setName($exchangeName);
+        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
+        $this->amqplibChannel->allows()
+            ->exchange_bind($exchangeName, $sourceExchangeName, $routingKey, $flags & AMQP_NOWAIT, $arguments)
+            ->andThrow($exception);
+
+        $this->expectException(AMQPExchangeException::class);
+        $this->expectExceptionMessage('AMQPExchange::bind(): Amqplib failure: my text');
+        $this->logger->expects()
+            ->logAmqplibException('AMQPExchange::bind', $exception)
+            ->once();
+
+        $this->amqpExchange->bind($sourceExchangeName, $routingKey, $arguments);
+    }
+
+    public static function bindDataProvider(): array
+    {
+        return [
+            [
+                'my_exchange',
+                'your_exchange',
+                'my_routing_key',
+                AMQP_NOWAIT,
+                ['x-first' => 'one', 'x-second' => 'two']
+            ],
+        ];
+    }
+
     public function testDeclareExchangeDeclaresViaAmqplib(): void
     {
         $this->amqpExchange->setName('my_exchange');
