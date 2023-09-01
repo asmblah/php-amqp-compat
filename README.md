@@ -2,7 +2,7 @@
 
 [![Build Status](https://github.com/asmblah/php-amqp-compat/workflows/CI/badge.svg)](https://github.com/asmblah/php-amqp-compat/actions?query=workflow%3ACI)
 
-[EXPERIMENTAL] [php-amqp/ext-amqp][1] compatibility using [php-amqplib][2].
+[php-amqp/ext-amqp][1] compatibility using [php-amqplib][2].
 
 ## Why?
 `php-amqp`/`librabbitmq` does not fully support [AMQP heartbeats][4], they are only supported during [blocking calls into the extension](https://github.com/php-amqp/php-amqp/tree/v1.11.0#persistent-connection).

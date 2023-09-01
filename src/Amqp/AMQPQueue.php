@@ -113,7 +113,7 @@ class AMQPQueue
      * @throws AMQPChannelException    If the channel is not open.
      * @throws AMQPConnectionException If the connection to the broker was lost.
      */
-    public function bind(string $exchangeName, string $routingKey = null, array $arguments = array()): bool
+    public function bind(string $exchangeName, string $routingKey = null, array $arguments = []): bool
     {
         $amqplibChannel = $this->checkChannelOrThrow('Could not bind queue.');
 
@@ -644,7 +644,7 @@ class AMQPQueue
      * @throws AMQPChannelException    If the channel is not open.
      * @throws AMQPConnectionException If the connection to the broker was lost.
      */
-    public function unbind(string $exchangeName, string $routingKey = null, array $arguments = array()): bool
+    public function unbind(string $exchangeName, string $routingKey = null, array $arguments = []): bool
     {
         throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
     }

@@ -448,7 +448,7 @@ class AMQPExchange
      * @throws AMQPConnectionException If the connection to the broker was lost.
      * @throws AMQPExchangeException   On failure.
      */
-    public function unbind(string $exchangeName, string $routingKey = '', array $arguments = array()): bool
+    public function unbind(string $exchangeName, string $routingKey = '', array $arguments = []): bool
     {
         $amqplibChannel = $this->checkChannelOrThrow('Could not unbind from exchange.');
 
