@@ -311,6 +311,65 @@ class AMQPChannelTest extends AbstractTestCase
         $this->amqpChannel->commitTransaction();
     }
 
+    /**
+     * @dataProvider qosDataProvider
+     */
+    public function testQosLogsAttemptAsDebug(int $prefetchSize, int $prefetchCount, bool $global): void
+    {
+        $this->amqplibChannel->allows()
+            ->basic_qos($prefetchSize, $prefetchCount, $global);
+
+        $this->logger->expects()
+            ->debug('AMQPChannel::qos(): QOS setting change attempt', [
+                'count' => $prefetchCount,
+                'global' => $global,
+                'size' => $prefetchSize,
+            ])
+            ->once();
+
+        $this->amqpChannel->qos($prefetchSize, $prefetchCount, $global);
+    }
+
+    /**
+     * @dataProvider qosDataProvider
+     */
+    public function testQosGoesViaAmqplib(int $prefetchSize, int $prefetchCount, bool $global): void
+    {
+        $this->amqplibChannel->expects()
+            ->basic_qos($prefetchSize, $prefetchCount, $global)
+            ->once();
+
+        static::assertTrue($this->amqpChannel->qos($prefetchSize, $prefetchCount, $global));
+    }
+
+    /**
+     * @dataProvider qosDataProvider
+     */
+    public function testQosHandlesAmqplibExceptionCorrectly(int $prefetchSize, int $prefetchCount, bool $global): void
+    {
+        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
+
+        $this->amqplibChannel->allows()
+            ->basic_qos($prefetchSize, $prefetchCount, $global)
+            ->andThrow($exception);
+
+        $this->expectException(AMQPChannelException::class);
+        $this->expectExceptionMessage('AMQPChannel::qos(): Amqplib failure: my text');
+        $this->logger->expects()
+            ->logAmqplibException('AMQPChannel::qos', $exception)
+            ->once();
+
+        $this->amqpChannel->qos($prefetchSize, $prefetchCount, $global);
+    }
+
+    public static function qosDataProvider(): array
+    {
+        return [
+            [123, 456, true],
+            [3, 7, false],
+        ];
+    }
+
     public function testRollbackTransactionLogsAttemptAsDebug(): void
     {
         $this->amqplibChannel->allows()

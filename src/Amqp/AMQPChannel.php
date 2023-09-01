@@ -272,37 +272,46 @@ class AMQPChannel
     }
 
     /**
-     * Sets the Quality Of Service settings for the given channel.
+     * Sets the Quality Of Service settings for this channel.
      *
      * Specify the amount of data to prefetch in terms of window size (octets)
-     * or number of messages from a queue during a AMQPQueue::consume() or
-     * AMQPQueue::get() method call. The client will prefetch data up to size
-     * octets or count messages from the server, whichever limit is hit first.
+     * or number of messages from a queue during an `AMQPQueue::consume()` or
+     * `AMQPQueue::get()` method call. The client will prefetch data up to `$size`
+     * octets or `$count` messages from the server, whichever limit is hit first.
      * Setting either value to 0 will instruct the client to ignore that
-     * particular setting. A call to AMQPChannel::qos() will overwrite any
-     * values set by calling AMQPChannel::setPrefetchSize() and
-     * AMQPChannel::setPrefetchCount(). If the call to either
-     * AMQPQueue::consume() or AMQPQueue::get() is done with the AMQP_AUTOACK
+     * particular setting. A call to `AMQPChannel::qos()` will overwrite any
+     * values set by calling `AMQPChannel::setPrefetchSize()` and
+     * `AMQPChannel::setPrefetchCount()`. If the call to either
+     * `AMQPQueue::consume()` or `AMQPQueue::get()` is done with the `AMQP_AUTOACK`
      * flag set, the client will not do any prefetching of data, regardless of
      * the QOS settings.
      *
-     * @param integer $size   The window size, in octets, to prefetch.
-     * @param integer $count  The number of messages to prefetch.
-     * @param bool    $global TRUE for global, FALSE for consumer. FALSE by default.
+     * @param integer $size The window size, in octets, to prefetch.
+     * @param integer $count The number of messages to prefetch.
+     * @param bool $global True to change the settings globally,
+     *                     false (default) to only change them for the current consumer.
      *
      * @throws AMQPChannelException If the connection to the broker was lost.
-     *
-     * @return bool TRUE on success or FALSE on failure.
      */
     public function qos(int $size, int $count, bool $global): bool
     {
         $amqplibChannel = $this->checkChannelOrThrow('Could not set qos parameters.');
 
+        $this->logger->debug(__METHOD__ . '(): QOS setting change attempt', [
+            'count' => $count,
+            'global' => $global,
+            'size' => $size,
+        ]);
+
         try {
             $amqplibChannel->basic_qos($size, $count, $global);
         } catch (AMQPExceptionInterface $exception) {
+            // Log details of the internal php-amqplib exception,
+            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
+            $this->logger->logAmqplibException(__METHOD__, $exception);
+
             // TODO: Handle errors identically to php-amqp.
-            throw new AMQPChannelException(__METHOD__ . ' failed: ' . $exception->getMessage());
+            throw new AMQPChannelException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
         }
 
         return true;
