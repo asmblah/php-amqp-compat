@@ -186,16 +186,24 @@ class AMQPConnection
         $this->checkConnection();
 
         if ($this->amqplibConnection === null) {
+            $this->logger->debug(__METHOD__ . '(): Cannot disconnect; not connected');
+
             return true; // Nothing to do; not connected anyway.
         }
+
+        $this->logger->debug(__METHOD__ . '(): Disconnection attempt');
 
         // NB: No persistent connection support.
 
         try {
             $this->amqplibConnection->close();
         } catch (AMQPExceptionInterface $exception) {
+            // Log details of the internal php-amqplib exception,
+            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
+            $this->logger->logAmqplibException(__METHOD__, $exception);
+
             // TODO: Handle errors identically to php-amqp.
-            throw new AMQPConnectionException(__METHOD__ . ' failed: ' . $exception->getMessage());
+            throw new AMQPConnectionException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
         }
 
         $this->amqplibConnection = null;

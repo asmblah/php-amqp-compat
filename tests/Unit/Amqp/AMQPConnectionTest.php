@@ -28,6 +28,7 @@ use Mockery;
 use Mockery\MockInterface;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 use PhpAmqpLib\Exception\AMQPIOException;
+use PhpAmqpLib\Exception\AMQPProtocolChannelException;
 
 /**
  * Class AMQPConnectionTest.
@@ -304,6 +305,59 @@ class AMQPConnectionTest extends AbstractTestCase
         try {
             $this->amqpConnection->connect();
         } catch (AMQPConnectionException) {}
+    }
+
+    public function testDisconnectLogsAttemptAsDebugWhenConnected(): void
+    {
+        $this->amqplibConnection->allows()
+            ->close();
+        $this->amqpConnection->connect();
+
+        $this->logger->expects()
+            ->debug('AMQPConnection::disconnect(): Disconnection attempt')
+            ->once();
+
+        $this->amqpConnection->disconnect();
+    }
+
+    public function testDisconnectLogsAttemptAsDebugWhenNotConnected(): void
+    {
+        $this->amqplibConnection->allows()
+            ->close();
+
+        $this->logger->expects()
+            ->debug('AMQPConnection::disconnect(): Cannot disconnect; not connected')
+            ->once();
+
+        $this->amqpConnection->disconnect();
+    }
+
+    public function testDisconnectGoesViaAmqplib(): void
+    {
+        $this->amqpConnection->connect();
+
+        $this->amqplibConnection->expects()
+            ->close()
+            ->once();
+
+        static::assertTrue($this->amqpConnection->disconnect());
+    }
+
+    public function testDisconnectHandlesAmqplibExceptionCorrectly(): void
+    {
+        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
+        $this->amqplibConnection->allows()
+            ->close()
+            ->andThrow($exception);
+        $this->amqpConnection->connect();
+
+        $this->expectException(AMQPConnectionException::class);
+        $this->expectExceptionMessage('AMQPConnection::disconnect(): Amqplib failure: my text');
+        $this->logger->expects()
+            ->logAmqplibException('AMQPConnection::disconnect', $exception)
+            ->once();
+
+        $this->amqpConnection->disconnect();
     }
 
     public function testGetConnectionNameFetchesFromConfig(): void
