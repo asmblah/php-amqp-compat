@@ -26,7 +26,7 @@ interface DefaultConnectionConfigInterface extends ConnectionConfigProviderInter
     public const DEFAULT_CONNECTION_TIMEOUT = 0.0;
     public const DEFAULT_HEARTBEAT_INTERVAL = 0;
     public const DEFAULT_HOST = 'localhost';
-    public const DEFAULT_MAX_CHANNELS = 256;
+    public const DEFAULT_MAX_CHANNELS = PHP_AMQP_MAX_CHANNELS;
     public const DEFAULT_MAX_FRAME_SIZE = 131072;
     public const DEFAULT_PASSWORD = 'guest';
     public const DEFAULT_PORT = 5672;
