@@ -230,7 +230,13 @@ class AMQPChannelTest extends AbstractTestCase
         $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
         $this->amqplibChannel->allows()
             ->close()
-            ->andThrow($exception);
+            ->andReturnUsing(function () use ($exception) {
+                $this->amqplibChannel->allows()
+                    ->is_open()
+                    ->andReturn(false);
+
+                throw $exception;
+            });
 
         $this->expectException(AMQPChannelException::class);
         $this->expectExceptionMessage('AMQPChannel::close(): Amqplib failure: my text');
