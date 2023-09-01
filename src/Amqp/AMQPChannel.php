@@ -131,7 +131,35 @@ class AMQPChannel
      */
     public function close(): void
     {
-        $this->amqplibChannel->close();
+        if ($this->amqplibChannel === null) {
+            // We cannot log this separately as without the constructor being called,
+            // there will be no logger available.
+            throw new LogicException(__METHOD__ . '(): Invalid channel; constructor was never called');
+        }
+
+        $this->logger->debug(__METHOD__ . '(): Channel close attempt');
+
+        if (!$this->amqplibChannel->is_open()) {
+            $this->logger->debug(__METHOD__ . '(): Channel already closed');
+
+            return;
+        }
+
+        // Now that we have ensured that it is open, we can log the channel ID.
+        $this->logger->debug(__METHOD__ . '(): Closing channel', [
+            'id' => $this->amqplibChannel->getChannelId(),
+        ]);
+
+        try {
+            $this->amqplibChannel->close();
+        } catch (AMQPExceptionInterface $exception) {
+            // Log details of the internal php-amqplib exception,
+            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
+            $this->logger->logAmqplibException(__METHOD__, $exception);
+
+            // TODO: Handle errors identically to php-amqp.
+            throw new AMQPChannelException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
+        }
     }
 
     /**

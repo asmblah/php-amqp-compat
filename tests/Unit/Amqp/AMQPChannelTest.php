@@ -21,6 +21,7 @@ use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
+use LogicException;
 use Mockery\MockInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
@@ -66,6 +67,7 @@ class AMQPChannelTest extends AbstractTestCase
         ]);
         $this->amqplibChannel = mock(AmqplibChannel::class, [
             'close' => null,
+            'getChannelId' => 12345,
             'getConnection' => $this->amqpConnection,
             'is_open' => true,
         ]);
@@ -195,5 +197,79 @@ class AMQPChannelTest extends AbstractTestCase
     public static function basicRecoverDataProvider(): array
     {
         return [[true], [false]];
+    }
+
+    public function testCloseLogsAttemptAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->close();
+
+        $this->logger->expects()
+            ->debug('AMQPChannel::close(): Channel close attempt')
+            ->once();
+        $this->logger->expects()
+            ->debug('AMQPChannel::close(): Closing channel', [
+                'id' => 12345,
+            ])
+            ->once();
+
+        $this->amqpChannel->close();
+    }
+
+    public function testCloseGoesViaAmqplib(): void
+    {
+        $this->amqplibChannel->expects()
+            ->close()
+            ->once();
+
+        $this->amqpChannel->close();
+    }
+
+    public function testCloseHandlesAmqplibExceptionCorrectly(): void
+    {
+        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
+        $this->amqplibChannel->allows()
+            ->close()
+            ->andThrow($exception);
+
+        $this->expectException(AMQPChannelException::class);
+        $this->expectExceptionMessage('AMQPChannel::close(): Amqplib failure: my text');
+        $this->logger->expects()
+            ->logAmqplibException('AMQPChannel::close', $exception)
+            ->once();
+
+        $this->amqpChannel->close();
+    }
+
+    public function testCloseHandlesConstructorNotBeingCalledCorrectly(): void
+    {
+        $extendedAmqpChannel = new class($this->amqpConnection) extends AMQPChannel {
+            public function __construct(AMQPConnection $amqpConnection)
+            {
+                // Deliberately omit the call to the super constructor.
+            }
+        };
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('AMQPChannel::close(): Invalid channel; constructor was never called');
+
+        $extendedAmqpChannel->close();
+    }
+
+    public function testCloseHandlesChannelAlreadyBeingClosedCorrectly(): void
+    {
+        $this->amqplibChannel->allows()
+            ->is_open()
+            ->andReturnFalse();
+
+        $this->logger->expects()
+            ->debug('AMQPChannel::close(): Channel already closed')
+            ->once();
+        // No attempt should be made to close the already-closed channel.
+        $this->amqplibChannel->expects()
+            ->close()
+            ->never();
+
+        $this->amqpChannel->close();
     }
 }
