@@ -41,15 +41,7 @@ class ContextResolver
             $frameFile = $frame['file'] ?? null;
 
             if ($frameFile !== null && str_starts_with($frameFile, $prefix) && !str_ends_with($frameFile, '.inc')) {
-                $frameFunction = $frame['function'] ?? null;
                 $frameLine = (int) $frame['line'];
-
-                if ($frameFunction === '__construct') {
-                    // FIXME: When tests contain a var_dump(...) call, PHP Code Shift is changing line numbers
-                    //        due to the way code is regenerated from the transformed AST.
-                    //        Shift needs changing to instead parse and then manipulate the code string.
-                    $frameLine--;
-                }
 
                 $file = $frameFile;
                 $line = $frameLine;
