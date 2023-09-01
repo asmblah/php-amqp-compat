@@ -88,8 +88,7 @@ class AMQPEnvelopeTest extends AbstractTestCase
         static::assertNull($envelope->isRedelivery());
         static::assertNull($envelope->getRoutingKey());
 
-        // AMQPBasicProperties values, note some will be null
-        // unlike when AMQPBasicProperties is constructed without passing any constructor args.
+        // AMQPBasicProperties values.
         static::assertSame('', $envelope->getContentType());
         static::assertSame('', $envelope->getContentEncoding());
         static::assertEquals([], $envelope->getHeaders());

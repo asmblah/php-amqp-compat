@@ -42,7 +42,7 @@ class ConfigurationTest extends AbstractTestCase
         static::assertInstanceOf(ErrorReporter::class, $configuration->getErrorReporter());
     }
 
-    public function testGetErrorReporterReturnsTheSameNullErrorReporterOnSubsequentCallsByDefault(): void
+    public function testGetErrorReporterReturnsTheSameDefaultErrorReporterOnSubsequentCallsByDefault(): void
     {
         $configuration = new Configuration();
 
