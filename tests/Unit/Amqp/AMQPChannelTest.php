@@ -272,4 +272,118 @@ class AMQPChannelTest extends AbstractTestCase
 
         $this->amqpChannel->close();
     }
+
+    public function testCommitTransactionLogsAttemptAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->tx_commit();
+
+        $this->logger->expects()
+            ->debug('AMQPChannel::commitTransaction(): Transaction commit attempt')
+            ->once();
+
+        $this->amqpChannel->commitTransaction();
+    }
+
+    public function testCommitTransactionGoesViaAmqplib(): void
+    {
+        $this->amqplibChannel->expects()
+            ->tx_commit()
+            ->once();
+
+        static::assertTrue($this->amqpChannel->commitTransaction());
+    }
+
+    public function testCommitTransactionHandlesAmqplibExceptionCorrectly(): void
+    {
+        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
+
+        $this->amqplibChannel->allows()
+            ->tx_commit()
+            ->andThrow($exception);
+
+        $this->expectException(AMQPChannelException::class);
+        $this->expectExceptionMessage('AMQPChannel::commitTransaction(): Amqplib failure: my text');
+        $this->logger->expects()
+            ->logAmqplibException('AMQPChannel::commitTransaction', $exception)
+            ->once();
+
+        $this->amqpChannel->commitTransaction();
+    }
+
+    public function testRollbackTransactionLogsAttemptAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->tx_rollback();
+
+        $this->logger->expects()
+            ->debug('AMQPChannel::rollbackTransaction(): Transaction rollback attempt')
+            ->once();
+
+        $this->amqpChannel->rollbackTransaction();
+    }
+
+    public function testRollbackTransactionGoesViaAmqplib(): void
+    {
+        $this->amqplibChannel->expects()
+            ->tx_rollback()
+            ->once();
+
+        static::assertTrue($this->amqpChannel->rollbackTransaction());
+    }
+
+    public function testRollbackTransactionHandlesAmqplibExceptionCorrectly(): void
+    {
+        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
+
+        $this->amqplibChannel->allows()
+            ->tx_rollback()
+            ->andThrow($exception);
+
+        $this->expectException(AMQPChannelException::class);
+        $this->expectExceptionMessage('AMQPChannel::rollbackTransaction(): Amqplib failure: my text');
+        $this->logger->expects()
+            ->logAmqplibException('AMQPChannel::rollbackTransaction', $exception)
+            ->once();
+
+        $this->amqpChannel->rollbackTransaction();
+    }
+
+    public function testStartTransactionLogsAttemptAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->tx_select();
+
+        $this->logger->expects()
+            ->debug('AMQPChannel::startTransaction(): Transaction start attempt')
+            ->once();
+
+        $this->amqpChannel->startTransaction();
+    }
+
+    public function testStartTransactionGoesViaAmqplib(): void
+    {
+        $this->amqplibChannel->expects()
+            ->tx_select()
+            ->once();
+
+        static::assertTrue($this->amqpChannel->startTransaction());
+    }
+
+    public function testStartTransactionHandlesAmqplibExceptionCorrectly(): void
+    {
+        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
+
+        $this->amqplibChannel->allows()
+            ->tx_select()
+            ->andThrow($exception);
+
+        $this->expectException(AMQPChannelException::class);
+        $this->expectExceptionMessage('AMQPChannel::startTransaction(): Amqplib failure: my text');
+        $this->logger->expects()
+            ->logAmqplibException('AMQPChannel::startTransaction', $exception)
+            ->once();
+
+        $this->amqpChannel->startTransaction();
+    }
 }

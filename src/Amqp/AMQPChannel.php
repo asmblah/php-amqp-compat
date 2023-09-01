@@ -175,11 +175,17 @@ class AMQPChannel
     {
         $amqplibChannel = $this->checkChannelOrThrow('Could not commit the transaction.');
 
+        $this->logger->debug(__METHOD__ . '(): Transaction commit attempt');
+
         try {
             $amqplibChannel->tx_commit();
         } catch (AMQPExceptionInterface $exception) {
+            // Log details of the internal php-amqplib exception,
+            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
+            $this->logger->logAmqplibException(__METHOD__, $exception);
+
             // TODO: Handle errors identically to php-amqp.
-            throw new AMQPChannelException(__METHOD__ . ' failed: ' . $exception->getMessage());
+            throw new AMQPChannelException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
         }
 
         return true;
@@ -317,11 +323,17 @@ class AMQPChannel
     {
         $amqplibChannel = $this->checkChannelOrThrow('Could not rollback the transaction.');
 
+        $this->logger->debug(__METHOD__ . '(): Transaction rollback attempt');
+
         try {
             $amqplibChannel->tx_rollback();
         } catch (AMQPExceptionInterface $exception) {
+            // Log details of the internal php-amqplib exception,
+            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
+            $this->logger->logAmqplibException(__METHOD__, $exception);
+
             // TODO: Handle errors identically to php-amqp.
-            throw new AMQPChannelException(__METHOD__ . ' failed: ' . $exception->getMessage());
+            throw new AMQPChannelException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
         }
 
         return true;
@@ -463,11 +475,17 @@ class AMQPChannel
     {
         $amqplibChannel = $this->checkChannelOrThrow('Could not start the transaction.');
 
+        $this->logger->debug(__METHOD__ . '(): Transaction start attempt');
+
         try {
             $amqplibChannel->tx_select();
         } catch (AMQPExceptionInterface $exception) {
+            // Log details of the internal php-amqplib exception,
+            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
+            $this->logger->logAmqplibException(__METHOD__, $exception);
+
             // TODO: Handle errors identically to php-amqp.
-            throw new AMQPChannelException(__METHOD__ . ' failed: ' . $exception->getMessage());
+            throw new AMQPChannelException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
         }
 
         return true;
