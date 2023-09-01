@@ -51,9 +51,12 @@ class Logger extends PsrAbstractLogger implements LoggerInterface
     /**
      * @inheritDoc
      */
-    public function logAmqplibException(string $methodName, AMQPExceptionInterface $exception): void
-    {
-        $this->wrappedLogger->error($methodName . '(): Amqplib failure', [
+    public function logAmqplibException(
+        string $methodName,
+        AMQPExceptionInterface $exception,
+        string $message = 'Amqplib failure'
+    ): void {
+        $this->wrappedLogger->critical($methodName . '(): ' . $message, [
             'exception' => get_class($exception),
             'message' => $exception->getMessage(),
             'code' => $exception->getCode(),

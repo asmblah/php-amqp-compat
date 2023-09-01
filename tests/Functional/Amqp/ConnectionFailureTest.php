@@ -42,7 +42,7 @@ class ConnectionFailureTest extends AbstractTestCase
     public function setUp(): void
     {
         $this->logger = mock(LoggerInterface::class, [
-            'error' => null,
+            'critical' => null,
             'log' => null,
         ]);
 
@@ -65,7 +65,7 @@ class ConnectionFailureTest extends AbstractTestCase
         $this->expectException(AMQPConnectionException::class);
         $this->expectExceptionMessage('Socket error: could not connect to host.');
         $this->logger->expects()
-            ->error(
+            ->critical(
                 'AMQPConnection::connect(): Amqplib failure',
                 IsArrayContainingInAnyOrder::arrayContainingInAnyOrder([
                     'exception' => AMQPIOException::class,

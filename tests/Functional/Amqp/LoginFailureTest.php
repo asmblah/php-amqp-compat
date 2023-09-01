@@ -39,7 +39,7 @@ class LoginFailureTest extends AbstractTestCase
     public function setUp(): void
     {
         $this->logger = mock(LoggerInterface::class, [
-            'error' => null,
+            'critical' => null,
             'log' => null,
         ]);
 
@@ -64,7 +64,7 @@ class LoginFailureTest extends AbstractTestCase
             'Library error: connection closed unexpectedly - Potential login failure.'
         );
         $this->logger->expects()
-            ->error(
+            ->critical(
                 'AMQPConnection::connect(): Amqplib failure',
                 [
                     'exception' => AMQPConnectionClosedException::class,

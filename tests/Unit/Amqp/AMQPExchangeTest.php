@@ -19,6 +19,7 @@ use AMQPExchange;
 use AMQPExchangeException;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
+use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery;
 use Mockery\MockInterface;
@@ -52,6 +53,10 @@ class AMQPExchangeTest extends AbstractTestCase
      * @var (MockInterface&AmqpChannelBridgeInterface)|null
      */
     private $channelBridge;
+    /**
+     * @var (MockInterface&LoggerInterface)|null
+     */
+    private $logger;
 
     public function setUp(): void
     {
@@ -63,8 +68,12 @@ class AMQPExchangeTest extends AbstractTestCase
             'getConnection' => $this->amqplibConnection,
             'is_open' => true,
         ]);
+        $this->logger = mock(LoggerInterface::class, [
+            'debug' => null,
+        ]);
         $this->channelBridge = mock(AmqpChannelBridgeInterface::class, [
             'getAmqplibChannel' => $this->amqplibChannel,
+            'getLogger' => $this->logger,
         ]);
         AmqpBridge::bridgeChannel($this->amqpChannel, $this->channelBridge);
 
@@ -128,6 +137,7 @@ class AMQPExchangeTest extends AbstractTestCase
     {
         $this->amqpExchange->setName('my_exchange');
         $this->amqpExchange->setType(AMQP_EX_TYPE_FANOUT);
+        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
 
         $this->amqplibChannel->allows()
             ->exchange_declare(
@@ -140,10 +150,13 @@ class AMQPExchangeTest extends AbstractTestCase
                 false,
                 Mockery::type(AmqplibTable::class)
             )
-            ->andThrow(new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]));
+            ->andThrow($exception);
 
         $this->expectException(AMQPExchangeException::class);
         $this->expectExceptionMessage('Server channel error: 21, message: my text');
+        $this->logger->expects()
+            ->logAmqplibException('AMQPExchange::declareExchange', $exception)
+            ->once();
 
         $this->amqpExchange->declareExchange();
     }

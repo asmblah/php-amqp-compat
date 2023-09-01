@@ -129,7 +129,7 @@ class AMQPQueueTest extends AbstractTestCase
             ->andThrow($exception);
 
         $this->expectException(AMQPQueueException::class);
-        $this->expectExceptionMessage('AMQPQueue::ack failed: Bang!');
+        $this->expectExceptionMessage('AMQPQueue::ack(): Amqplib failure: Bang!');
         $this->logger->expects()
             ->logAmqplibException('AMQPQueue::ack', $exception)
             ->once();
@@ -186,6 +186,7 @@ class AMQPQueueTest extends AbstractTestCase
     public function testDeclareQueueHandlesAmqplibExceptionCorrectly(): void
     {
         $this->amqpQueue->setName('my_queue');
+        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
 
         $this->amqplibChannel->allows()
             ->queue_declare(
@@ -197,10 +198,13 @@ class AMQPQueueTest extends AbstractTestCase
                 false,
                 Mockery::type(AmqplibTable::class)
             )
-            ->andThrow(new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]));
+            ->andThrow($exception);
 
         $this->expectException(AMQPQueueException::class);
         $this->expectExceptionMessage('AMQPQueue::declareQueue(): Amqplib failure: my text');
+        $this->logger->expects()
+            ->logAmqplibException('AMQPQueue::declareQueue', $exception)
+            ->once();
 
         $this->amqpQueue->declareQueue();
     }

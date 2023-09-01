@@ -19,10 +19,12 @@ use AMQPConnection;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
+use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery\MockInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
+use PhpAmqpLib\Exception\AMQPProtocolChannelException;
 
 /**
  * Class AMQPChannelTest.
@@ -52,12 +54,19 @@ class AMQPChannelTest extends AbstractTestCase
      * @var (MockInterface&AmqpConnectionBridgeInterface)|null
      */
     private $connectionBridge;
+    /**
+     * @var (MockInterface&LoggerInterface)|null
+     */
+    private $logger;
 
     public function setUp(): void
     {
-        $this->amqpConnection = mock(AMQPConnection::class);
+        $this->amqpConnection = mock(AMQPConnection::class, [
+            'isConnected' => true,
+        ]);
         $this->amqplibChannel = mock(AmqplibChannel::class, [
             'close' => null,
+            'getConnection' => $this->amqpConnection,
             'is_open' => true,
         ]);
         $this->amqplibConnection = mock(AmqplibConnection::class);
@@ -65,10 +74,15 @@ class AMQPChannelTest extends AbstractTestCase
             'getAmqplibChannel' => $this->amqplibChannel,
             'unregisterChannel' => null,
         ]);
+        $this->logger = mock(LoggerInterface::class, [
+            'debug' => null,
+        ]);
         $this->connectionBridge = mock(AmqpConnectionBridgeInterface::class, [
             'getAmqplibConnection' => $this->amqplibConnection,
             'createChannelBridge' => $this->channelBridge,
+            'getLogger' => $this->logger,
         ]);
+
         AmqpBridge::bridgeConnection($this->amqpConnection, $this->connectionBridge);
 
         $this->amqpChannel = new AMQPChannel($this->amqpConnection);
@@ -130,5 +144,56 @@ class AMQPChannelTest extends AbstractTestCase
             ->never();
 
         $this->amqpChannel = null; // Invoke the destructor synchronously (assuming no reference cycles).
+    }
+
+    /**
+     * @dataProvider basicRecoverDataProvider
+     */
+    public function testBasicRecoverLogsAttemptAsDebug(bool $requeue): void
+    {
+        $this->amqplibChannel->allows()
+            ->basic_recover($requeue);
+
+        $this->logger->expects()
+            ->debug('AMQPChannel::basicRecover(): Recovery attempt', [
+                'requeue' => $requeue,
+            ])
+            ->once();
+
+        $this->amqpChannel->basicRecover($requeue);
+    }
+
+    /**
+     * @dataProvider basicRecoverDataProvider
+     */
+    public function testBasicRecoverGoesViaAmqplib(bool $requeue): void
+    {
+        $this->amqplibChannel->expects()
+            ->basic_recover($requeue)
+            ->once();
+
+        static::assertTrue($this->amqpChannel->basicRecover($requeue));
+    }
+
+    public function testBasicRecoverHandlesAmqplibExceptionCorrectly(): void
+    {
+        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
+
+        $this->amqplibChannel->allows()
+            ->basic_recover(true)
+            ->andThrow($exception);
+
+        $this->expectException(AMQPChannelException::class);
+        $this->expectExceptionMessage('AMQPChannel::basicRecover(): Amqplib failure: my text');
+        $this->logger->expects()
+            ->logAmqplibException('AMQPChannel::basicRecover', $exception)
+            ->once();
+
+        $this->amqpChannel->basicRecover();
+    }
+
+    public static function basicRecoverDataProvider(): array
+    {
+        return [[true], [false]];
     }
 }

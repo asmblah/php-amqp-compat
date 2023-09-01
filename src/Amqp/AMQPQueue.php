@@ -96,7 +96,7 @@ class AMQPQueue
             $this->logger->logAmqplibException(__METHOD__, $exception);
 
             // TODO: Handle errors identically to php-amqp.
-            throw new AMQPQueueException(__METHOD__ . ' failed: ' . $exception->getMessage());
+            throw new AMQPQueueException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
         }
 
         return true;
@@ -325,6 +325,10 @@ class AMQPQueue
                 new AmqplibTable($this->arguments)
             );
         } catch (AMQPExceptionInterface $exception) {
+            // Log details of the internal php-amqplib exception,
+            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
+            $this->logger->logAmqplibException(__METHOD__, $exception);
+
             // TODO: Handle errors identically to php-amqp.
             throw new AMQPQueueException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
         }

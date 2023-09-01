@@ -62,10 +62,10 @@ class LoggerTest extends AbstractTestCase
         );
     }
 
-    public function testLogAmqplibExceptionLogsCorrectly(): void
+    public function testLogAmqplibExceptionLogsCorrectlyWithDefaultMessage(): void
     {
         $this->wrappedLogger->expects()
-            ->error(
+            ->critical(
                 'MyClass::myMethod(): Amqplib failure',
                 [
                     'exception' => AMQPIOException::class,
@@ -76,5 +76,25 @@ class LoggerTest extends AbstractTestCase
             ->once();
 
         $this->logger->logAmqplibException('MyClass::myMethod', new AMQPIOException('Bang!', 123));
+    }
+
+    public function testLogAmqplibExceptionLogsCorrectlyWithCustomMessage(): void
+    {
+        $this->wrappedLogger->expects()
+            ->critical(
+                'MyClass::myMethod(): My custom message',
+                [
+                    'exception' => AMQPIOException::class,
+                    'message' => 'Boom!',
+                    'code' => 456,
+                ]
+            )
+            ->once();
+
+        $this->logger->logAmqplibException(
+            'MyClass::myMethod',
+            new AMQPIOException('Boom!', 456),
+            'My custom message'
+        );
     }
 }

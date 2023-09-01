@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
+use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Exception\AMQPExceptionInterface;
 
@@ -31,6 +32,7 @@ class AMQPChannel
      */
     private ?AmqplibChannel $amqplibChannel = null;
     private readonly AmqpChannelBridgeInterface $channelBridge;
+    private readonly LoggerInterface $logger;
 
     /**
      * @param AmqpConnection $amqpConnection An instance of AMQPConnection
@@ -43,6 +45,7 @@ class AMQPChannel
     public function __construct(private readonly AmqpConnection $amqpConnection)
     {
         $connectionBridge = AmqpBridge::getBridgeConnection($amqpConnection);
+        $this->logger = $connectionBridge->getLogger();
 
         $this->channelBridge = $connectionBridge->createChannelBridge();
         AmqpBridge::bridgeChannel($this, $this->channelBridge);
@@ -78,11 +81,19 @@ class AMQPChannel
     {
         $amqplibChannel = $this->checkChannelOrThrow('Could not redeliver unacknowledged messages.');
 
+        $this->logger->debug(__METHOD__ . '(): Recovery attempt', [
+            'requeue' => $requeue,
+        ]);
+
         try {
             $amqplibChannel->basic_recover($requeue);
         } catch (AMQPExceptionInterface $exception) {
+            // Log details of the internal php-amqplib exception,
+            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
+            $this->logger->logAmqplibException(__METHOD__, $exception);
+
             // TODO: Handle errors identically to php-amqp.
-            throw new AMQPChannelException(__METHOD__ . ' failed: ' . $exception->getMessage());
+            throw new AMQPChannelException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
         }
 
         return true;

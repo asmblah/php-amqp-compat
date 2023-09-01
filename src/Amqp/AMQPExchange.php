@@ -12,6 +12,7 @@
 declare(strict_types=1);
 
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
+use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Exception\AMQPExceptionInterface;
 use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
@@ -39,6 +40,7 @@ class AMQPExchange
     private string $exchangeName = '';
     private string $exchangeType = ''; // Must be set to one of the AMQP_EX__TYPE* constants.
     private int $flags = 0;
+    private readonly LoggerInterface $logger;
 
     /**
      * @throws AMQPChannelException When channel is not connected.
@@ -50,6 +52,7 @@ class AMQPExchange
         $this->amqpChannel = $amqpChannel;
 
         $channelBridge = AmqpBridge::getBridgeChannel($amqpChannel);
+        $this->logger = $channelBridge->getLogger();
 
         // Always set here in the constructor, however the API allows for the class to be extended
         // and so this parent constructor may not be called. See reference implementation tests.
@@ -150,6 +153,10 @@ class AMQPExchange
                 new AmqplibTable($this->arguments)
             );
         } catch (AMQPExceptionInterface $exception) {
+            // Log details of the internal php-amqplib exception,
+            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
+            $this->logger->logAmqplibException(__METHOD__, $exception);
+
             throw new AMQPExchangeException(
                 sprintf(
                     'Server channel error: %d, message: %s',

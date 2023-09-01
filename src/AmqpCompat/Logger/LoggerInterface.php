@@ -33,5 +33,9 @@ interface LoggerInterface extends PsrLoggerInterface
     /**
      * Logs details of the php-amqplib exception.
      */
-    public function logAmqplibException(string $methodName, AMQPExceptionInterface $exception): void;
+    public function logAmqplibException(
+        string $methodName,
+        AMQPExceptionInterface $exception,
+        string $message = 'Amqplib failure'
+    ): void;
 }
