@@ -46,13 +46,13 @@ class ConnectionFailureTest extends AbstractTestCase
             'log' => null,
         ]);
 
+        $this->resetAmqpManager();
         AmqpManager::setConfiguration(new Configuration($this->logger));
     }
 
     public function tearDown(): void
     {
-        AmqpManager::setAmqpIntegration(null);
-        AmqpManager::setConfiguration(null);
+        $this->resetAmqpManager();
     }
 
     public function testConnectionFailureIsHandledCorrectly(): void
