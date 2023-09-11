@@ -337,6 +337,10 @@ class AMQPQueue
             throw new AMQPQueueException(__METHOD__ . '(): Amqplib result was not an array');
         }
 
+        if (count($result) < 2) {
+            throw new AMQPQueueException(__METHOD__ . '(): Amqplib result should contain message count at [1]');
+        }
+
         return (int) $result[1];
     }
 

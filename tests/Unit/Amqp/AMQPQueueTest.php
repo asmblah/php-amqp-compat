@@ -209,7 +209,7 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqpQueue->declareQueue();
     }
 
-    public function testDeclareQueueHandlesWrongResultFromAmqplibCorrectly(): void
+    public function testDeclareQueueHandlesNonArrayResultFromAmqplibCorrectly(): void
     {
         $this->amqpQueue->setName('my_queue');
 
@@ -227,6 +227,30 @@ class AMQPQueueTest extends AbstractTestCase
 
         $this->expectException(AMQPQueueException::class);
         $this->expectExceptionMessage('AMQPQueue::declareQueue(): Amqplib result was not an array');
+
+        $this->amqpQueue->declareQueue();
+    }
+
+    public function testDeclareQueueHandlesInvalidArrayResultFromAmqplibCorrectly(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+
+        $this->amqplibChannel->allows()
+            ->queue_declare(
+                'my_queue',
+                false,
+                false,
+                false,
+                false,
+                false,
+                Mockery::type(AmqplibTable::class)
+            )
+            ->andReturn(['I am not valid']);
+
+        $this->expectException(AMQPQueueException::class);
+        $this->expectExceptionMessage(
+            'AMQPQueue::declareQueue(): Amqplib result should contain message count at [1]'
+        );
 
         $this->amqpQueue->declareQueue();
     }
