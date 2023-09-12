@@ -42,8 +42,12 @@ class Logger extends PsrAbstractLogger implements LoggerInterface
 
     /**
      * @inheritDoc
+     *
+     * Note that $message is untyped for compatibility with psr/log v1 as well as v2+.
+     *
+     * @param Stringable|string $message
      */
-    public function log($level, Stringable|string $message, array $context = []): void
+    public function log($level, $message, array $context = []): void
     {
         $this->wrappedLogger->log($level, $message, $context);
     }
