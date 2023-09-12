@@ -13,13 +13,13 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Bridge\Channel;
 
+use AMQPEnvelope;
 use AMQPQueue;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use LogicException;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
-use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
 
 /**
  * Class AmqpChannelBridge.
@@ -45,9 +45,9 @@ class AmqpChannelBridge implements AmqpChannelBridgeInterface
     /**
      * @inheritDoc
      */
-    public function consumeMessage(AmqplibMessage $message): void
+    public function consumeEnvelope(AMQPEnvelope $amqpEnvelope): void
     {
-        $consumerTag = $message->getConsumerTag();
+        $consumerTag = $amqpEnvelope->getConsumerTag();
         $amqpQueue = $this->consumerTagToQueueMap[$consumerTag] ?? null;
 
         if ($amqpQueue === null) {
@@ -58,7 +58,7 @@ class AmqpChannelBridge implements AmqpChannelBridgeInterface
             ));
         }
 
-        $this->consumer->consumeMessage($message, $amqpQueue);
+        $this->consumer->consumeEnvelope($amqpEnvelope, $amqpQueue);
     }
 
     /**
@@ -83,6 +83,14 @@ class AmqpChannelBridge implements AmqpChannelBridgeInterface
     public function getConsumptionCallback(): callable
     {
         return $this->consumer->getConsumptionCallback();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getEnvelopeTransformer(): EnvelopeTransformerInterface
+    {
+        return $this->connectionBridge->getEnvelopeTransformer();
     }
 
     /**

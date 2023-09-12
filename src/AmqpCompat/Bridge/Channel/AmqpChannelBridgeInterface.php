@@ -13,11 +13,12 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Bridge\Channel;
 
+use AMQPEnvelope;
 use AMQPQueue;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridgeResourceInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
+use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
-use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
 
 /**
  * Interface AmqpChannelBridgeInterface.
@@ -29,9 +30,12 @@ use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
 interface AmqpChannelBridgeInterface extends AmqpBridgeResourceInterface
 {
     /**
-     * Consumes the given message, returning false if further consumption should be stopped.
+     * Consumes the given envelope, raising a StopConsumptionException
+     * if further consumption should be stopped.
+     *
+     * @throws StopConsumptionException
      */
-    public function consumeMessage(AmqplibMessage $message): void;
+    public function consumeEnvelope(AMQPEnvelope $amqpEnvelope): void;
 
     /**
      * Fetches the internal php-amqplib channel.

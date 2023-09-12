@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
+use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
@@ -41,6 +42,7 @@ class AMQPQueue
     private bool $autoDelete = false;
     private readonly AmqpChannelBridgeInterface $channelBridge;
     private bool $durable = false;
+    private readonly EnvelopeTransformerInterface $envelopeTransformer;
     private bool $exclusive = false;
     private ?string $lastConsumerTag;
     private readonly LoggerInterface $logger;
@@ -61,6 +63,7 @@ class AMQPQueue
         // and so this parent constructor may not be called. See reference implementation tests.
         $this->amqplibChannel = $this->channelBridge->getAmqplibChannel();
 
+        $this->envelopeTransformer = $this->channelBridge->getEnvelopeTransformer();
         $this->logger = $this->channelBridge->getLogger();
     }
 
@@ -250,17 +253,24 @@ class AMQPQueue
             $consumerTag = $amqplibChannel->basic_consume(
                 $this->queueName,
                 $consumerTag,
-                $flags & AMQP_NOLOCAL,
-                $flags & AMQP_AUTOACK, // A.K.A "no_ack".
+                (bool) ($flags & AMQP_NOLOCAL),
+                (bool) ($flags & AMQP_AUTOACK), // A.K.A "no_ack".
                 $this->exclusive,
                 false, // FIXME.
                 function (AmqplibMessage $message) {
+                    $amqpEnvelope = $this->envelopeTransformer->transformMessage($message);
+
                     if (!$this->channelBridge->isConsumerSubscribed($message->getConsumerTag())) {
                         // We received an envelope for a consumer tag that isn't subscribed.
-                        throw new AMQPEnvelopeException('Orphaned envelope');
+                        $exception = new AMQPEnvelopeException('Orphaned envelope');
+
+                        // The reference API defines this as a public property and is assigned at the call site.
+                        $exception->envelope = $amqpEnvelope;
+
+                        throw $exception;
                     }
 
-                    $this->channelBridge->consumeMessage($message);
+                    $this->channelBridge->consumeEnvelope($amqpEnvelope);
                 },
                 null,
                 [] // FIXME.

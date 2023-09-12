@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Bridge\Connection;
 
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridge;
+use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
@@ -35,6 +36,10 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
     private $amqplibConnection;
     private ?AmqpConnectionBridge $connectionBridge;
     /**
+     * @var (MockInterface&EnvelopeTransformerInterface)|null
+     */
+    private $envelopeTransformer;
+    /**
      * @var (MockInterface&ErrorReporterInterface)|null
      */
     private $errorReporter;
@@ -46,11 +51,13 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
     public function setUp(): void
     {
         $this->amqplibConnection = mock(AmqplibConnection::class);
+        $this->envelopeTransformer = mock(EnvelopeTransformerInterface::class);
         $this->errorReporter = mock(ErrorReporterInterface::class);
         $this->logger = mock(LoggerInterface::class);
 
         $this->connectionBridge = new AmqpConnectionBridge(
             $this->amqplibConnection,
+            $this->envelopeTransformer,
             $this->errorReporter,
             $this->logger
         );
@@ -79,6 +86,11 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
     public function testGetAmqplibConnectionReturnsTheUnderlyingConnection(): void
     {
         static::assertSame($this->amqplibConnection, $this->connectionBridge->getAmqplibConnection());
+    }
+
+    public function testGetEnvelopeTransformerReturnsTheTransformer(): void
+    {
+        static::assertSame($this->envelopeTransformer, $this->connectionBridge->getEnvelopeTransformer());
     }
 
     public function testGetErrorReporterReturnsTheErrorReporter(): void

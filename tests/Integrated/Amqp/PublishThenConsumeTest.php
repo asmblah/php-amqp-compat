@@ -20,6 +20,7 @@ use AMQPExchange;
 use AMQPQueue;
 use Asmblah\PhpAmqpCompat\AmqpManager;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
+use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformer;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
@@ -106,6 +107,7 @@ class PublishThenConsumeTest extends AbstractTestCase
 
         $this->amqpConnectionBridge = new AmqpConnectionBridge(
             $this->amqplibConnection,
+            new EnvelopeTransformer(),
             $this->errorReporter,
             $this->logger
         );

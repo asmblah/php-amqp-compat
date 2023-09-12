@@ -13,15 +13,19 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Bridge\Channel;
 
+use AMQPEnvelope;
 use AMQPQueue;
-use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
+use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
 
 interface ConsumerInterface
 {
     /**
-     * Consumes the given message, returning false if further consumption should be stopped.
+     * Consumes the given envelope, raising a StopConsumptionException
+     * if further consumption should be stopped.
+     *
+     * @throws StopConsumptionException
      */
-    public function consumeMessage(AmqplibMessage $message, AMQPQueue $amqpQueue): void;
+    public function consumeEnvelope(AMQPEnvelope $amqpEnvelope, AMQPQueue $amqpQueue): void;
 
     /**
      * Fetches the callback to use for consuming AMQP messages, if any.

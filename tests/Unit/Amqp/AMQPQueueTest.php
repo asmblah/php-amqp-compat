@@ -15,18 +15,23 @@ namespace Asmblah\PhpAmqpCompat\Tests\Unit\Amqp;
 
 use AMQPChannel;
 use AMQPChannelException;
+use AMQPEnvelope;
+use AMQPEnvelopeException;
 use AMQPQueue;
 use AMQPQueueException;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
+use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
+use Closure;
 use Mockery;
 use Mockery\MockInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 use PhpAmqpLib\Exception\AMQPIOException;
 use PhpAmqpLib\Exception\AMQPProtocolChannelException;
+use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
 use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;
 use stdClass;
 
@@ -55,6 +60,10 @@ class AMQPQueueTest extends AbstractTestCase
      */
     private $channelBridge;
     /**
+     * @var (MockInterface&EnvelopeTransformerInterface)|null
+     */
+    private $envelopeTransformer;
+    /**
      * @var (MockInterface&LoggerInterface)|null
      */
     private $logger;
@@ -67,15 +76,20 @@ class AMQPQueueTest extends AbstractTestCase
         ]);
         $this->amqplibChannel = mock(AmqplibChannel::class, [
             'basic_ack' => null,
+            'basic_consume' => 'my_consumer_tag',
             'getConnection' => $this->amqplibConnection,
             'is_open' => true,
         ]);
+        $this->envelopeTransformer = mock(EnvelopeTransformerInterface::class);
         $this->logger = mock(LoggerInterface::class, [
             'debug' => null,
         ]);
         $this->channelBridge = mock(AmqpChannelBridgeInterface::class, [
             'getAmqplibChannel' => $this->amqplibChannel,
+            'getEnvelopeTransformer' => $this->envelopeTransformer,
             'getLogger' => $this->logger,
+            'isConsumerSubscribed' => true,
+            'subscribeConsumer' => null,
         ]);
         AmqpBridge::bridgeChannel($this->amqpChannel, $this->channelBridge);
 
@@ -140,6 +154,126 @@ class AMQPQueueTest extends AbstractTestCase
     public function testAckReturnsTrue(): void
     {
         static::assertTrue($this->amqpQueue->ack(321));
+    }
+
+    public function testConsumeSubscribesConsumerWhenNoCallbackGiven(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->basic_consume(
+                'my_queue',
+                'my_input_consumer_tag',
+                false,
+                false,
+                false,
+                false,
+                Mockery::type(Closure::class),
+                null,
+                []
+            )
+            ->andReturn('my_output_consumer_tag');
+
+        $this->channelBridge->expects()
+            ->subscribeConsumer('my_output_consumer_tag', $this->amqpQueue)
+            ->once();
+
+        $this->amqpQueue->consume(null, AMQP_NOPARAM, 'my_input_consumer_tag');
+    }
+
+    public function testConsumeProvidesCallbackThatConsumesViaChannelBridge(): void
+    {
+        $consumerCallback = null;
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->basic_consume(
+                'my_queue',
+                'my_input_consumer_tag',
+                false,
+                false,
+                false,
+                false,
+                Mockery::type(Closure::class),
+                null,
+                []
+            )
+            ->andReturnUsing(function (
+                $queue,
+                $consumerTag,
+                $noLocal,
+                $noAck,
+                $exclusive,
+                $noWait,
+                callable $callback
+            ) use (&$consumerCallback) {
+                $consumerCallback = $callback;
+
+                return 'my_consumer_tag';
+            });
+        $amqplibMessage = mock(AmqplibMessage::class, [
+            'getConsumerTag' => 'my_consumer_tag',
+        ]);
+        $amqpEnvelope = mock(AMQPEnvelope::class);
+        $this->envelopeTransformer->allows()
+            ->transformMessage($amqplibMessage)
+            ->andReturn($amqpEnvelope);
+
+        $this->channelBridge->expects()
+            ->consumeEnvelope($amqpEnvelope)
+            ->once();
+
+        $this->amqpQueue->consume(null, AMQP_NOPARAM, 'my_input_consumer_tag');
+        $consumerCallback($amqplibMessage);
+    }
+
+    public function testConsumeProvidesCallbackThatRaisesAmqpEnvelopeExceptionIfConsumerTagIsUnknown(): void
+    {
+        $consumerCallback = null;
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->basic_consume(
+                'my_queue',
+                'my_input_consumer_tag',
+                false,
+                false,
+                false,
+                false,
+                Mockery::type(Closure::class),
+                null,
+                []
+            )
+            ->andReturnUsing(function (
+                $queue,
+                $consumerTag,
+                $noLocal,
+                $noAck,
+                $exclusive,
+                $noWait,
+                callable $callback
+            ) use (&$consumerCallback) {
+                $consumerCallback = $callback;
+
+                return 'my_consumer_tag';
+            });
+        $amqplibMessage = mock(AmqplibMessage::class, [
+            'getConsumerTag' => 'my_unknown_consumer_tag',
+        ]);
+        $amqpEnvelope = mock(AMQPEnvelope::class);
+        $this->envelopeTransformer->allows()
+            ->transformMessage($amqplibMessage)
+            ->andReturn($amqpEnvelope);
+        $this->channelBridge->expects()
+            ->isConsumerSubscribed('my_unknown_consumer_tag')
+            ->andReturnFalse();
+
+        $this->expectException(AMQPEnvelopeException::class);
+        $this->expectExceptionMessage('Orphaned envelope');
+        $this->amqpQueue->consume(null, AMQP_NOPARAM, 'my_input_consumer_tag');
+        try {
+            $consumerCallback($amqplibMessage);
+        } catch (AMQPEnvelopeException $exception) {
+            static::assertSame($amqpEnvelope, $exception->envelope);
+            throw $exception;
+        }
     }
 
     public function testDeclareQueueDeclaresViaAmqplib(): void
