@@ -121,6 +121,15 @@ class ReferenceImplementationTest extends AbstractTestCase
         'bug_gh72-2.phpt',
         'package-version.phpt',
     ];
+    /**
+     * When the reference tests call var_dump(...), an exact object ID is expected.
+     *
+     * This ensures that the tests see the following:
+     * `object(AMQPBasicProperties)#2 (14) {`
+     *
+     * rather than something like:
+     * `object(AMQPBasicProperties)#1333 (14) {`
+     */
     public const VAR_DUMP_OBJECT_IDS = [
         'amqpbasicproperties.php' => [1, 2],
         'amqpconnection_construct_with_limits.php' => [1],

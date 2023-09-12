@@ -20,7 +20,6 @@ use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use LogicException;
 use Mockery\MockInterface;
-use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
 
 /**
  * Class ConsumerTest.
@@ -42,30 +41,21 @@ class ConsumerTest extends AbstractTestCase
         $this->consumer = new Consumer();
     }
 
-    public function testConsumeMessageThrowsWhenNoConsumptionCallbackIsSet(): void
+    public function testConsumeEnvelopeThrowsWhenNoConsumptionCallbackIsSet(): void
     {
-        $message = mock(AmqplibMessage::class);
+        $amqpEnvelope = mock(AMQPEnvelope::class);
 
         $this->expectException(LogicException::class);
         $this->expectExceptionMessage(
-            'Asmblah\PhpAmqpCompat\Bridge\Channel\Consumer::consumeMessage :: No callback is registered'
+            'Asmblah\PhpAmqpCompat\Bridge\Channel\Consumer::consumeEnvelope :: No callback is registered'
         );
 
-        $this->consumer->consumeMessage($message, $this->amqpQueue);
+        $this->consumer->consumeEnvelope($amqpEnvelope, $this->amqpQueue);
     }
 
-    public function testConsumeMessageCallsCallbackWithCorrectEnvelopeAndQueue(): void
+    public function testConsumeEnvelopeCallsCallbackWithCorrectEnvelopeAndQueue(): void
     {
-        $message = mock(AmqplibMessage::class, [
-            'getBody' => 'my message body',
-            'getConsumerTag' => 'my-consumer-tag',
-            'getContentEncoding' => 'application/x-my-encoding',
-            'getDeliveryTag' => 4321,
-            'getExchange' => 'my-exchange',
-            'getRoutingKey' => 'my-routing-key',
-            'get_properties' => [],
-            'isRedelivered' => false,
-        ]);
+        $amqpEnvelope = mock(AMQPEnvelope::class);
         /** @var AMQPEnvelope $passedEnvelope */
         $passedEnvelope = null;
         /** @var AMQPQueue $passedQueue */
@@ -75,38 +65,22 @@ class ConsumerTest extends AbstractTestCase
             $passedQueue = $queue;
         });
 
-        $this->consumer->consumeMessage($message, $this->amqpQueue);
+        $this->consumer->consumeEnvelope($amqpEnvelope, $this->amqpQueue);
 
-        static::assertInstanceOf(AMQPEnvelope::class, $passedEnvelope);
-        static::assertSame('my message body', $passedEnvelope->getBody());
-        static::assertSame('my-consumer-tag', $passedEnvelope->getConsumerTag());
-        static::assertSame('application/x-my-encoding', $passedEnvelope->getContentEncoding());
-        static::assertSame(4321, $passedEnvelope->getDeliveryTag());
-        static::assertSame('my-exchange', $passedEnvelope->getExchangeName());
-        static::assertSame('my-routing-key', $passedEnvelope->getRoutingKey());
-        static::assertFalse($passedEnvelope->isRedelivery());
+        static::assertSame($amqpEnvelope, $passedEnvelope);
         static::assertSame($this->amqpQueue, $passedQueue);
     }
 
-    public function testConsumeMessageThrowsStopExceptionWhenCallbackReturnsFalse(): void
+    public function testConsumeEnvelopeThrowsStopExceptionWhenCallbackReturnsFalse(): void
     {
-        $message = mock(AmqplibMessage::class, [
-            'getBody' => 'my message body',
-            'getConsumerTag' => 'my-consumer-tag',
-            'getContentEncoding' => 'application/x-my-encoding',
-            'getDeliveryTag' => 4321,
-            'getExchange' => 'my-exchange',
-            'getRoutingKey' => 'my-routing-key',
-            'get_properties' => [],
-            'isRedelivered' => false,
-        ]);
+        $amqpEnvelope = mock(AMQPEnvelope::class);
         $this->consumer->setConsumptionCallback(function (): bool {
             return false;
         });
 
         $this->expectException(StopConsumptionException::class);
 
-        $this->consumer->consumeMessage($message, $this->amqpQueue);
+        $this->consumer->consumeEnvelope($amqpEnvelope, $this->amqpQueue);
     }
 
     public function testGetConsumptionCallbackFetchesTheCallback(): void

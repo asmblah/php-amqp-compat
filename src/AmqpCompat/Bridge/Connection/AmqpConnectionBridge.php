@@ -16,6 +16,7 @@ namespace Asmblah\PhpAmqpCompat\Bridge\Connection;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\Consumer;
+use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use InvalidArgumentException;
@@ -38,6 +39,7 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
 
     public function __construct(
         private readonly AmqplibConnection $amqplibConnection,
+        private readonly EnvelopeTransformerInterface $envelopeTransformer,
         private readonly ErrorReporterInterface $errorReporter,
         private readonly LoggerInterface $logger
     ) {
@@ -64,6 +66,14 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
     public function getAmqplibConnection(): AmqplibConnection
     {
         return $this->amqplibConnection;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getEnvelopeTransformer(): EnvelopeTransformerInterface
+    {
+        return $this->envelopeTransformer;
     }
 
     /**

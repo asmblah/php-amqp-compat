@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Integration;
 
+use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
@@ -42,7 +43,8 @@ class AmqpIntegration implements AmqpIntegrationInterface
         private readonly ConnectorInterface $connector,
         private readonly HeartbeatSenderInterface $heartbeatSender,
         ConfigurationInterface $configuration,
-        private readonly DefaultConnectionConfigInterface $defaultConnectionConfig
+        private readonly DefaultConnectionConfigInterface $defaultConnectionConfig,
+        private readonly EnvelopeTransformerInterface $envelopeTransformer
     ) {
         $this->errorReporter = $configuration->getErrorReporter();
         $this->logger = new Logger($configuration->getLogger());
@@ -59,6 +61,7 @@ class AmqpIntegration implements AmqpIntegrationInterface
         // Internal representation of the AMQP connection that this compatibility layer uses.
         $connectionBridge = new AmqpConnectionBridge(
             $amqplibConnection,
+            $this->envelopeTransformer,
             $this->errorReporter,
             $this->logger
         );

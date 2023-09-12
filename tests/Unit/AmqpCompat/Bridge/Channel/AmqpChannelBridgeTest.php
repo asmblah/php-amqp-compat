@@ -13,10 +13,16 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Bridge\Channel;
 
+use AMQPEnvelope;
+use AMQPQueue;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\ConsumerInterface;
+use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
+use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
+use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
+use LogicException;
 use Mockery\MockInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 
@@ -40,11 +46,30 @@ class AmqpChannelBridgeTest extends AbstractTestCase
      * @var (MockInterface&ConsumerInterface)|null
      */
     private $consumer;
+    /**
+     * @var (MockInterface&EnvelopeTransformerInterface)|null
+     */
+    private $envelopeTransformer;
+    /**
+     * @var (MockInterface&ErrorReporterInterface)|null
+     */
+    private $errorReporter;
+    /**
+     * @var (MockInterface&LoggerInterface)|null
+     */
+    private $logger;
 
     public function setUp(): void
     {
         $this->amqplibChannel = mock(AmqplibChannel::class);
-        $this->connectionBridge = mock(AmqpConnectionBridgeInterface::class);
+        $this->envelopeTransformer = mock(EnvelopeTransformerInterface::class);
+        $this->errorReporter = mock(ErrorReporterInterface::class);
+        $this->logger = mock(LoggerInterface::class);
+        $this->connectionBridge = mock(AmqpConnectionBridgeInterface::class, [
+            'getEnvelopeTransformer' => $this->envelopeTransformer,
+            'getErrorReporter' => $this->errorReporter,
+            'getLogger' => $this->logger,
+        ]);
         $this->consumer = mock(ConsumerInterface::class);
 
         $this->channelBridge = new AmqpChannelBridge(
@@ -54,6 +79,74 @@ class AmqpChannelBridgeTest extends AbstractTestCase
         );
     }
 
+    public function testConsumeEnvelopeDelegatesToTheConsumer(): void
+    {
+        $amqpEnvelope = mock(AMQPEnvelope::class, [
+            'getConsumerTag' => 'my_consumer_tag',
+        ]);
+        $amqpQueue = mock(AMQPQueue::class);
+        $this->channelBridge->subscribeConsumer('my_consumer_tag', $amqpQueue);
+
+        $this->consumer->expects()
+            ->consumeEnvelope($amqpEnvelope, $amqpQueue)
+            ->once();
+
+        $this->channelBridge->consumeEnvelope($amqpEnvelope);
+    }
+
+    public function testConsumeEnvelopeThrowsWhenNoConsumerIsRegisteredForTag(): void
+    {
+        $amqpEnvelope = mock(AMQPEnvelope::class, [
+            'getConsumerTag' => 'my_consumer_tag',
+        ]);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage(
+            AmqpChannelBridge::class .
+            '::consumeEnvelope(): No consumer registered for consumer tag "my_consumer_tag"'
+        );
+
+        $this->channelBridge->consumeEnvelope($amqpEnvelope);
+    }
+
+    public function testGetAmqplibChannelReturnsTheChannel(): void
+    {
+        static::assertSame($this->amqplibChannel, $this->channelBridge->getAmqplibChannel());
+    }
+
+    public function testGetConnectionBridgeReturnsTheBridge(): void
+    {
+        static::assertSame($this->connectionBridge, $this->channelBridge->getConnectionBridge());
+    }
+
+    public function testGetEnvelopeTransformerReturnsTheTransformer(): void
+    {
+        static::assertSame($this->envelopeTransformer, $this->channelBridge->getEnvelopeTransformer());
+    }
+
+    public function testGetErrorReporterReturnsTheReporter(): void
+    {
+        static::assertSame($this->errorReporter, $this->channelBridge->getErrorReporter());
+    }
+
+    public function testGetLoggerReturnsTheLogger(): void
+    {
+        static::assertSame($this->logger, $this->channelBridge->getLogger());
+    }
+
+    public function testIsConsumerSubscribedReturnsTrueWhenSubscribed(): void
+    {
+        $amqpQueue = mock(AMQPQueue::class);
+        $this->channelBridge->subscribeConsumer('my_consumer_tag', $amqpQueue);
+
+        static::assertTrue($this->channelBridge->isConsumerSubscribed('my_consumer_tag'));
+    }
+
+    public function testIsConsumerSubscribedReturnsFalseWhenNotSubscribed(): void
+    {
+        static::assertFalse($this->channelBridge->isConsumerSubscribed('invalid_consumer_tag'));
+    }
+
     public function testUnregisterChannelUnregistersChannelBridgeViaConnectionBridge(): void
     {
         $this->connectionBridge->expects()
@@ -61,5 +154,15 @@ class AmqpChannelBridgeTest extends AbstractTestCase
             ->once();
 
         $this->channelBridge->unregisterChannel();
+    }
+
+    public function testUnsubscribeConsumerUnsubscribesTheConsumer(): void
+    {
+        $amqpQueue = mock(AMQPQueue::class);
+        $this->channelBridge->subscribeConsumer('my_consumer_tag', $amqpQueue);
+
+        $this->channelBridge->unsubscribeConsumer('my_consumer_tag');
+
+        static::assertFalse($this->channelBridge->isConsumerSubscribed('my_consumer_tag'));
     }
 }

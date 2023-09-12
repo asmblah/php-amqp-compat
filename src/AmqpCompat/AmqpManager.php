@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat;
 
+use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformer;
 use Asmblah\PhpAmqpCompat\Configuration\Configuration;
 use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Connection\Amqplib\ConnectionFactory;
@@ -53,7 +54,8 @@ class AmqpManager
                 ),
                 new PcntlHeartbeatSender(new Clock()),
                 $configuration,
-                new DefaultConnectionConfig(new Ini())
+                new DefaultConnectionConfig(new Ini()),
+                new EnvelopeTransformer()
             );
         }
 
