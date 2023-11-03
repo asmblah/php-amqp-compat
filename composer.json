@@ -27,9 +27,6 @@
         "mockery/mockery": "^1.6",
         "phpunit/phpunit": "^10.2"
     },
-    "replace": {
-        "ext-amqp": "*"
-    },
     "config": {
         "platform": {
             "php": "8.1"
