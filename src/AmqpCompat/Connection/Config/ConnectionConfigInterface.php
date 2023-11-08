@@ -96,6 +96,8 @@ interface ConnectionConfigInterface extends ConnectionConfigProviderInterface
 
     /**
      * Fetches the config structure as an array suitable for logging, with sensitive credentials obfuscated.
+     *
+     * @return array<mixed>
      */
     public function toLoggableArray(): array;
 }

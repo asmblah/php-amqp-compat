@@ -33,7 +33,7 @@ AmqpManager::setConfiguration(
 if (isset($argv)) {
     // Force the actual test script to be loaded via file:// stream wrapper,
     // so that PHP Code Shift can transpile it.
-    if (count($argv) === 0) {
+    if (count($argv) === 0) { // @phpstan-ignore-line
         throw new RuntimeException('Missing test script');
     }
 

@@ -41,7 +41,7 @@ class EnvelopeTransformerTest extends AbstractTestCase
             'getDeliveryTag' => 4321,
             'getExchange' => 'my-exchange',
             'getRoutingKey' => 'my-routing-key',
-            'get_properties' => [],
+            'get_properties' => ['content_type' => 'text/x-custom'],
             'isRedelivered' => false,
         ]);
 

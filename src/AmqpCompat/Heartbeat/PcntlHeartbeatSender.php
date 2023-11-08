@@ -30,7 +30,7 @@ use SplObjectStorage;
 class PcntlHeartbeatSender implements HeartbeatSenderInterface
 {
     /**
-     * @var SplObjectStorage<AmqpConnectionBridgeInterface>
+     * @var SplObjectStorage<AmqpConnectionBridgeInterface, null>
      */
     private SplObjectStorage $connectionBridges;
     private int $interval = 0;

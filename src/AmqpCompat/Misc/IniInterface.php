@@ -24,6 +24,8 @@ interface IniInterface
      * Fetches the given unprocessed raw INI setting.
      *
      * Useful to allow stubbing.
+     *
+     * @return array<mixed>|false|string
      */
     public function getRawIniSetting(string $option): array|false|string;
 }

@@ -31,8 +31,10 @@ interface DelegatingClassEmulatorInterface
     /**
      * Fetches methods for the given class as for `get_class_methods(...)`,
      * delegating to any applicable registered class emulator.
+     *
+     * @return string[] Method names.
      */
-    public function getClassMethods(string $className): ?array;
+    public function getClassMethods(string $className): array;
 
     /**
      * Fetches the value of an internal property.

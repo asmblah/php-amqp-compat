@@ -26,8 +26,17 @@ use WeakMap;
  */
 class AmqpBridge
 {
+    /**
+     * @var WeakMap<AMQPChannel, AmqpChannelBridgeInterface>
+     */
     private static WeakMap $amqpChannelBridgeMap;
+    /**
+     * @var WeakMap<AMQPConnection, AmqpConnectionBridgeInterface>
+     */
     private static WeakMap $amqpConnectionBridgeMap;
+    /**
+     * @var WeakMap<AMQPConnection, ConnectionConfigInterface>
+     */
     private static WeakMap $connectionConfigMap;
 
     /**
@@ -89,8 +98,15 @@ class AmqpBridge
      */
     public static function initialise(): void
     {
-        self::$amqpChannelBridgeMap = new WeakMap();
-        self::$amqpConnectionBridgeMap = new WeakMap();
-        self::$connectionConfigMap = new WeakMap();
+        /** @var WeakMap<AMQPChannel, AmqpChannelBridgeInterface> $amqpChannelBridgeMap */
+        $amqpChannelBridgeMap = new WeakMap();
+        /** @var WeakMap<AMQPConnection, AmqpConnectionBridgeInterface> $amqpConnectionBridgeMap */
+        $amqpConnectionBridgeMap = new WeakMap();
+        /** @var WeakMap<AMQPConnection, ConnectionConfigInterface> $connectionConfigMap */
+        $connectionConfigMap = new WeakMap();
+
+        self::$amqpChannelBridgeMap = $amqpChannelBridgeMap;
+        self::$amqpConnectionBridgeMap = $amqpConnectionBridgeMap;
+        self::$connectionConfigMap = $connectionConfigMap;
     }
 }

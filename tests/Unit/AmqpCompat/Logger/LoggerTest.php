@@ -27,11 +27,8 @@ use Psr\Log\LogLevel;
  */
 class LoggerTest extends AbstractTestCase
 {
-    private ?Logger $logger;
-    /**
-     * @var (MockInterface&PsrLoggerInterface)|null
-     */
-    private $wrappedLogger;
+    private Logger $logger;
+    private MockInterface&PsrLoggerInterface $wrappedLogger;
 
     public function setUp(): void
     {

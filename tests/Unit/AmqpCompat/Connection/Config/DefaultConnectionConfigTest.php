@@ -27,11 +27,8 @@ use Mockery\MockInterface;
  */
 class DefaultConnectionConfigTest extends AbstractTestCase
 {
-    private ?DefaultConnectionConfig $config;
-    /**
-     * @var (MockInterface&IniInterface)|null
-     */
-    private $ini;
+    private DefaultConnectionConfig $config;
+    private MockInterface&IniInterface $ini;
 
     public function setUp(): void
     {

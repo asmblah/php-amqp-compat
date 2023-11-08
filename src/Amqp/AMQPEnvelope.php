@@ -47,8 +47,8 @@ class AMQPEnvelope extends AMQPBasicProperties
         ?string $clusterId = ''
     ) {
         parent::__construct(
-            $contentType,
-            $contentEncoding,
+            $contentType ?? '',
+            $contentEncoding ?? '',
             $headers,
             $deliveryMode,
             $priority,
@@ -111,8 +111,8 @@ class AMQPEnvelope extends AMQPBasicProperties
      *
      * @param string $headerKey Name of the header to get the value for.
      *
-     * @return string|bool The contents of the specified header or FALSE
-     *                     if not set.
+     * @return string|false The contents of the specified header or FALSE
+     *                      if not set.
      */
     public function getHeader(string $headerKey): string|false
     {

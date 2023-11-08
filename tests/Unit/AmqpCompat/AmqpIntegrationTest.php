@@ -36,43 +36,16 @@ use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
  */
 class AmqpIntegrationTest extends AbstractTestCase
 {
-    private ?AmqpIntegration $amqpIntegration;
-    /**
-     * @var (MockInterface&AmqplibConnection)|null
-     */
-    private $amqplibConnection;
-    /**
-     * @var (MockInterface&ConnectionConfigInterface)|null
-     */
-    private $connectionConfig;
-    /**
-     * @var (MockInterface&ConfigurationInterface)|null
-     */
-    private $configuration;
-    /**
-     * @var (MockInterface&ConnectorInterface)|null
-     */
-    private $connector;
-    /**
-     * @var (MockInterface&DefaultConnectionConfigInterface)|null
-     */
-    private $defaultConnectionConfig;
-    /**
-     * @var (MockInterface&EnvelopeTransformerInterface)|null
-     */
-    private $envelopeTransformer;
-    /**
-     * @var (MockInterface&ErrorReporterInterface)|null
-     */
-    private $errorReporter;
-    /**
-     * @var (MockInterface&HeartbeatSenderInterface)|null
-     */
-    private $heartbeatSender;
-    /**
-     * @var (MockInterface&LoggerInterface)|null
-     */
-    private $logger;
+    private AmqpIntegration $amqpIntegration;
+    private MockInterface&AmqplibConnection $amqplibConnection;
+    private MockInterface&ConnectionConfigInterface $connectionConfig;
+    private MockInterface&ConfigurationInterface $configuration;
+    private MockInterface&ConnectorInterface $connector;
+    private MockInterface&DefaultConnectionConfigInterface $defaultConnectionConfig;
+    private MockInterface&EnvelopeTransformerInterface $envelopeTransformer;
+    private MockInterface&ErrorReporterInterface $errorReporter;
+    private MockInterface&HeartbeatSenderInterface $heartbeatSender;
+    private MockInterface&LoggerInterface $logger;
 
     public function setUp(): void
     {

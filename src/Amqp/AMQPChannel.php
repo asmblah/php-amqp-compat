@@ -35,14 +35,14 @@ class AMQPChannel
     private readonly LoggerInterface $logger;
 
     /**
-     * @param AmqpConnection $amqpConnection An instance of AMQPConnection
+     * @param AMQPConnection $amqpConnection An instance of AMQPConnection
      *                       with an active connection to a
      *                       broker.
      *
      * @throws AMQPConnectionException If the connection to the broker
      *                                 was lost.
      */
-    public function __construct(private readonly AmqpConnection $amqpConnection)
+    public function __construct(private readonly AMQPConnection $amqpConnection)
     {
         $connectionBridge = AmqpBridge::getBridgeConnection($amqpConnection);
         $this->logger = $connectionBridge->getLogger();
@@ -449,9 +449,9 @@ class AMQPChannel
     }
 
     /**
-     * Sets the callback to process basic.return AMQP server method
+     * Sets the callback for processing the `basic.return` AMQP server method.
      *
-     * @param callable|null $return_callback
+     * @param callable|null $returnCallback
      *
      * Callback function with all arguments has the following signature:
      *
@@ -465,7 +465,7 @@ class AMQPChannel
      * and should return boolean false when wait loop should be canceled.
      *
      */
-    public function setReturnCallback(callable $return_callback=null)
+    public function setReturnCallback(callable $returnCallback = null): void
     {
         throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
     }

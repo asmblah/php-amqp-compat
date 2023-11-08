@@ -44,29 +44,17 @@ use PhpAmqpLib\Message\AMQPMessage;
  */
 class PublishThenConsumeTest extends AbstractTestCase
 {
-    private AMQPChannel|null $amqpChannel;
-    private AMQPConnection|null $amqpConnection;
-    private AmqpConnectionBridge|null $amqpConnectionBridge;
-    private AMQPExchange|null $amqpExchange;
-    /**
-     * @var (MockInterface&AmqpIntegrationInterface)|null
-     */
-    private $amqpIntegration;
-    private AMQPQueue|null $amqpQueue;
-    private AmqplibChannel|null $amqplibChannel;
-    private AmqplibConnection|null $amqplibConnection;
-    /**
-     * @var (MockInterface&ConnectionConfigInterface)|null
-     */
-    private $connectionConfig;
-    /**
-     * @var (MockInterface&ErrorReporterInterface)|null
-     */
-    private $errorReporter;
-    /**
-     * @var (MockInterface&LoggerInterface)|null
-     */
-    private $logger;
+    private AMQPChannel $amqpChannel;
+    private AMQPConnection $amqpConnection;
+    private AmqpConnectionBridge $amqpConnectionBridge;
+    private AMQPExchange $amqpExchange;
+    private MockInterface&AmqpIntegrationInterface $amqpIntegration;
+    private AMQPQueue $amqpQueue;
+    private MockInterface&AmqplibChannel $amqplibChannel;
+    private MockInterface&AmqplibConnection $amqplibConnection;
+    private MockInterface&ConnectionConfigInterface $connectionConfig;
+    private MockInterface&ErrorReporterInterface $errorReporter;
+    private MockInterface&LoggerInterface $logger;
 
     public function setUp(): void
     {
@@ -98,6 +86,7 @@ class PublishThenConsumeTest extends AbstractTestCase
         ]);
         $this->amqplibConnection = mock(AmqplibConnection::class, [
             'channel' => $this->amqplibChannel,
+            'checkHeartBeat' => null,
             'isConnected' => true,
         ]);
 

@@ -42,31 +42,13 @@ use stdClass;
  */
 class AMQPQueueTest extends AbstractTestCase
 {
-    /**
-     * @var (MockInterface&AMQPChannel)|null
-     */
-    private $amqpChannel;
-    private ?AMQPQueue $amqpQueue;
-    /**
-     * @var (MockInterface&AmqplibChannel)|null
-     */
-    private $amqplibChannel;
-    /**
-     * @var (MockInterface&AmqplibConnection)|null
-     */
-    private $amqplibConnection;
-    /**
-     * @var (MockInterface&AmqpChannelBridgeInterface)|null
-     */
-    private $channelBridge;
-    /**
-     * @var (MockInterface&EnvelopeTransformerInterface)|null
-     */
-    private $envelopeTransformer;
-    /**
-     * @var (MockInterface&LoggerInterface)|null
-     */
-    private $logger;
+    private MockInterface&AMQPChannel $amqpChannel;
+    private AMQPQueue $amqpQueue;
+    private MockInterface&AmqplibChannel $amqplibChannel;
+    private MockInterface&AmqplibConnection $amqplibConnection;
+    private MockInterface&AmqpChannelBridgeInterface $channelBridge;
+    private MockInterface&EnvelopeTransformerInterface $envelopeTransformer;
+    private MockInterface&LoggerInterface $logger;
 
     public function setUp(): void
     {
@@ -98,8 +80,8 @@ class AMQPQueueTest extends AbstractTestCase
 
     public function testConstructorNotBeingCalledIsHandledCorrectly(): void
     {
-        $extendedAmqpQueue = new class($this->amqpChannel) extends AMQPQueue {
-            public function __construct(AMQPChannel $amqpChannel)
+        $extendedAmqpQueue = new class extends AMQPQueue {
+            public function __construct()
             {
                 // Deliberately omit the call to the super constructor.
             }
@@ -123,6 +105,13 @@ class AMQPQueueTest extends AbstractTestCase
             ])
             ->once();
 
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::ack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
         $this->amqpQueue->ack(123);
     }
 
@@ -132,6 +121,13 @@ class AMQPQueueTest extends AbstractTestCase
             ->basic_ack(321, false)
             ->once();
 
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::ack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
         $this->amqpQueue->ack(321);
     }
 
@@ -148,11 +144,25 @@ class AMQPQueueTest extends AbstractTestCase
             ->logAmqplibException('AMQPQueue::ack', $exception)
             ->once();
 
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::ack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
         $this->amqpQueue->ack(123);
     }
 
     public function testAckReturnsTrue(): void
     {
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::ack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
         static::assertTrue($this->amqpQueue->ack(321));
     }
 

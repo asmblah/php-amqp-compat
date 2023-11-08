@@ -17,6 +17,7 @@ use PhpAmqpLib\Exception\AMQPExceptionInterface;
 use Psr\Log\AbstractLogger as PsrAbstractLogger;
 use Psr\Log\LoggerInterface as PsrLoggerInterface;
 use Stringable;
+use Throwable;
 
 /**
  * Class Logger.
@@ -46,6 +47,7 @@ class Logger extends PsrAbstractLogger implements LoggerInterface
      * Note that $message is untyped for compatibility with psr/log v1 as well as v2+.
      *
      * @param Stringable|string $message
+     * @param array<mixed> $context
      */
     public function log($level, $message, array $context = []): void
     {
@@ -57,7 +59,7 @@ class Logger extends PsrAbstractLogger implements LoggerInterface
      */
     public function logAmqplibException(
         string $methodName,
-        AMQPExceptionInterface $exception,
+        AMQPExceptionInterface&Throwable $exception,
         string $message = 'Amqplib failure'
     ): void {
         $this->wrappedLogger->critical($methodName . '(): ' . $message, [

@@ -23,8 +23,10 @@
         "psr/log": "^1|^2|^3"
     },
     "require-dev": {
-        "asmblah/php-code-shift": "^0.0.3",
+        "asmblah/php-code-shift": "^0.1.0",
         "mockery/mockery": "^1.6",
+        "phpstan/phpstan": "^1.10",
+        "phpstan/phpstan-mockery": "^1.1",
         "phpunit/phpunit": "^10.2"
     },
     "config": {

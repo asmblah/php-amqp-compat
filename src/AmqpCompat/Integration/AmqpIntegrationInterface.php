@@ -37,6 +37,8 @@ interface AmqpIntegrationInterface
 
     /**
      * Creates a configuration for later connection.
+     *
+     * @param array<mixed> $credentials
      */
     public function createConnectionConfig(array $credentials): ConnectionConfigInterface;
 

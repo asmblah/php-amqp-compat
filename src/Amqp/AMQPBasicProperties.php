@@ -20,6 +20,22 @@ declare(strict_types=1);
  */
 class AMQPBasicProperties
 {
+    /**
+     * @param string $contentType
+     * @param string $contentEncoding
+     * @param array<string, mixed> $headers
+     * @param int $deliveryMode
+     * @param int $priority
+     * @param string $correlationId
+     * @param string $replyTo
+     * @param string $expiration
+     * @param string $messageId
+     * @param int $timestamp
+     * @param string $type
+     * @param string $userId
+     * @param string $appId
+     * @param string $clusterId
+     */
     public function __construct(
         private readonly string $contentType = '',
         private readonly string $contentEncoding = '',
@@ -97,7 +113,7 @@ class AMQPBasicProperties
     /**
      * Fetches the message's headers.
      *
-     * @return array An array of key value pairs associated with the message.
+     * @return array<string, mixed> An array of key value pairs associated with the message.
      */
     public function getHeaders(): array
     {

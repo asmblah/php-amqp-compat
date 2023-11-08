@@ -28,15 +28,9 @@ use PhpAmqpLib\Connection\AMQPConnectionConfig;
  */
 class ConnectorTest extends AbstractTestCase
 {
-    /**
-     * @var (MockInterface&ConnectionConfigInterface)|null
-     */
-    private $connectionConfig;
-    /**
-     * @var (MockInterface&ConnectionFactoryInterface)|null
-     */
-    private $connectionFactory;
-    private ?Connector $connector;
+    private MockInterface&ConnectionConfigInterface $connectionConfig;
+    private MockInterface&ConnectionFactoryInterface $connectionFactory;
+    private Connector $connector;
 
     public function setUp(): void
     {

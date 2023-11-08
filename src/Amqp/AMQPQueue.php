@@ -36,7 +36,7 @@ class AMQPQueue
      */
     private ?AmqplibChannel $amqplibChannel = null;
     /**
-     * @var array<string|int>
+     * @var array<string, scalar>
      */
     private $arguments = [];
     private bool $autoDelete = false;
@@ -92,7 +92,7 @@ class AMQPQueue
         ]);
 
         try {
-            $amqplibChannel->basic_ack($deliveryTag, $flags & AMQP_MULTIPLE);
+            $amqplibChannel->basic_ack($deliveryTag, (bool) ($flags & AMQP_MULTIPLE));
         } catch (AMQPExceptionInterface $exception) {
             // Log details of the internal php-amqplib exception,
             // that cannot be included in the php-amqp/ext-amqp -compatible exception.
@@ -109,15 +109,15 @@ class AMQPQueue
      * Binds the given queue to a routing key on an exchange.
      *
      * @param string $exchangeName Name of the exchange to bind to.
-     * @param string $routingKey   Pattern or routing key to bind with.
-     * @param array  $arguments     Additional binding arguments.
-     *
-     * @return boolean
-     * @throws AMQPChannelException    If the channel is not open.
+     * @param string|null $routingKey Pattern or routing key to bind with.
+     * @param array<string, mixed> $arguments Additional binding arguments.
+
+     * @throws AMQPChannelException If the channel is not open.
      * @throws AMQPConnectionException If the connection to the broker was lost.
      */
-    public function bind(string $exchangeName, string $routingKey = null, array $arguments = []): bool
+    public function bind(string $exchangeName, ?string $routingKey = null, array $arguments = []): bool
     {
+        $routingKey ??= '';
         $amqplibChannel = $this->checkChannelOrThrow('Could not bind queue.');
 
         try {
@@ -157,7 +157,7 @@ class AMQPQueue
         $amqplibChannel = $this->checkChannelOrThrow('Could not cancel queue.');
 
         if ($consumerTag === '') {
-            $consumerTag = $this->lastConsumerTag;
+            $consumerTag = $this->lastConsumerTag ?? '';
         }
 
         try {
@@ -294,16 +294,16 @@ class AMQPQueue
 
         $consuming = true;
 
-        while ($consuming) {
+        while ($consuming) { // @phpstan-ignore-line
             try {
                 /*
                  * Wait for a message to be delivered to the callback attached above via ->basic_consume(...).
                  *
-                 * Amqplib's internal wait loop will allow async signals to still be fired,
+                 * Amqplib's internal wait loop will allow async signals or tocks to still be fired,
                  * so that heartbeats can still be handled in between messages.
                  */
                 $amqplibChannel->wait();
-            } catch (StopConsumptionException $exception) {
+            } catch (StopConsumptionException $exception) { // @phpstan-ignore-line
                 // Consumer returned false, so we return control to the caller.
                 $consuming = false;
             } catch (AMQPExceptionInterface $exception) {
@@ -374,8 +374,8 @@ class AMQPQueue
         try {
             $result = $amqplibChannel->queue_delete(
                 $this->queueName,
-                $flags & AMQP_IFUNUSED,
-                $flags & AMQP_IFEMPTY,
+                (bool) ($flags & AMQP_IFUNUSED),
+                (bool) ($flags & AMQP_IFEMPTY),
                 $this->noWait
             );
         } catch (AMQPExceptionInterface $exception) {
@@ -423,9 +423,9 @@ class AMQPQueue
      *
      * @param string $key The key to look up.
      *
-     * @return string|integer|boolean The string or integer value associated
-     *                                with the given key, or false if the key
-     *                                is not set.
+     * @return scalar The string or integer value associated
+     *                with the given key, or false if the key
+     *                is not set.
      */
     public function getArgument(string $key)
     {
@@ -435,7 +435,7 @@ class AMQPQueue
     /**
      * Fetches all set arguments as an array of key/value pairs.
      *
-     * @return array
+     * @return array<string, scalar>
      */
     public function getArguments(): array
     {
@@ -608,6 +608,8 @@ class AMQPQueue
      * Sets all arguments on the given queue.
      *
      * All other argument settings will be wiped.
+     *
+     * @param array<string, scalar> $arguments
      */
     public function setArguments(array $arguments): bool
     {
@@ -647,15 +649,13 @@ class AMQPQueue
     /**
      * Remove a routing key binding on an exchange from the given queue.
      *
-     * @param string $exchangeName  The name of the exchange on which the
-     *                              queue is bound.
-     * @param string $routingKey    The binding routing key used by the
-     *                              queue.
-     * @param array  $arguments     Additional binding arguments.
+     * @param string $exchangeName The name of the exchange on which the
+     *                             queue is bound.
+     * @param string $routingKey The binding routing key used by the
+     *                           queue.
+     * @param array<string, scalar> $arguments Additional binding arguments.
      *
-     * @return bool
-     *
-     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPChannelException If the channel is not open.
      * @throws AMQPConnectionException If the connection to the broker was lost.
      */
     public function unbind(string $exchangeName, string $routingKey = null, array $arguments = []): bool

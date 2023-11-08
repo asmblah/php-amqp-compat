@@ -30,23 +30,11 @@ use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
  */
 class AmqpConnectionBridgeTest extends AbstractTestCase
 {
-    /**
-     * @var (MockInterface&AmqplibConnection)|null
-     */
-    private $amqplibConnection;
-    private ?AmqpConnectionBridge $connectionBridge;
-    /**
-     * @var (MockInterface&EnvelopeTransformerInterface)|null
-     */
-    private $envelopeTransformer;
-    /**
-     * @var (MockInterface&ErrorReporterInterface)|null
-     */
-    private $errorReporter;
-    /**
-     * @var (MockInterface&LoggerInterface)|null
-     */
-    private $logger;
+    private MockInterface&AmqplibConnection $amqplibConnection;
+    private AmqpConnectionBridge $connectionBridge;
+    private MockInterface&EnvelopeTransformerInterface $envelopeTransformer;
+    private MockInterface&ErrorReporterInterface $errorReporter;
+    private MockInterface&LoggerInterface $logger;
 
     public function setUp(): void
     {

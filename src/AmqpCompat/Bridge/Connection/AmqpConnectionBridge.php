@@ -33,7 +33,7 @@ use SplObjectStorage;
 class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
 {
     /**
-     * @var SplObjectStorage<AmqpChannelBridgeInterface>
+     * @var SplObjectStorage<AmqpChannelBridgeInterface, null>
      */
     private readonly SplObjectStorage $channelBridges;
 

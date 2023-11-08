@@ -23,9 +23,9 @@ use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
  */
 class ErrorReporterTest extends AbstractTestCase
 {
-    private ?ErrorReporter $errorReporter;
-    private ?string $triggeredErrorMessage;
-    private ?int $triggeredErrorNumber;
+    private ErrorReporter $errorReporter;
+    private ?string $triggeredErrorMessage = null;
+    private ?int $triggeredErrorNumber = null;
 
     public function setUp(): void
     {

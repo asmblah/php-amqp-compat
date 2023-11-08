@@ -34,13 +34,12 @@ use Psr\Log\LoggerInterface;
  */
 class ConnectionFailureTest extends AbstractTestCase
 {
-    /**
-     * @var (MockInterface&LoggerInterface)|null
-     */
-    private $logger;
+    private MockInterface&LoggerInterface $logger;
 
     public function setUp(): void
     {
+        parent::setUp();
+
         $this->logger = mock(LoggerInterface::class, [
             'critical' => null,
             'log' => null,
@@ -52,6 +51,8 @@ class ConnectionFailureTest extends AbstractTestCase
 
     public function tearDown(): void
     {
+        parent::tearDown();
+
         $this->resetAmqpManager();
     }
 

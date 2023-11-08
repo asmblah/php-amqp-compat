@@ -35,30 +35,12 @@ use PhpAmqpLib\Exception\AMQPProtocolChannelException;
 class AMQPChannelTest extends AbstractTestCase
 {
     private ?AMQPChannel $amqpChannel;
-    /**
-     * @var (MockInterface&AMQPConnection)|null
-     */
-    private $amqpConnection;
-    /**
-     * @var (MockInterface&AmqplibChannel)|null
-     */
-    private $amqplibChannel;
-    /**
-     * @var (MockInterface&AmqplibConnection)|null
-     */
-    private $amqplibConnection;
-    /**
-     * @var (MockInterface&AmqpChannelBridgeInterface)|null
-     */
-    private $channelBridge;
-    /**
-     * @var (MockInterface&AmqpConnectionBridgeInterface)|null
-     */
-    private $connectionBridge;
-    /**
-     * @var (MockInterface&LoggerInterface)|null
-     */
-    private $logger;
+    private MockInterface&AMQPConnection $amqpConnection;
+    private MockInterface&AmqplibChannel $amqplibChannel;
+    private MockInterface&AmqplibConnection $amqplibConnection;
+    private MockInterface&AmqpChannelBridgeInterface $channelBridge;
+    private MockInterface&AmqpConnectionBridgeInterface $connectionBridge;
+    private MockInterface&LoggerInterface $logger;
 
     public function setUp(): void
     {
@@ -92,8 +74,8 @@ class AMQPChannelTest extends AbstractTestCase
 
     public function testConstructorNotBeingCalledIsHandledCorrectly(): void
     {
-        $extendedAmqpChannel = new class($this->amqpConnection) extends AMQPChannel {
-            public function __construct(AMQPConnection $amqpConnection)
+        $extendedAmqpChannel = new class extends AMQPChannel {
+            public function __construct()
             {
                 // Deliberately omit the call to the super constructor.
             }
@@ -194,6 +176,9 @@ class AMQPChannelTest extends AbstractTestCase
         $this->amqpChannel->basicRecover();
     }
 
+    /**
+     * @return array<array<bool>>
+     */
     public static function basicRecoverDataProvider(): array
     {
         return [[true], [false]];
@@ -249,8 +234,8 @@ class AMQPChannelTest extends AbstractTestCase
 
     public function testCloseHandlesConstructorNotBeingCalledCorrectly(): void
     {
-        $extendedAmqpChannel = new class($this->amqpConnection) extends AMQPChannel {
-            public function __construct(AMQPConnection $amqpConnection)
+        $extendedAmqpChannel = new class extends AMQPChannel {
+            public function __construct()
             {
                 // Deliberately omit the call to the super constructor.
             }
@@ -333,6 +318,7 @@ class AMQPChannelTest extends AbstractTestCase
             ])
             ->once();
 
+        // @phpstan-ignore-next-line
         $this->amqpChannel->qos($prefetchSize, $prefetchCount, $global);
     }
 
@@ -345,6 +331,7 @@ class AMQPChannelTest extends AbstractTestCase
             ->basic_qos($prefetchSize, $prefetchCount, $global)
             ->once();
 
+        // @phpstan-ignore-next-line
         static::assertTrue($this->amqpChannel->qos($prefetchSize, $prefetchCount, $global));
     }
 
@@ -365,9 +352,13 @@ class AMQPChannelTest extends AbstractTestCase
             ->logAmqplibException('AMQPChannel::qos', $exception)
             ->once();
 
+        // @phpstan-ignore-next-line
         $this->amqpChannel->qos($prefetchSize, $prefetchCount, $global);
     }
 
+    /**
+     * @return array<array<mixed>>
+     */
     public static function qosDataProvider(): array
     {
         return [

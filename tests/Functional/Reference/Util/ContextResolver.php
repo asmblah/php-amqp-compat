@@ -26,7 +26,7 @@ class ContextResolver
      * Fetches the userland file & line context of the actual test file
      * as would be reported by php-amqp/ext-amqp.
      *
-     * @returns array{file: ?string, line: ?int}
+     * @return array{file: ?string, line: ?int}
      */
     public function getContext(): array
     {

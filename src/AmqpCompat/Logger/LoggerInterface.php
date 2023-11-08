@@ -15,6 +15,7 @@ namespace Asmblah\PhpAmqpCompat\Logger;
 
 use PhpAmqpLib\Exception\AMQPExceptionInterface;
 use Psr\Log\LoggerInterface as PsrLoggerInterface;
+use Throwable;
 
 /**
  * Interface LoggerInterface.
@@ -35,7 +36,7 @@ interface LoggerInterface extends PsrLoggerInterface
      */
     public function logAmqplibException(
         string $methodName,
-        AMQPExceptionInterface $exception,
+        AMQPExceptionInterface&Throwable $exception,
         string $message = 'Amqplib failure'
     ): void;
 }

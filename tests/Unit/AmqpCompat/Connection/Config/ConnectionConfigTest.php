@@ -26,11 +26,8 @@ use Mockery\MockInterface;
  */
 class ConnectionConfigTest extends AbstractTestCase
 {
-    private ?ConnectionConfig $config;
-    /**
-     * @var (MockInterface&DefaultConnectionConfigInterface)|null
-     */
-    private $defaultConnectionConfig;
+    private ConnectionConfig $config;
+    private MockInterface&DefaultConnectionConfigInterface $defaultConnectionConfig;
 
     public function setUp(): void
     {
@@ -205,6 +202,9 @@ class ConnectionConfigTest extends AbstractTestCase
         );
     }
 
+    /**
+     * @return array<string, array<TimeoutDeprecationUsageEnum>>
+     */
     public static function deprecatedUsageDataProvider(): array
     {
         return [

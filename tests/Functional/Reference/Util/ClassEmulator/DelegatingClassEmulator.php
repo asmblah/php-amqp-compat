@@ -82,7 +82,7 @@ class DelegatingClassEmulator implements DelegatingClassEmulatorInterface
     /**
      * @inheritDoc
      */
-    public function getClassMethods(string $className): ?array
+    public function getClassMethods(string $className): array
     {
         return array_key_exists($className, $this->classNameToMethodFetcher) ?
             $this->classNameToMethodFetcher[$className]() :
@@ -125,7 +125,7 @@ class DelegatingClassEmulator implements DelegatingClassEmulatorInterface
      * Captures output from the overridden native var_dump(...) as a string,
      * so that it may be indented etc. where used.
      */
-    private function nativeDump($value): mixed
+    private function nativeDump(mixed $value): string
     {
         ob_start();
         ($this->nativeVarDump)($value);

@@ -41,7 +41,7 @@ class CodeShifts
      */
     public static function getContextResolver(): ContextResolver
     {
-        return static::$contextResolver;
+        return self::$contextResolver;
     }
 
     /**
@@ -49,7 +49,7 @@ class CodeShifts
      */
     public static function install(): void
     {
-        static::$contextResolver = new ContextResolver();
+        self::$contextResolver = new ContextResolver();
 
         $codeShift = new CodeShift();
 
@@ -69,8 +69,8 @@ class CodeShifts
             ])
         );
 
-        $classEmulator = new DelegatingClassEmulator(static::$contextResolver);
-        static::$classEmulator = $classEmulator;
+        $classEmulator = new DelegatingClassEmulator(self::$contextResolver);
+        self::$classEmulator = $classEmulator;
 
         $classEmulator->registerClassEmulator(new AmqpBasicPropertiesEmulator());
         $classEmulator->registerClassEmulator(new AmqpConnectionEmulator());
@@ -80,14 +80,14 @@ class CodeShifts
             new FunctionHookShiftSpec(
                 'get_class_methods',
                 function ($nativeGetClassMethods) {
-                    static::$classEmulator->setNativeGetClassMethods($nativeGetClassMethods);
+                    self::$classEmulator->setNativeGetClassMethods($nativeGetClassMethods);
 
                     return function (object|string $objectOrClass): array {
                         $className = is_object($objectOrClass) ?
                             $objectOrClass::class :
                             $objectOrClass;
 
-                        return static::$classEmulator->getClassMethods($className);
+                        return self::$classEmulator->getClassMethods($className);
                     };
                 }
             ),
@@ -101,11 +101,11 @@ class CodeShifts
             new FunctionHookShiftSpec(
                 'var_dump',
                 function ($nativeVarDump) {
-                    static::$classEmulator->setNativeVarDump($nativeVarDump);
+                    self::$classEmulator->setNativeVarDump($nativeVarDump);
 
                     return function (...$vars) {
                         foreach ($vars as $var) {
-                            print static::$classEmulator->dump($var, 0) . PHP_EOL;
+                            print self::$classEmulator->dump($var, 0) . PHP_EOL;
                         }
                     };
                 }

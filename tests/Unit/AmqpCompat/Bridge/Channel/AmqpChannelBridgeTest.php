@@ -33,31 +33,13 @@ use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
  */
 class AmqpChannelBridgeTest extends AbstractTestCase
 {
-    /**
-     * @var (MockInterface&AmqplibChannel)|null
-     */
-    private $amqplibChannel;
-    private ?AmqpChannelBridge $channelBridge;
-    /**
-     * @var (MockInterface&AmqpConnectionBridgeInterface)|null
-     */
-    private $connectionBridge;
-    /**
-     * @var (MockInterface&ConsumerInterface)|null
-     */
-    private $consumer;
-    /**
-     * @var (MockInterface&EnvelopeTransformerInterface)|null
-     */
-    private $envelopeTransformer;
-    /**
-     * @var (MockInterface&ErrorReporterInterface)|null
-     */
-    private $errorReporter;
-    /**
-     * @var (MockInterface&LoggerInterface)|null
-     */
-    private $logger;
+    private MockInterface&AmqplibChannel $amqplibChannel;
+    private AmqpChannelBridge $channelBridge;
+    private MockInterface&AmqpConnectionBridgeInterface $connectionBridge;
+    private MockInterface&ConsumerInterface $consumer;
+    private MockInterface&EnvelopeTransformerInterface $envelopeTransformer;
+    private MockInterface&ErrorReporterInterface $errorReporter;
+    private MockInterface&LoggerInterface $logger;
 
     public function setUp(): void
     {

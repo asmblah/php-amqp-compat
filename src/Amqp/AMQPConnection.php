@@ -72,8 +72,8 @@ class AMQPConnection
      *      'connection_name' => A user-determined name for the connections
      * )
      *
-     * @param array $credentials Optional array of credential information for
-     *                           connecting to the AMQP broker.
+     * @param array<string, mixed> $credentials Optional array of credential information for
+     *                                          connecting to the AMQP broker.
      * @throws AMQPConnectionException
      */
     public function __construct(array $credentials = [])
@@ -171,6 +171,8 @@ class AMQPConnection
 
         AmqpBridge::bridgeConnection($this, $this->connectionBridge);
         $this->amqplibConnection = $this->connectionBridge->getAmqplibConnection();
+
+        $this->logger->debug(__METHOD__ . '(): Connected');
 
         return true;
     }
