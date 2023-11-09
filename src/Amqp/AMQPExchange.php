@@ -101,6 +101,8 @@ class AMQPExchange
             throw new AMQPExchangeException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
         }
 
+        $this->logger->debug(__METHOD__ . '(): Exchange bound');
+
         return true;
     }
 
@@ -186,6 +188,8 @@ class AMQPExchange
             );
         }
 
+        $this->logger->debug(__METHOD__ . '(): Exchange declared');
+
         return true;
     }
 
@@ -238,6 +242,8 @@ class AMQPExchange
                 $exception
             );
         }
+
+        $this->logger->debug(__METHOD__ . '(): Exchange deleted');
 
         return true;
     }
@@ -357,6 +363,14 @@ class AMQPExchange
         $routingKey ??= '';
         $amqplibChannel = $this->checkChannelOrThrow('Could not publish to exchange.');
 
+        $this->logger->debug(__METHOD__ . '(): Message publish attempt', [
+            'attributes' => $attributes,
+            'exchange_name' => $this->exchangeName,
+            'flags' => $flags,
+            'message' => $message,
+            'routing_key' => $routingKey,
+        ]);
+
         if (array_key_exists('headers', $attributes)) {
             // Amqplib expects "application_headers" instead.
             $attributes['application_headers'] = new AmqplibTable($attributes['headers']);
@@ -380,9 +394,22 @@ class AMQPExchange
                 (bool) ($flags & AMQP_IMMEDIATE)
             );
         } catch (AMQPExceptionInterface $exception) {
-            // TODO: Handle errors identically to php-amqp.
-            throw new AMQPExchangeException(__METHOD__ . ' failed: ' . $exception->getMessage());
+            // Log details of the internal php-amqplib exception,
+            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
+            $this->logger->logAmqplibException(__METHOD__, $exception);
+
+            throw new AMQPExchangeException(
+                sprintf(
+                    'Server channel error: %d, message: %s',
+                    $exception->getCode(),
+                    $exception->getMessage()
+                ),
+                $exception->getCode(),
+                $exception
+            );
         }
+
+        $this->logger->debug(__METHOD__ . '(): Message published');
 
         return true;
     }
@@ -488,6 +515,8 @@ class AMQPExchange
             // TODO: Handle errors identically to php-amqp.
             throw new AMQPExchangeException(__METHOD__ . ' failed: ' . $exception->getMessage());
         }
+
+        $this->logger->debug(__METHOD__ . '(): Exchange unbound');
 
         return true;
     }

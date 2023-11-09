@@ -108,6 +108,26 @@ class AMQPExchangeTest extends AbstractTestCase
         $this->amqpExchange->bind($sourceExchangeName, $routingKey, $arguments);
     }
 
+    public function testBindLogsSuccessAsDebug(): void
+    {
+        $this->amqpExchange->setFlags(AMQP_NOPARAM);
+        $this->amqpExchange->setName('my_exchange');
+        $this->amqplibChannel->allows()
+            ->exchange_bind(
+                'my_exchange',
+                'your_exchange',
+                'my_routing_key',
+                false,
+                []
+            );
+
+        $this->logger->expects()
+            ->debug('AMQPExchange::bind(): Exchange bound')
+            ->once();
+
+        $this->amqpExchange->bind('your_exchange', 'my_routing_key', []);
+    }
+
     /**
      * @param array<string, scalar> $arguments
      * @dataProvider bindDataProvider
@@ -212,6 +232,29 @@ class AMQPExchangeTest extends AbstractTestCase
                 'exchange_type' => $exchangeType,
                 'flags' => $flags,
             ])
+            ->once();
+
+        $this->amqpExchange->declareExchange();
+    }
+
+    public function testDeclareExchangeLogsSuccessAsDebug(): void
+    {
+        $this->amqpExchange->setName('my_exchange');
+        $this->amqpExchange->setType(AMQP_EX_TYPE_FANOUT);
+        $this->amqplibChannel->allows()
+            ->exchange_declare(
+                'my_exchange',
+                AMQP_EX_TYPE_FANOUT,
+                false,
+                false,
+                false,
+                false,
+                false,
+                []
+            );
+
+        $this->logger->expects()
+            ->debug('AMQPExchange::declareExchange(): Exchange declared')
             ->once();
 
         $this->amqpExchange->declareExchange();
@@ -381,6 +424,22 @@ class AMQPExchangeTest extends AbstractTestCase
         $this->amqpExchange->delete('', $flags);
     }
 
+    public function testDeleteLogsSuccessAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->exchange_delete(
+                'my_exchange',
+                false,
+                false
+            );
+
+        $this->logger->expects()
+            ->debug('AMQPExchange::delete(): Exchange deleted')
+            ->once();
+
+        $this->amqpExchange->delete('my_exchange', AMQP_NOPARAM);
+    }
+
     /**
      * @dataProvider deleteExchangeDataProvider
      */
@@ -454,6 +513,59 @@ class AMQPExchangeTest extends AbstractTestCase
         ];
     }
 
+    /**
+     * @param array<string, mixed> $attributes
+     * @dataProvider publishDataProvider
+     */
+    public function testPublishLogsAttemptAsDebug(
+        string $exchangeName,
+        int $flags,
+        string $routingKey,
+        string $message,
+        array $attributes
+    ): void {
+        $this->amqpExchange->setName($exchangeName);
+        $this->amqplibChannel->allows()
+            ->basic_publish(
+                Mockery::type(AmqplibMessage::class),
+                $exchangeName,
+                $routingKey,
+                (bool) ($flags & AMQP_MANDATORY),
+                (bool) ($flags & AMQP_IMMEDIATE)
+            );
+
+        $this->logger->expects()
+            ->debug('AMQPExchange::publish(): Message publish attempt', [
+                'attributes' => $attributes,
+                'exchange_name' => $exchangeName,
+                'flags' => $flags,
+                'message' => $message,
+                'routing_key' => $routingKey,
+            ])
+            ->once();
+
+        $this->amqpExchange->publish($message, $routingKey, $flags, $attributes);
+    }
+
+    public function testPublishLogsSuccessAsDebug(): void
+    {
+        $this->amqpExchange->setName('my_exchange');
+        $this->amqplibChannel->allows()
+            ->basic_publish(
+                Mockery::type(AmqplibMessage::class),
+                'my_exchange',
+                null,
+                false,
+                false
+            );
+
+        $this->logger->expects()
+            ->debug('AMQPExchange::publish(): Message published')
+            ->once();
+
+        $this->amqpExchange->publish('my message');
+    }
+
     public function testPublishPublishesViaAmqplibWhenGivenMessageOnly(): void
     {
         $this->amqpExchange->setName('my_exchange');
@@ -465,7 +577,10 @@ class AMQPExchangeTest extends AbstractTestCase
                 false,
                 false
             )
-            ->once();
+            ->once()
+            ->andReturnUsing(function (AmqplibMessage $amqplibMessage) {
+                static::assertSame('my message', $amqplibMessage->getBody());
+            });
 
         $this->amqpExchange->publish('my message');
     }
@@ -481,5 +596,80 @@ class AMQPExchangeTest extends AbstractTestCase
             });
 
         $this->amqpExchange->publish('my message');
+    }
+
+    /**
+     * @param array<string, mixed> $attributes
+     * @dataProvider publishDataProvider
+     */
+    public function testPublishHandlesAmqplibExceptionCorrectly(
+        string $exchangeName,
+        int $flags,
+        string $routingKey,
+        string $message,
+        array $attributes
+    ): void {
+        $this->amqpExchange->setName($exchangeName);
+        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
+
+        $this->amqplibChannel->allows()
+            ->basic_publish(
+                Mockery::type(AmqplibMessage::class),
+                $exchangeName,
+                $routingKey,
+                (bool) ($flags & AMQP_MANDATORY),
+                (bool) ($flags & AMQP_IMMEDIATE)
+            )
+            ->andThrow($exception);
+
+        $this->expectException(AMQPExchangeException::class);
+        $this->expectExceptionMessage('Server channel error: 21, message: my text');
+        $this->logger->expects()
+            ->logAmqplibException('AMQPExchange::publish', $exception)
+            ->once();
+
+        $this->amqpExchange->publish($message, $routingKey, $flags);
+    }
+
+    /**
+     * @return array<array<mixed>>
+     */
+    public static function publishDataProvider(): array
+    {
+        return [
+            [
+                'my_exchange',
+                AMQP_IMMEDIATE,
+                'my_routing_key',
+                'this is my first message',
+                ['x-first' => 'one', 'x-second' => 'two'],
+            ],
+            [
+                'my_exchange',
+                AMQP_MANDATORY,
+                'my_routing_key',
+                'this is my second message',
+                ['x-first' => 'I am 1', 'x-second' => 'I am 2'],
+            ],
+        ];
+    }
+
+    public function testUnbindLogsSuccessAsDebug(): void
+    {
+        $this->amqpExchange->setName('your_exchange');
+        $this->amqplibChannel->allows()
+            ->exchange_unbind(
+                'your_exchange',
+                'my_exchange',
+                'my_routing_key',
+                false,
+                []
+            );
+
+        $this->logger->expects()
+            ->debug('AMQPExchange::unbind(): Exchange unbound')
+            ->once();
+
+        $this->amqpExchange->unbind('my_exchange', 'my_routing_key');
     }
 }
