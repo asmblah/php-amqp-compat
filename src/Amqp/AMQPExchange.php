@@ -12,6 +12,7 @@
 declare(strict_types=1);
 
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
+use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Exception\AMQPExceptionInterface;
@@ -37,6 +38,7 @@ class AMQPExchange
      * @var array<string, scalar>
      */
     private array $arguments = [];
+    private readonly ExceptionHandlerInterface $exceptionHandler;
     private string $exchangeName = '';
     private string $exchangeType = ''; // Must be set to one of the AMQP_EX__TYPE* constants.
     private int $flags = 0;
@@ -52,6 +54,7 @@ class AMQPExchange
         $this->amqpChannel = $amqpChannel;
 
         $channelBridge = AmqpBridge::getBridgeChannel($amqpChannel);
+        $this->exceptionHandler = $channelBridge->getExceptionHandler();
         $this->logger = $channelBridge->getLogger();
 
         // Always set here in the constructor, however the API allows for the class to be extended
@@ -65,15 +68,16 @@ class AMQPExchange
      * Binds this exchange to another exchange using the specified routing key.
      *
      * @param string $exchangeName Name of the exchange to bind.
-     * @param string $routingKey The routing key to use for binding.
+     * @param string|null $routingKey The routing key to use for binding.
      * @param array<string, scalar> $arguments Additional binding arguments.
      *
      * @throws AMQPChannelException When the channel is not open.
      * @throws AMQPConnectionException When the connection to the broker was lost.
      * @throws AMQPExchangeException On failure.
      */
-    public function bind(string $exchangeName, string $routingKey = '', array $arguments = []): bool
+    public function bind(string $exchangeName, ?string $routingKey = '', array $arguments = []): bool
     {
+        $routingKey ??= '';
         $amqplibChannel = $this->checkChannelOrThrow('Could not bind to exchange.');
 
         $this->logger->debug(__METHOD__ . '(): Exchange bind attempt', [
@@ -90,7 +94,7 @@ class AMQPExchange
                 $exchangeName,
                 $routingKey,
                 (bool) ($this->flags & AMQP_NOWAIT),
-                $arguments
+                new AmqplibTable($arguments)
             );
         } catch (AMQPExceptionInterface $exception) {
             // Log details of the internal php-amqplib exception,
@@ -170,22 +174,11 @@ class AMQPExchange
                 (bool) ($this->flags & AMQP_AUTODELETE),
                 (bool) ($this->flags & AMQP_INTERNAL),
                 (bool) ($this->flags & AMQP_NOWAIT),
-                $this->arguments
+                new AmqplibTable($this->arguments)
             );
         } catch (AMQPExceptionInterface $exception) {
-            // Log details of the internal php-amqplib exception,
-            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
-            $this->logger->logAmqplibException(__METHOD__, $exception);
-
-            throw new AMQPExchangeException(
-                sprintf(
-                    'Server channel error: %d, message: %s',
-                    $exception->getCode(),
-                    $exception->getMessage()
-                ),
-                $exception->getCode(),
-                $exception
-            );
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleExchangeException($exception, $this, __METHOD__);
         }
 
         $this->logger->debug(__METHOD__ . '(): Exchange declared');
@@ -373,6 +366,7 @@ class AMQPExchange
 
         if (array_key_exists('headers', $attributes)) {
             // Amqplib expects "application_headers" instead.
+            // TODO: Factor out into ValueProcessor abstraction that can handle AMQPDecimal, AMQPTimestamp etc. here.
             $attributes['application_headers'] = new AmqplibTable($attributes['headers']);
 
             unset($attributes['headers']);
@@ -499,8 +493,9 @@ class AMQPExchange
      * @throws AMQPConnectionException If the connection to the broker was lost.
      * @throws AMQPExchangeException On failure.
      */
-    public function unbind(string $exchangeName, string $routingKey = '', array $arguments = []): bool
+    public function unbind(string $exchangeName, ?string $routingKey = '', array $arguments = []): bool
     {
+        $routingKey ??= '';
         $amqplibChannel = $this->checkChannelOrThrow('Could not unbind from exchange.');
 
         try {
@@ -509,7 +504,7 @@ class AMQPExchange
                 $exchangeName,
                 $routingKey,
                 (bool) ($this->flags & AMQP_NOWAIT),
-                $arguments
+                new AmqplibTable($arguments)
             );
         } catch (AMQPExceptionInterface $exception) {
             // TODO: Handle errors identically to php-amqp.

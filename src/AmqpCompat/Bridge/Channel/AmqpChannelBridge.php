@@ -16,6 +16,7 @@ namespace Asmblah\PhpAmqpCompat\Bridge\Channel;
 use AMQPEnvelope;
 use AMQPQueue;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use LogicException;
@@ -99,6 +100,14 @@ class AmqpChannelBridge implements AmqpChannelBridgeInterface
     public function getErrorReporter(): ErrorReporterInterface
     {
         return $this->connectionBridge->getErrorReporter();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getExceptionHandler(): ExceptionHandlerInterface
+    {
+        return $this->connectionBridge->getExceptionHandler();
     }
 
     /**

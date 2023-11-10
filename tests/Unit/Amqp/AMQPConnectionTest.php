@@ -461,6 +461,16 @@ class AMQPConnectionTest extends AbstractTestCase
         static::assertTrue($this->amqpConnection->isConnected());
     }
 
+    public function testIsConnectedReturnsFalseAfterConnectingThenDisconnecting(): void
+    {
+        $this->amqpConnection->connect();
+        $this->amqplibConnection->allows()
+            ->isConnected()
+            ->andReturnFalse();
+
+        static::assertFalse($this->amqpConnection->isConnected());
+    }
+
     public function testIsPersistentAlwaysReturnsFalse(): void
     {
         static::assertFalse($this->amqpConnection->isPersistent());

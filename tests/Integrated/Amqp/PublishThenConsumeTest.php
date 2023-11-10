@@ -24,6 +24,7 @@ use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformer;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Exception\ExceptionHandler;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
@@ -98,6 +99,7 @@ class PublishThenConsumeTest extends AbstractTestCase
             $this->amqplibConnection,
             new EnvelopeTransformer(),
             $this->errorReporter,
+            new ExceptionHandler($this->logger),
             $this->logger
         );
 

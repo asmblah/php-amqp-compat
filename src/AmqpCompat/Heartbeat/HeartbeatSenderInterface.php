@@ -15,6 +15,11 @@ namespace Asmblah\PhpAmqpCompat\Heartbeat;
 
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 
+/**
+ * Interface HeartbeatSenderInterface.
+ *
+ * @author Dan Phillimore <dan@ovms.co>
+ */
 interface HeartbeatSenderInterface
 {
     /**

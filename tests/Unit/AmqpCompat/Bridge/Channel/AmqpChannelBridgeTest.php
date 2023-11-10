@@ -19,6 +19,7 @@ use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\ConsumerInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
@@ -39,6 +40,7 @@ class AmqpChannelBridgeTest extends AbstractTestCase
     private MockInterface&ConsumerInterface $consumer;
     private MockInterface&EnvelopeTransformerInterface $envelopeTransformer;
     private MockInterface&ErrorReporterInterface $errorReporter;
+    private MockInterface&ExceptionHandlerInterface $exceptionHandler;
     private MockInterface&LoggerInterface $logger;
 
     public function setUp(): void
@@ -46,10 +48,12 @@ class AmqpChannelBridgeTest extends AbstractTestCase
         $this->amqplibChannel = mock(AmqplibChannel::class);
         $this->envelopeTransformer = mock(EnvelopeTransformerInterface::class);
         $this->errorReporter = mock(ErrorReporterInterface::class);
+        $this->exceptionHandler = mock(ExceptionHandlerInterface::class);
         $this->logger = mock(LoggerInterface::class);
         $this->connectionBridge = mock(AmqpConnectionBridgeInterface::class, [
             'getEnvelopeTransformer' => $this->envelopeTransformer,
             'getErrorReporter' => $this->errorReporter,
+            'getExceptionHandler' => $this->exceptionHandler,
             'getLogger' => $this->logger,
         ]);
         $this->consumer = mock(ConsumerInterface::class);
@@ -109,6 +113,11 @@ class AmqpChannelBridgeTest extends AbstractTestCase
     public function testGetErrorReporterReturnsTheReporter(): void
     {
         static::assertSame($this->errorReporter, $this->channelBridge->getErrorReporter());
+    }
+
+    public function testGetExceptionHandlerReturnsTheHandler(): void
+    {
+        static::assertSame($this->exceptionHandler, $this->channelBridge->getExceptionHandler());
     }
 
     public function testGetLoggerReturnsTheLogger(): void

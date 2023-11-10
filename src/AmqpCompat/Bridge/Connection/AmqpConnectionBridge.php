@@ -17,6 +17,7 @@ use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\Consumer;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use InvalidArgumentException;
@@ -41,6 +42,7 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
         private readonly AmqplibConnection $amqplibConnection,
         private readonly EnvelopeTransformerInterface $envelopeTransformer,
         private readonly ErrorReporterInterface $errorReporter,
+        private readonly ExceptionHandlerInterface $exceptionHandler,
         private readonly LoggerInterface $logger
     ) {
         $this->channelBridges = new SplObjectStorage();
@@ -82,6 +84,14 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
     public function getErrorReporter(): ErrorReporterInterface
     {
         return $this->errorReporter;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getExceptionHandler(): ExceptionHandlerInterface
+    {
+        return $this->exceptionHandler;
     }
 
     /**

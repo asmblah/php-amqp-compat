@@ -427,11 +427,11 @@ class AMQPConnection
      *
      * It does so by checking the return status of the last connect-command.
      *
-     * @return boolean True if connected, false otherwise.
+     * @return bool True if connected, false otherwise.
      */
     public function isConnected(): bool
     {
-        return $this->amqplibConnection !== null;
+        return $this->amqplibConnection !== null && $this->amqplibConnection->isConnected();
     }
 
     /**
