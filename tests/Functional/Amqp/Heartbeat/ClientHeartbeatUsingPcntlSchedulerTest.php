@@ -14,19 +14,41 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Tests\Functional\Amqp\Heartbeat;
 
 use AMQPConnection;
-use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
+use Asmblah\PhpAmqpCompat\AmqpManager;
+use Asmblah\PhpAmqpCompat\Configuration\Configuration;
+use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSchedulerMode;
+use Asmblah\PhpAmqpCompat\Tests\Functional\AbstractFunctionalTestCase;
 use PhpAmqpLib\Exception\AMQPHeartbeatMissedException;
 
 /**
- * Class ClientHeartbeatTest.
+ * Class ClientHeartbeatUsingPcntlSchedulerTest.
  *
  * Checks connection heartbeat handling when the client fails to send its own heartbeats
- * nor check for server heartbeats on a real connection to a real AMQP broker server.
+ * nor check for server heartbeats on a real connection to a real AMQP broker server
+ * when PcntlHeartbeatScheduler is in use.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-class ClientHeartbeatTest extends AbstractTestCase
+class ClientHeartbeatUsingPcntlSchedulerTest extends AbstractFunctionalTestCase
 {
+    public function setUp(): void
+    {
+        parent::setUp();
+
+        AmqpManager::setAmqpIntegration(null);
+        AmqpManager::setConfiguration(new Configuration(
+            heartbeatSchedulerMode: HeartbeatSchedulerMode::PCNTL
+        ));
+    }
+
+    public function tearDown(): void
+    {
+        parent::tearDown();
+
+        AmqpManager::setAmqpIntegration(null);
+        AmqpManager::setConfiguration(null);
+    }
+
     public function testMissedClientHeartbeatIsHandledCorrectly(): void
     {
         $amqpConnection = new AMQPConnection(['heartbeat' => 1]);

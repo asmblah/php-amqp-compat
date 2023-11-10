@@ -19,12 +19,17 @@ use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Connection\Amqplib\ConnectionFactory;
 use Asmblah\PhpAmqpCompat\Connection\Config\DefaultConnectionConfig;
 use Asmblah\PhpAmqpCompat\Connection\Connector;
-use Asmblah\PhpAmqpCompat\Heartbeat\PcntlHeartbeatSender;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Heartbeat\HeartbeatTransmitter;
+use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSchedulerMode;
+use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSender;
+use Asmblah\PhpAmqpCompat\Heartbeat\Scheduler\EventLoopHeartbeatScheduler;
+use Asmblah\PhpAmqpCompat\Heartbeat\Scheduler\PcntlHeartbeatScheduler;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
 use Asmblah\PhpAmqpCompat\Misc\Clock;
 use Asmblah\PhpAmqpCompat\Misc\Ini;
 use LogicException;
+use React\EventLoop\Loop;
 
 /**
  * Class AmqpManager.
@@ -47,12 +52,22 @@ class AmqpManager
         if (self::$amqpIntegration === null) {
             $configuration = self::getConfiguration();
 
+            $heartbeatTransmitter = new HeartbeatTransmitter(new Clock());
+
+            $heartbeatScheduler = match ($configuration->getHeartbeatSenderMode()) {
+                HeartbeatSchedulerMode::EVENT_LOOP => new EventLoopHeartbeatScheduler(
+                    Loop::get(),
+                    $heartbeatTransmitter
+                ),
+                HeartbeatSchedulerMode::PCNTL => new PcntlHeartbeatScheduler($heartbeatTransmitter),
+            };
+
             self::$amqpIntegration = new AmqpIntegration(
                 new Connector(
                     new ConnectionFactory(),
                     $configuration->getUnlimitedTimeout()
                 ),
-                new PcntlHeartbeatSender(new Clock()),
+                new HeartbeatSender($heartbeatScheduler),
                 $configuration,
                 new DefaultConnectionConfig(new Ini()),
                 new EnvelopeTransformer()

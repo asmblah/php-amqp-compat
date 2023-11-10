@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Configuration;
 
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
+use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSchedulerMode;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -32,6 +33,11 @@ interface ConfigurationInterface
      * Fetches an ErrorReporter to use when raising warnings/notices etc.
      */
     public function getErrorReporter(): ErrorReporterInterface;
+
+    /**
+     * Fetches which heartbeat sender mode to use.
+     */
+    public function getHeartbeatSenderMode(): HeartbeatSchedulerMode;
 
     /**
      * Fetches a logger to use for additional/internal logging by this library.

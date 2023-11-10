@@ -17,7 +17,7 @@ use AMQPConnection;
 use AMQPConnectionException;
 use Asmblah\PhpAmqpCompat\AmqpManager;
 use Asmblah\PhpAmqpCompat\Configuration\Configuration;
-use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
+use Asmblah\PhpAmqpCompat\Tests\Functional\AbstractFunctionalTestCase;
 use Mockery\MockInterface;
 use PhpAmqpLib\Exception\AMQPConnectionClosedException;
 use Psr\Log\LoggerInterface;
@@ -29,7 +29,7 @@ use Psr\Log\LoggerInterface;
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-class LoginFailureTest extends AbstractTestCase
+class LoginFailureTest extends AbstractFunctionalTestCase
 {
     private MockInterface&LoggerInterface $logger;
 

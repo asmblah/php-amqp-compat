@@ -11,10 +11,23 @@
 
 declare(strict_types=1);
 
+use Nytris\Boot\BootConfig;
+use Nytris\Boot\PlatformConfig;
+use Nytris\Nytris;
+use Tasque\Core\Scheduler\ContextSwitch\NTockStrategy;
+use Tasque\EventLoop\TasqueEventLoopPackage;
+use Tasque\TasquePackage;
+
 require_once __DIR__ . '/../vendor/autoload.php';
 
 Mockery::getConfiguration()->allowMockingNonExistentMethods(false);
 Mockery::globalHelpers();
+
+$bootConfig = new BootConfig(new PlatformConfig(dirname(__DIR__) . '/var/nytris/'));
+$bootConfig->installPackage(new TasquePackage(new NTockStrategy(1)));
+$bootConfig->installPackage(new TasqueEventLoopPackage());
+
+Nytris::boot($bootConfig);
 
 // Check out the php-amqp/ext-amqp project in order to run its tests against this library in ReferenceImplementationTest.
 $repo = 'https://github.com/php-amqp/php-amqp.git';

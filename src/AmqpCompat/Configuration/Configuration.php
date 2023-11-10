@@ -15,6 +15,7 @@ namespace Asmblah\PhpAmqpCompat\Configuration;
 
 use Asmblah\PhpAmqpCompat\Error\ErrorReporter;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
+use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSchedulerMode;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
@@ -37,7 +38,8 @@ class Configuration implements ConfigurationInterface
     public function __construct(
         ?LoggerInterface $logger = null,
         ?ErrorReporterInterface $errorReporter = null,
-        ?float $unlimitedTimeout = null
+        ?float $unlimitedTimeout = null,
+        private readonly HeartbeatSchedulerMode $heartbeatSchedulerMode = HeartbeatSchedulerMode::EVENT_LOOP
     ) {
         $this->errorReporter = $errorReporter ?? new ErrorReporter();
         $this->logger = $logger ?? new NullLogger();
@@ -51,6 +53,14 @@ class Configuration implements ConfigurationInterface
     public function getErrorReporter(): ErrorReporterInterface
     {
         return $this->errorReporter;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getHeartbeatSenderMode(): HeartbeatSchedulerMode
+    {
+        return $this->heartbeatSchedulerMode;
     }
 
     /**

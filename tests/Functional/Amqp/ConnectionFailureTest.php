@@ -17,7 +17,7 @@ use AMQPConnection;
 use AMQPConnectionException;
 use Asmblah\PhpAmqpCompat\AmqpManager;
 use Asmblah\PhpAmqpCompat\Configuration\Configuration;
-use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
+use Asmblah\PhpAmqpCompat\Tests\Functional\AbstractFunctionalTestCase;
 use Hamcrest\Arrays\IsArrayContainingInAnyOrder;
 use Hamcrest\Text\StringContains;
 use Mockery\MockInterface;
@@ -32,7 +32,7 @@ use Psr\Log\LoggerInterface;
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-class ConnectionFailureTest extends AbstractTestCase
+class ConnectionFailureTest extends AbstractFunctionalTestCase
 {
     private MockInterface&LoggerInterface $logger;
 

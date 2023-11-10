@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Tests\Functional\Reference;
 
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
+use Asmblah\PhpAmqpCompat\Tests\Functional\AbstractFunctionalTestCase;
 use Generator;
 
 /**
