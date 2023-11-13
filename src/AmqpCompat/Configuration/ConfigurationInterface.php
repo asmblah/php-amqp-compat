@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Configuration;
 
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
+use Asmblah\PhpAmqpCompat\Scheduler\Factory\SchedulerFactoryInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -37,6 +38,13 @@ interface ConfigurationInterface
      * Fetches a logger to use for additional/internal logging by this library.
      */
     public function getLogger(): LoggerInterface;
+
+    /**
+     * Fetches which scheduler to use.
+     *
+     * The scheduler is responsible for periodic logic such as sending heartbeats.
+     */
+    public function getSchedulerFactory(): SchedulerFactoryInterface;
 
     /**
      * Fetches the timeout to use when none has been set, implying no timeout.

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "88a4b39af497af73c090a30389eb6df8",
+    "content-hash": "04dffef921e4d0b3822090c56000ae17",
     "packages": [
         {
             "name": "paragonie/constant_time_encoding",
@@ -661,6 +661,48 @@
             "time": "2023-08-13T19:53:39+00:00"
         },
         {
+            "name": "nytris/nytris",
+            "version": "v0.1.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/nytris/nytris.git",
+                "reference": "a75be5d81bc181c22a71b3e01a40c45b0d152ab5"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/nytris/nytris/zipball/a75be5d81bc181c22a71b3e01a40c45b0d152ab5",
+                "reference": "a75be5d81bc181c22a71b3e01a40c45b0d152ab5",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.1"
+            },
+            "require-dev": {
+                "mockery/mockery": "^1.6",
+                "phpstan/phpstan": "^1.10",
+                "phpstan/phpstan-mockery": "^1.1",
+                "phpunit/phpunit": "^10.2"
+            },
+            "type": "project",
+            "autoload": {
+                "files": [
+                    "src/bootstrap.php"
+                ],
+                "psr-4": {
+                    "Nytris\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "support": {
+                "issues": "https://github.com/nytris/nytris/issues",
+                "source": "https://github.com/nytris/nytris/tree/v0.1.1"
+            },
+            "time": "2023-11-07T07:18:09+00:00"
+        },
+        {
             "name": "phar-io/manifest",
             "version": "2.0.3",
             "source": {
@@ -1304,6 +1346,78 @@
                 }
             ],
             "time": "2023-10-26T07:21:45+00:00"
+        },
+        {
+            "name": "react/event-loop",
+            "version": "v1.4.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/reactphp/event-loop.git",
+                "reference": "6e7e587714fff7a83dcc7025aee42ab3b265ae05"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/reactphp/event-loop/zipball/6e7e587714fff7a83dcc7025aee42ab3b265ae05",
+                "reference": "6e7e587714fff7a83dcc7025aee42ab3b265ae05",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.3.0"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^9.6 || ^5.7 || ^4.8.36"
+            },
+            "suggest": {
+                "ext-pcntl": "For signal handling support when using the StreamSelectLoop"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "React\\EventLoop\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Christian Lück",
+                    "email": "christian@clue.engineering",
+                    "homepage": "https://clue.engineering/"
+                },
+                {
+                    "name": "Cees-Jan Kiewiet",
+                    "email": "reactphp@ceesjankiewiet.nl",
+                    "homepage": "https://wyrihaximus.net/"
+                },
+                {
+                    "name": "Jan Sorgalla",
+                    "email": "jsorgalla@gmail.com",
+                    "homepage": "https://sorgalla.com/"
+                },
+                {
+                    "name": "Chris Boden",
+                    "email": "cboden@gmail.com",
+                    "homepage": "https://cboden.dev/"
+                }
+            ],
+            "description": "ReactPHP's core reactor event loop that libraries can use for evented I/O.",
+            "keywords": [
+                "asynchronous",
+                "event-loop"
+            ],
+            "support": {
+                "issues": "https://github.com/reactphp/event-loop/issues",
+                "source": "https://github.com/reactphp/event-loop/tree/v1.4.0"
+            },
+            "funding": [
+                {
+                    "url": "https://opencollective.com/reactphp",
+                    "type": "open_collective"
+                }
+            ],
+            "time": "2023-05-05T10:11:24+00:00"
         },
         {
             "name": "sebastian/cli-parser",
@@ -2219,6 +2333,88 @@
                 }
             ],
             "time": "2023-02-07T11:34:05+00:00"
+        },
+        {
+            "name": "tasque/event-loop",
+            "version": "v0.1.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/nytris/tasque-event-loop.git",
+                "reference": "842fb1945fcd213763d4d6fd4bbb07dd929efafc"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/nytris/tasque-event-loop/zipball/842fb1945fcd213763d4d6fd4bbb07dd929efafc",
+                "reference": "842fb1945fcd213763d4d6fd4bbb07dd929efafc",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.1",
+                "react/event-loop": "^1.4",
+                "tasque/tasque": "^0.1"
+            },
+            "require-dev": {
+                "mockery/mockery": "^1.6",
+                "phpstan/phpstan": "^1.10",
+                "phpstan/phpstan-mockery": "^1.1",
+                "phpunit/phpunit": "^10.2"
+            },
+            "type": "project",
+            "autoload": {
+                "psr-4": {
+                    "Tasque\\EventLoop\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "support": {
+                "issues": "https://github.com/nytris/tasque-event-loop/issues",
+                "source": "https://github.com/nytris/tasque-event-loop/tree/v0.1.2"
+            },
+            "time": "2023-11-08T18:08:53+00:00"
+        },
+        {
+            "name": "tasque/tasque",
+            "version": "v0.1.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/nytris/tasque.git",
+                "reference": "69b2e3a8c61642c9a12d67183b26486180cbbca7"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/nytris/tasque/zipball/69b2e3a8c61642c9a12d67183b26486180cbbca7",
+                "reference": "69b2e3a8c61642c9a12d67183b26486180cbbca7",
+                "shasum": ""
+            },
+            "require": {
+                "asmblah/php-code-shift": "^0.1",
+                "nytris/nytris": "^0.1",
+                "php": ">=8.1"
+            },
+            "require-dev": {
+                "mockery/mockery": "^1.6",
+                "phpstan/phpstan": "^1.10",
+                "phpstan/phpstan-mockery": "^1.1",
+                "phpunit/phpunit": "^10.2"
+            },
+            "type": "project",
+            "autoload": {
+                "psr-4": {
+                    "Tasque\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "support": {
+                "issues": "https://github.com/nytris/tasque/issues",
+                "source": "https://github.com/nytris/tasque/tree/v0.1.3"
+            },
+            "time": "2023-11-07T18:20:53+00:00"
         },
         {
             "name": "theseer/tokenizer",

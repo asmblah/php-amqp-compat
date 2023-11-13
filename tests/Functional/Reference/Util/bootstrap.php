@@ -15,7 +15,13 @@ namespace Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util;
 
 use Asmblah\PhpAmqpCompat\AmqpManager;
 use Asmblah\PhpAmqpCompat\Configuration\Configuration;
+use Nytris\Boot\BootConfig;
+use Nytris\Boot\PlatformConfig;
+use Nytris\Nytris;
 use RuntimeException;
+use Tasque\Core\Scheduler\ContextSwitch\NTockStrategy;
+use Tasque\EventLoop\TasqueEventLoopPackage;
+use Tasque\TasquePackage;
 
 // Allow the main library bootstrap to silently allow us to continue.
 const PHP_AMQP_COMPAT = true;
@@ -29,6 +35,12 @@ AmqpManager::setConfiguration(
         errorReporter: new TestErrorReporter(CodeShifts::getContextResolver())
     )
 );
+
+$bootConfig = new BootConfig(new PlatformConfig(dirname(__DIR__, 4) . '/var/nytris/'));
+$bootConfig->installPackage(new TasquePackage(new NTockStrategy(1)));
+$bootConfig->installPackage(new TasqueEventLoopPackage());
+
+Nytris::boot($bootConfig);
 
 if (isset($argv)) {
     // Force the actual test script to be loaded via file:// stream wrapper,

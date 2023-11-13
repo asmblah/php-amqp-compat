@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Tests\Functional\Reference;
 
-use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
+use Asmblah\PhpAmqpCompat\Tests\Functional\AbstractFunctionalTestCase;
 use Generator;
 
 /**
@@ -24,7 +24,7 @@ use Generator;
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-class ReferenceImplementationTest extends AbstractTestCase
+class ReferenceImplementationTest extends AbstractFunctionalTestCase
 {
     public const UNSUPPORTED_TESTS = [
         '003-channel-consumers.phpt',

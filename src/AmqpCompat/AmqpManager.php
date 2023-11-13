@@ -19,7 +19,8 @@ use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Connection\Amqplib\ConnectionFactory;
 use Asmblah\PhpAmqpCompat\Connection\Config\DefaultConnectionConfig;
 use Asmblah\PhpAmqpCompat\Connection\Connector;
-use Asmblah\PhpAmqpCompat\Heartbeat\PcntlHeartbeatSender;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Heartbeat\HeartbeatTransmitter;
+use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSender;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
 use Asmblah\PhpAmqpCompat\Misc\Clock;
@@ -47,12 +48,16 @@ class AmqpManager
         if (self::$amqpIntegration === null) {
             $configuration = self::getConfiguration();
 
+            $heartbeatTransmitter = new HeartbeatTransmitter(new Clock());
+
+            $heartbeatScheduler = $configuration->getSchedulerFactory()->createScheduler($heartbeatTransmitter);
+
             self::$amqpIntegration = new AmqpIntegration(
                 new Connector(
                     new ConnectionFactory(),
                     $configuration->getUnlimitedTimeout()
                 ),
-                new PcntlHeartbeatSender(new Clock()),
+                new HeartbeatSender($heartbeatScheduler),
                 $configuration,
                 new DefaultConnectionConfig(new Ini()),
                 new EnvelopeTransformer()

@@ -27,7 +27,9 @@
         "mockery/mockery": "^1.6",
         "phpstan/phpstan": "^1.10",
         "phpstan/phpstan-mockery": "^1.1",
-        "phpunit/phpunit": "^10.2"
+        "phpunit/phpunit": "^10.2",
+        "tasque/tasque": "^0.1",
+        "tasque/event-loop": "^0.1"
     },
     "config": {
         "platform": {
