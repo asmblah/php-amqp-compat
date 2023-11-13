@@ -15,7 +15,8 @@ namespace Asmblah\PhpAmqpCompat\Configuration;
 
 use Asmblah\PhpAmqpCompat\Error\ErrorReporter;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
-use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSchedulerMode;
+use Asmblah\PhpAmqpCompat\Scheduler\Factory\NullSchedulerFactory;
+use Asmblah\PhpAmqpCompat\Scheduler\Factory\SchedulerFactoryInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
@@ -33,16 +34,18 @@ class Configuration implements ConfigurationInterface
 
     private ErrorReporterInterface $errorReporter;
     private LoggerInterface $logger;
+    private readonly SchedulerFactoryInterface $schedulerFactory;
     private float $unlimitedTimeout;
 
     public function __construct(
         ?LoggerInterface $logger = null,
         ?ErrorReporterInterface $errorReporter = null,
         ?float $unlimitedTimeout = null,
-        private readonly HeartbeatSchedulerMode $heartbeatSchedulerMode = HeartbeatSchedulerMode::EVENT_LOOP
+        ?SchedulerFactoryInterface $schedulerFactory = null
     ) {
         $this->errorReporter = $errorReporter ?? new ErrorReporter();
         $this->logger = $logger ?? new NullLogger();
+        $this->schedulerFactory = $schedulerFactory ?? new NullSchedulerFactory();
 
         $this->unlimitedTimeout = $unlimitedTimeout ?? self::DEFAULT_UNLIMITED_TIMEOUT;
     }
@@ -58,17 +61,17 @@ class Configuration implements ConfigurationInterface
     /**
      * @inheritDoc
      */
-    public function getHeartbeatSenderMode(): HeartbeatSchedulerMode
+    public function getLogger(): LoggerInterface
     {
-        return $this->heartbeatSchedulerMode;
+        return $this->logger;
     }
 
     /**
      * @inheritDoc
      */
-    public function getLogger(): LoggerInterface
+    public function getSchedulerFactory(): SchedulerFactoryInterface
     {
-        return $this->logger;
+        return $this->schedulerFactory;
     }
 
     /**

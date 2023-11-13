@@ -11,10 +11,10 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Heartbeat\Scheduler;
+namespace Asmblah\PhpAmqpCompat\Scheduler\Heartbeat;
 
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
-use Asmblah\PhpAmqpCompat\Heartbeat\Transmitter\HeartbeatTransmitterInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Heartbeat\HeartbeatTransmitterInterface;
 use SplObjectStorage;
 
 /**

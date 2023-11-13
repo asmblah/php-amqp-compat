@@ -11,36 +11,23 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Heartbeat;
+namespace Asmblah\PhpAmqpCompat\Scheduler\Heartbeat;
 
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
-use Asmblah\PhpAmqpCompat\Scheduler\Heartbeat\HeartbeatSchedulerInterface;
 
 /**
- * Class HeartbeatSender.
+ * Class NullHeartbeatScheduler.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-class HeartbeatSender implements HeartbeatSenderInterface
+class NullHeartbeatScheduler implements HeartbeatSchedulerInterface
 {
-    public function __construct(
-        private readonly HeartbeatSchedulerInterface $heartbeatScheduler
-    ) {
-    }
-
     /**
      * @inheritDoc
      */
     public function register(AmqpConnectionBridgeInterface $connectionBridge): void
     {
-        $interval = $connectionBridge->getHeartbeatInterval();
-
-        if ($interval === 0) {
-            // Heartbeats are not enabled for the connection.
-            return;
-        }
-
-        $this->heartbeatScheduler->register($connectionBridge);
+        // Nothing to do.
     }
 
     /**
@@ -48,6 +35,6 @@ class HeartbeatSender implements HeartbeatSenderInterface
      */
     public function unregister(AmqpConnectionBridgeInterface $connectionBridge): void
     {
-        $this->heartbeatScheduler->unregister($connectionBridge);
+        // Nothing to do.
     }
 }

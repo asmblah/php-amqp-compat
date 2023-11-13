@@ -14,9 +14,9 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Driver\Amqplib\Heartbeat;
 
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
-use Asmblah\PhpAmqpCompat\Heartbeat\Scheduler\HeartbeatSchedulerInterface;
-use Asmblah\PhpAmqpCompat\Heartbeat\Transmitter\HeartbeatTransmitterInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Heartbeat\HeartbeatTransmitterInterface;
 use Asmblah\PhpAmqpCompat\Misc\ClockInterface;
+use Asmblah\PhpAmqpCompat\Scheduler\Heartbeat\HeartbeatSchedulerInterface;
 
 /**
  * Class HeartbeatTransmitter.

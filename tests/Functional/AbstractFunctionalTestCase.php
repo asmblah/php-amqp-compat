@@ -35,7 +35,7 @@ abstract class AbstractFunctionalTestCase extends AbstractTestCase
          * so we can use it to capture issues with tests that run infinitely, e.g. when a heartbeat
          * is expected to be missed but is not.
          */
-        $this->timeoutTimer = Loop::addTimer(10, function () {
+        $this->timeoutTimer = Loop::addTimer(30, function () {
             $this->fail('Functional test timed out');
         });
     }

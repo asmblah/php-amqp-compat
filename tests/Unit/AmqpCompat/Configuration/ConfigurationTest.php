@@ -16,6 +16,8 @@ namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Configuration;
 use Asmblah\PhpAmqpCompat\Configuration\Configuration;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporter;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
+use Asmblah\PhpAmqpCompat\Scheduler\Factory\NullSchedulerFactory;
+use Asmblah\PhpAmqpCompat\Scheduler\Factory\SchedulerFactoryInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -52,7 +54,7 @@ class ConfigurationTest extends AbstractTestCase
     public function testGetLoggerReturnsTheProvidedLogger(): void
     {
         $logger = mock(LoggerInterface::class);
-        $configuration = new Configuration($logger);
+        $configuration = new Configuration(logger: $logger);
 
         static::assertSame($logger, $configuration->getLogger());
     }
@@ -69,6 +71,28 @@ class ConfigurationTest extends AbstractTestCase
         $configuration = new Configuration();
 
         static::assertSame($configuration->getLogger(), $configuration->getLogger());
+    }
+
+    public function testGetSchedulerFactoryReturnsTheProvidedSchedulerFactory(): void
+    {
+        $schedulerFactory = mock(SchedulerFactoryInterface::class);
+        $configuration = new Configuration(schedulerFactory: $schedulerFactory);
+
+        static::assertSame($schedulerFactory, $configuration->getSchedulerFactory());
+    }
+
+    public function testGetSchedulerFactoryReturnsANullSchedulerFactoryByDefault(): void
+    {
+        $configuration = new Configuration();
+
+        static::assertInstanceOf(NullSchedulerFactory::class, $configuration->getSchedulerFactory());
+    }
+
+    public function testGetSchedulerFactoryReturnsTheSameNullSchedulerFactoryOnSubsequentCallsByDefault(): void
+    {
+        $configuration = new Configuration();
+
+        static::assertSame($configuration->getSchedulerFactory(), $configuration->getSchedulerFactory());
     }
 
     public function testGetUnlimitedTimeoutReturnsTheProvidedUnlimitedTimeout(): void

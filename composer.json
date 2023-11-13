@@ -20,16 +20,16 @@
         "php": ">=8.1",
         "ext-pcntl": "*",
         "php-amqplib/php-amqplib": "v3.5.4",
-        "psr/log": "^1|^2|^3",
-        "tasque/tasque": "^0.1",
-        "tasque/event-loop": "^0.1"
+        "psr/log": "^1|^2|^3"
     },
     "require-dev": {
         "asmblah/php-code-shift": "^0.1.0",
         "mockery/mockery": "^1.6",
         "phpstan/phpstan": "^1.10",
         "phpstan/phpstan-mockery": "^1.1",
-        "phpunit/phpunit": "^10.2"
+        "phpunit/phpunit": "^10.2",
+        "tasque/tasque": "^0.1",
+        "tasque/event-loop": "^0.1"
     },
     "config": {
         "platform": {
