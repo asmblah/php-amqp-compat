@@ -11,8 +11,8 @@ they are only supported during [blocking calls into the extension](https://githu
 ### Heartbeat sender
 With `php-amqplib`, we're able to send heartbeats more regularly, in multiple ways:
 
-1. Using a [ReactPHP][ReactPHP] [EventLoop][ReactPHP EventLoop] with [Envoylope EventLoop][Envoylope EventLoop].
-2. Using [UNIX System V signals] with [Envoylope ext-pcntl][Envoylope ext-pcntl]
+1. Using a [ReactPHP][ReactPHP] [EventLoop][ReactPHP EventLoop] with [Envoylope EventLoop][Envoylope EventLoop] (recommended).
+2. Using [UNIX System V signals] with [Envoylope ext-pcntl][Envoylope ext-pcntl].
 
 See the usage instructions for the packages above for installation.
 
