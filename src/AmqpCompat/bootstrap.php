@@ -16,6 +16,8 @@ namespace Asmblah\PhpAmqpCompat;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Configuration\DefaultConfiguration;
 
+DefaultConfiguration::initialise();
+
 if (extension_loaded('amqp') && !defined('PHP_AMQP_COMPAT')) {
     AmqpManager::getConfiguration()->getErrorReporter()
         ->raiseWarning(
@@ -29,4 +31,3 @@ if (extension_loaded('amqp') && !defined('PHP_AMQP_COMPAT')) {
 require_once __DIR__ . '/../Amqp/AMQP.php';
 
 AmqpBridge::initialise();
-DefaultConfiguration::initialise();
