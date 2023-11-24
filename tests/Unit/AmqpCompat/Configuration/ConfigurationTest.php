@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Configuration;
 
 use Asmblah\PhpAmqpCompat\Configuration\Configuration;
+use Asmblah\PhpAmqpCompat\Configuration\DefaultConfiguration;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporter;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Scheduler\Factory\NullSchedulerFactory;
@@ -29,6 +30,18 @@ use Psr\Log\NullLogger;
  */
 class ConfigurationTest extends AbstractTestCase
 {
+    public function setUp(): void
+    {
+        DefaultConfiguration::uninitialise();
+        DefaultConfiguration::initialise();
+    }
+
+    public function tearDown(): void
+    {
+        DefaultConfiguration::uninitialise();
+        DefaultConfiguration::initialise();
+    }
+
     public function testGetErrorReporterReturnsTheProvidedErrorReporter(): void
     {
         $errorReporter = mock(ErrorReporterInterface::class);
@@ -86,6 +99,15 @@ class ConfigurationTest extends AbstractTestCase
         $configuration = new Configuration();
 
         static::assertInstanceOf(NullSchedulerFactory::class, $configuration->getSchedulerFactory());
+    }
+
+    public function testGetSchedulerFactoryReturnsTheDefaultConfiguredSchedulerFactory(): void
+    {
+        $schedulerFactory = mock(SchedulerFactoryInterface::class);
+        DefaultConfiguration::setDefaultSchedulerFactory($schedulerFactory);
+        $configuration = new Configuration();
+
+        static::assertSame($schedulerFactory, $configuration->getSchedulerFactory());
     }
 
     public function testGetSchedulerFactoryReturnsTheSameNullSchedulerFactoryOnSubsequentCallsByDefault(): void

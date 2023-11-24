@@ -13,6 +13,9 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat;
 
+use Asmblah\PhpAmqpCompat\Configuration\DefaultConfiguration;
+use Asmblah\PhpCodeShift\ShiftPackageInterface;
+use InvalidArgumentException;
 use Nytris\Core\Package\PackageContextInterface;
 use Nytris\Core\Package\PackageInterface;
 
@@ -48,6 +51,18 @@ class AmqpCompat implements AmqpCompatInterface
      */
     public static function install(PackageContextInterface $packageContext, PackageInterface $package): void
     {
+        if (!$package instanceof AmqpCompatPackageInterface) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Package config must be a %s but it was a %s',
+                    AmqpCompatPackageInterface::class,
+                    $package::class
+                )
+            );
+        }
+
+        DefaultConfiguration::setDefaultSchedulerFactory($package->getSchedulerFactory());
+
         self::$installed = true;
     }
 

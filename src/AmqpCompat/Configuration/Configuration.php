@@ -15,7 +15,6 @@ namespace Asmblah\PhpAmqpCompat\Configuration;
 
 use Asmblah\PhpAmqpCompat\Error\ErrorReporter;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
-use Asmblah\PhpAmqpCompat\Scheduler\Factory\NullSchedulerFactory;
 use Asmblah\PhpAmqpCompat\Scheduler\Factory\SchedulerFactoryInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -45,7 +44,7 @@ class Configuration implements ConfigurationInterface
     ) {
         $this->errorReporter = $errorReporter ?? new ErrorReporter();
         $this->logger = $logger ?? new NullLogger();
-        $this->schedulerFactory = $schedulerFactory ?? new NullSchedulerFactory();
+        $this->schedulerFactory = $schedulerFactory ?? DefaultConfiguration::getDefaultSchedulerFactory();
 
         $this->unlimitedTimeout = $unlimitedTimeout ?? self::DEFAULT_UNLIMITED_TIMEOUT;
     }
