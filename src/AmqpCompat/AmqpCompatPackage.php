@@ -28,7 +28,7 @@ class AmqpCompatPackage implements AmqpCompatPackageInterface
     private SchedulerFactoryInterface $schedulerFactory;
 
     public function __construct(
-        ?SchedulerFactoryInterface $schedulerFactory
+        ?SchedulerFactoryInterface $schedulerFactory = null
     ) {
         $schedulerFactory ??= new NullSchedulerFactory();
 
