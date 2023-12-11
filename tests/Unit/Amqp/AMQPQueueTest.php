@@ -59,6 +59,7 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqplibChannel = mock(AmqplibChannel::class, [
             'basic_ack' => null,
             'basic_consume' => 'my_consumer_tag',
+            'basic_nack' => null,
             'getConnection' => $this->amqplibConnection,
             'is_open' => true,
         ]);
@@ -95,6 +96,7 @@ class AMQPQueueTest extends AbstractTestCase
 
     public function testAckLogsAttemptAsDebug(): void
     {
+        $this->amqpQueue->setName('my_queue');
         $this->amqplibChannel->allows()
             ->basic_ack(123, false);
 
@@ -102,6 +104,7 @@ class AMQPQueueTest extends AbstractTestCase
             ->debug('AMQPQueue::ack(): Acknowledgement attempt', [
                 'delivery_tag' => 123,
                 'flags' => AMQP_NOPARAM,
+                'queue' => 'my_queue',
             ])
             ->once();
 
@@ -115,7 +118,7 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqpQueue->ack(123);
     }
 
-    public function testAckAcknowledgesViaAmqplib(): void
+    public function testAckAcknowledgesViaAmqplibWithDefaultFlags(): void
     {
         $this->amqplibChannel->expects()
             ->basic_ack(321, false)
@@ -129,6 +132,22 @@ class AMQPQueueTest extends AbstractTestCase
          * @phpstan-ignore-next-line
          */
         $this->amqpQueue->ack(321);
+    }
+
+    public function testAckAcknowledgesViaAmqplibWithMultipleFlag(): void
+    {
+        $this->amqplibChannel->expects()
+            ->basic_ack(321, true)
+            ->once();
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::ack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        $this->amqpQueue->ack(321, AMQP_MULTIPLE);
     }
 
     public function testAckHandlesAmqplibExceptionCorrectly(): void
@@ -164,6 +183,26 @@ class AMQPQueueTest extends AbstractTestCase
          * @phpstan-ignore-next-line
          */
         static::assertTrue($this->amqpQueue->ack(321));
+    }
+
+    public function testAckLogsSuccessAsDebug(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->basic_ack(123, false);
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::ack(): Message acknowledged')
+            ->once();
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::ack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        $this->amqpQueue->ack(123);
     }
 
     public function testConsumeSubscribesConsumerWhenNoCallbackGiven(): void
@@ -399,6 +438,105 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqpQueue->declareQueue();
     }
 
+    public function testGetLogsAttemptAsDebug(): void
+    {
+        $amqplibMessage = mock(AmqplibMessage::class, [
+            'getBody' => 'my message body',
+            'getDeliveryTag' => 4321,
+        ]);
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->basic_get('my_queue', false)
+            ->andReturn($amqplibMessage);
+        $envelope = mock(AMQPEnvelope::class);
+        $this->envelopeTransformer->allows()
+            ->transformMessage($amqplibMessage)
+            ->andReturn($envelope);
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::get(): Message fetch attempt (get)', [
+                'flags' => AMQP_NOPARAM,
+                'queue' => 'my_queue',
+            ])
+            ->once();
+
+        $this->amqpQueue->get();
+    }
+
+    public function testGetFetchesViaAmqplib(): void
+    {
+        $amqplibMessage = mock(AmqplibMessage::class, [
+            'getBody' => 'my message body',
+            'getDeliveryTag' => 4321,
+        ]);
+        $this->amqpQueue->setName('my_queue');
+        $envelope = mock(AMQPEnvelope::class);
+        $this->envelopeTransformer->allows()
+            ->transformMessage($amqplibMessage)
+            ->andReturn($envelope);
+
+        $this->amqplibChannel->expects()
+            ->basic_get('my_queue', false)
+            ->once()
+            ->andReturn($amqplibMessage);
+
+        $this->amqpQueue->get();
+    }
+
+    public function testGetHandlesAmqplibExceptionCorrectly(): void
+    {
+        $exception = new AMQPIOException('Bang!', 123);
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->basic_get('my_queue', false)
+            ->andThrow($exception);
+
+        $this->expectException(AMQPQueueException::class);
+        $this->expectExceptionMessage('AMQPQueue::get(): Amqplib failure: Bang!');
+        $this->logger->expects()
+            ->logAmqplibException('AMQPQueue::get', $exception)
+            ->once();
+
+        $this->amqpQueue->get();
+    }
+
+    public function testGetHandlesMessageFetchCorrectlyWhenOneIsAvailable(): void
+    {
+        $amqplibMessage = mock(AmqplibMessage::class, [
+            'getBody' => 'my message body',
+            'getDeliveryTag' => 4321,
+        ]);
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->basic_get('my_queue', false)
+            ->andReturn($amqplibMessage);
+        $envelope = mock(AMQPEnvelope::class);
+        $this->envelopeTransformer->allows()
+            ->transformMessage($amqplibMessage)
+            ->andReturn($envelope);
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::get(): Message fetched', [
+                'body' => 'my message body',
+                'delivery_tag' => 4321,
+            ])
+            ->once();
+        static::assertSame($envelope, $this->amqpQueue->get());
+    }
+
+    public function testGetHandlesMessageFetchCorrectlyWhenNoneIsAvailable(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->basic_get('my_queue', false)
+            ->andReturnNull();
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::get(): No message available, none fetched')
+            ->once();
+        static::assertFalse($this->amqpQueue->get());
+    }
+
     public function testGetArgumentReturnsTheSpecifiedArgumentValue(): void
     {
         $this->amqpQueue->setArgument('my_key', 'my value');
@@ -444,6 +582,133 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqpQueue->setArgument('my_key', 21);
 
         static::assertFalse($this->amqpQueue->hasArgument('not_my_key'));
+    }
+
+    public function testNackLogsAttemptAsDebug(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->basic_nack(123, false, false);
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::nack(): Negative acknowledgement attempt', [
+                'delivery_tag' => 123,
+                'flags' => AMQP_NOPARAM,
+                'queue' => 'my_queue',
+            ])
+            ->once();
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        $this->amqpQueue->nack(123);
+    }
+
+    public function testNackNegativelyAcknowledgesViaAmqplibWithDefaultFlags(): void
+    {
+        $this->amqplibChannel->expects()
+            ->basic_nack(321, false, false)
+            ->once();
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        $this->amqpQueue->nack(321);
+    }
+
+    public function testNackNegativelyAcknowledgesViaAmqplibWithMultipleFlag(): void
+    {
+        $this->amqplibChannel->expects()
+            ->basic_nack(321, true, false)
+            ->once();
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        $this->amqpQueue->nack(321, AMQP_MULTIPLE);
+    }
+
+    public function testNackNegativelyAcknowledgesViaAmqplibWithRequeueFlag(): void
+    {
+        $this->amqplibChannel->expects()
+            ->basic_nack(321, false, true)
+            ->once();
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        $this->amqpQueue->nack(321, AMQP_REQUEUE);
+    }
+
+    public function testNackHandlesAmqplibExceptionCorrectly(): void
+    {
+        $exception = new AMQPIOException('Bang!', 123);
+        $this->amqplibChannel->allows()
+            ->basic_nack(123, false, false)
+            ->andThrow($exception);
+
+        $this->expectException(AMQPQueueException::class);
+        $this->expectExceptionMessage('AMQPQueue::nack(): Amqplib failure: Bang!');
+        $this->logger->expects()
+            ->logAmqplibException('AMQPQueue::nack', $exception)
+            ->once();
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        $this->amqpQueue->nack(123);
+    }
+
+    public function testNackReturnsTrue(): void
+    {
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        static::assertTrue($this->amqpQueue->nack(321));
+    }
+
+    public function testNackLogsSuccessAsDebug(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->basic_nack(123, false, false);
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::nack(): Message negatively acknowledged')
+            ->once();
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        $this->amqpQueue->nack(123);
     }
 
     public function testSetArgumentThrowsWhenGivenInvalidValue(): void

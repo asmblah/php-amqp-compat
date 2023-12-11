@@ -26,11 +26,8 @@ use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
  */
 class EnvelopeTransformerTest extends AbstractTestCase
 {
-    /**
-     * @var (MockInterface&AmqplibMessage)|null
-     */
-    private $amqplibMessage;
-    private EnvelopeTransformer|null $envelopeTransformer;
+    private MockInterface&AmqplibMessage $amqplibMessage;
+    private EnvelopeTransformer $envelopeTransformer;
 
     public function setUp(): void
     {
@@ -48,7 +45,7 @@ class EnvelopeTransformerTest extends AbstractTestCase
         $this->envelopeTransformer = new EnvelopeTransformer();
     }
 
-    public function testTransformMessageReturnsCorrectlyConstructedEnvelope(): void
+    public function testTransformMessageReturnsCorrectlyConstructedEnvelopeWhenPopulated(): void
     {
         $amqpEnvelope = $this->envelopeTransformer->transformMessage($this->amqplibMessage);
 
@@ -60,5 +57,30 @@ class EnvelopeTransformerTest extends AbstractTestCase
         static::assertSame('my-exchange', $amqpEnvelope->getExchangeName());
         static::assertSame('my-routing-key', $amqpEnvelope->getRoutingKey());
         static::assertFalse($amqpEnvelope->isRedelivery());
+    }
+
+    public function testTransformMessageReturnsCorrectlyConstructedEnvelopeWhenEmpty(): void
+    {
+        $this->amqplibMessage = mock(AmqplibMessage::class, [
+            'getBody' => '',
+            'getConsumerTag' => null,
+            'getContentEncoding' => 'application/x-my-encoding',
+            'getDeliveryTag' => 4321,
+            'getExchange' => null,
+            'getRoutingKey' => null,
+            'get_properties' => ['content_type' => 'text/x-custom'],
+            'isRedelivered' => null,
+        ]);
+
+        $amqpEnvelope = $this->envelopeTransformer->transformMessage($this->amqplibMessage);
+
+        static::assertInstanceOf(AMQPEnvelope::class, $amqpEnvelope);
+        static::assertFalse($amqpEnvelope->getBody());
+        static::assertSame('', $amqpEnvelope->getConsumerTag());
+        static::assertSame('application/x-my-encoding', $amqpEnvelope->getContentEncoding());
+        static::assertSame(4321, $amqpEnvelope->getDeliveryTag());
+        static::assertNull($amqpEnvelope->getExchangeName());
+        static::assertNull($amqpEnvelope->getRoutingKey());
+        static::assertNull($amqpEnvelope->isRedelivery());
     }
 }

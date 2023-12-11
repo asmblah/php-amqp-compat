@@ -73,12 +73,68 @@ class ConnectorTest extends AbstractTestCase
                 AMQPConnectionConfig::AUTH_AMQPPLAIN,
                 'en_US',
                 987,
-                654,
+                222, // Read/write timeout is the smallest of the read & write timeouts.
                 false,
                 12,
                 333,
                 456,
                 789
+            )
+            ->once();
+
+        $this->connector->connect($this->connectionConfig);
+    }
+
+    public function testConnectUsesReadTimeoutForReadWriteTimeoutWhenSmaller(): void
+    {
+        $this->connectionConfig->allows()->getConnectionTimeout()->andReturn(987);
+        $this->connectionConfig->allows()->getMaxChannels()->andReturn(456);
+        $this->connectionConfig->allows()->getMaxFrameSize()->andReturn(789);
+        $this->connectionConfig->allows()->getReadTimeout()->andReturn(101);
+        $this->connectionConfig->allows()->getRpcTimeout()->andReturn(333);
+        $this->connectionConfig->allows()->getWriteTimeout()->andReturn(222);
+
+        $this->connectionFactory->expects()
+            ->connect(
+                Mockery::any(),
+                Mockery::any(),
+                Mockery::any(),
+                Mockery::any(),
+                Mockery::any(),
+                Mockery::any(),
+                Mockery::any(),
+                Mockery::any(),
+                Mockery::any(),
+                101,
+                Mockery::andAnyOtherArgs()
+            )
+            ->once();
+
+        $this->connector->connect($this->connectionConfig);
+    }
+
+    public function testConnectUsesWriteTimeoutForReadWriteTimeoutWhenSmaller(): void
+    {
+        $this->connectionConfig->allows()->getConnectionTimeout()->andReturn(987);
+        $this->connectionConfig->allows()->getMaxChannels()->andReturn(456);
+        $this->connectionConfig->allows()->getMaxFrameSize()->andReturn(789);
+        $this->connectionConfig->allows()->getReadTimeout()->andReturn(654);
+        $this->connectionConfig->allows()->getRpcTimeout()->andReturn(333);
+        $this->connectionConfig->allows()->getWriteTimeout()->andReturn(111);
+
+        $this->connectionFactory->expects()
+            ->connect(
+                Mockery::any(),
+                Mockery::any(),
+                Mockery::any(),
+                Mockery::any(),
+                Mockery::any(),
+                Mockery::any(),
+                Mockery::any(),
+                Mockery::any(),
+                Mockery::any(),
+                111,
+                Mockery::andAnyOtherArgs()
             )
             ->once();
 

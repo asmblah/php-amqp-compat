@@ -695,6 +695,127 @@ class AMQPExchangeTest extends AbstractTestCase
         ];
     }
 
+    /**
+     * @param array<string, scalar> $arguments
+     * @dataProvider unbindDataProvider
+     */
+    public function testUnbindLogsAttemptAsDebug(
+        string $exchangeName,
+        string $sourceExchangeName,
+        string $routingKey,
+        int $flags,
+        array $arguments
+    ): void {
+        $this->amqpExchange->setFlags($flags);
+        $this->amqpExchange->setName($exchangeName);
+        $this->amqplibChannel->allows()
+            ->exchange_unbind(
+                $exchangeName,
+                $sourceExchangeName,
+                $routingKey,
+                $flags & AMQP_NOWAIT,
+                Mockery::type(AmqplibTable::class)
+            );
+
+        $this->logger->expects()
+            ->debug('AMQPExchange::unbind(): Exchange unbind attempt', [
+                'arguments' => $arguments,
+                'exchange_name' => $exchangeName,
+                'flags' => $flags,
+                'routing_key' => $routingKey,
+                'source_exchange_name' => $sourceExchangeName,
+            ])
+            ->once();
+
+        $this->amqpExchange->unbind($sourceExchangeName, $routingKey, $arguments);
+    }
+
+    /**
+     * @param array<string, scalar> $arguments
+     * @dataProvider unbindDataProvider
+     */
+    public function testUnbindGoesViaAmqplib(
+        string $exchangeName,
+        string $sourceExchangeName,
+        string $routingKey,
+        int $flags,
+        array $arguments
+    ): void {
+        $this->amqpExchange->setFlags($flags);
+        $this->amqpExchange->setName($exchangeName);
+
+        $this->amqplibChannel->expects()
+            ->exchange_unbind(
+                $exchangeName,
+                $sourceExchangeName,
+                $routingKey,
+                $flags & AMQP_NOWAIT,
+                Mockery::type(AmqplibTable::class)
+            )
+            ->once()
+            ->andReturnUsing(function ($_1, $_2, $_3, $_4, AmqplibTable $table) use ($arguments) {
+                static::assertEquals($arguments, $table->getNativeData());
+            });
+
+        static::assertTrue($this->amqpExchange->unbind($sourceExchangeName, $routingKey, $arguments));
+    }
+
+    /**
+     * @param array<string, scalar> $arguments
+     * @dataProvider unbindDataProvider
+     */
+    public function testUnbindHandlesAmqplibExceptionCorrectly(
+        string $exchangeName,
+        string $sourceExchangeName,
+        string $routingKey,
+        int $flags,
+        array $arguments
+    ): void {
+        $this->amqpExchange->setFlags($flags);
+        $this->amqpExchange->setName($exchangeName);
+        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
+        $this->amqplibChannel->allows()
+            ->exchange_unbind(
+                $exchangeName,
+                $sourceExchangeName,
+                $routingKey,
+                $flags & AMQP_NOWAIT,
+                Mockery::type(AmqplibTable::class)
+            )
+            ->andThrow($exception);
+
+        $this->expectException(AMQPExchangeException::class);
+        $this->expectExceptionMessage('AMQPExchange::unbind(): Amqplib failure: my text');
+        $this->logger->expects()
+            ->logAmqplibException('AMQPExchange::unbind', $exception)
+            ->once();
+
+        $this->amqpExchange->unbind($sourceExchangeName, $routingKey, $arguments);
+    }
+
+    /**
+     * @return array<array<mixed>>
+     */
+    public static function unbindDataProvider(): array
+    {
+        return [
+            [
+                'my_exchange',
+                'your_exchange',
+                'my_routing_key',
+                AMQP_NOWAIT,
+                ['x-first' => 'one', 'x-second' => 'two'],
+            ],
+            [
+                'exchange_a',
+                'exchange_b',
+                'their_routing_key',
+                AMQP_NOPARAM,
+                ['x-first' => 'eins', 'x-second' => 'zwei'],
+            ],
+        ];
+    }
+
     public function testUnbindLogsSuccessAsDebug(): void
     {
         $this->amqpExchange->setName('your_exchange');

@@ -498,6 +498,14 @@ class AMQPExchange
         $routingKey ??= '';
         $amqplibChannel = $this->checkChannelOrThrow('Could not unbind from exchange.');
 
+        $this->logger->debug(__METHOD__ . '(): Exchange unbind attempt', [
+            'arguments' => $arguments,
+            'exchange_name' => $this->exchangeName,
+            'flags' => $this->flags,
+            'routing_key' => $routingKey,
+            'source_exchange_name' => $exchangeName,
+        ]);
+
         try {
             $amqplibChannel->exchange_unbind(
                 $this->exchangeName,
@@ -507,8 +515,12 @@ class AMQPExchange
                 new AmqplibTable($arguments)
             );
         } catch (AMQPExceptionInterface $exception) {
+            // Log details of the internal php-amqplib exception,
+            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
+            $this->logger->logAmqplibException(__METHOD__, $exception);
+
             // TODO: Handle errors identically to php-amqp.
-            throw new AMQPExchangeException(__METHOD__ . ' failed: ' . $exception->getMessage());
+            throw new AMQPExchangeException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
         }
 
         $this->logger->debug(__METHOD__ . '(): Exchange unbound');

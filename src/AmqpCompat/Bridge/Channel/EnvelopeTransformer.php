@@ -46,7 +46,7 @@ class EnvelopeTransformer implements EnvelopeTransformerInterface
 
         return new AMQPEnvelope(
             $message->getBody(),
-            $message->getConsumerTag(),
+            $message->getConsumerTag() ?? '',
             $message->getDeliveryTag(),
             $message->getExchange(),
             $message->isRedelivered(),
