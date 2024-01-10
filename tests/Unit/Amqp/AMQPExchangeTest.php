@@ -16,7 +16,6 @@ namespace Asmblah\PhpAmqpCompat\Tests\Unit\Amqp;
 use AMQPChannel;
 use AMQPChannelException;
 use AMQPExchange;
-use AMQPExchangeException;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
@@ -205,11 +204,11 @@ class AMQPExchangeTest extends AbstractTestCase
             )
             ->andThrow($exception);
 
-        $this->expectException(AMQPExchangeException::class);
-        $this->expectExceptionMessage('AMQPExchange::bind(): Amqplib failure: my text');
-        $this->logger->expects()
-            ->logAmqplibException('AMQPExchange::bind', $exception)
-            ->once();
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage(
+            'handleExchangeException() :: AMQPExchange::bind() :: ' .
+            'Exception(PhpAmqpLib\Exception\AMQPProtocolChannelException) :: message(my text)'
+        );
 
         $this->amqpExchange->bind($sourceExchangeName, $routingKey, $arguments);
     }
@@ -520,11 +519,11 @@ class AMQPExchangeTest extends AbstractTestCase
             )
             ->andThrow($exception);
 
-        $this->expectException(AMQPExchangeException::class);
-        $this->expectExceptionMessage('Server channel error: 21, message: my text');
-        $this->logger->expects()
-            ->logAmqplibException('AMQPExchange::delete', $exception)
-            ->once();
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage(
+            'handleExchangeException() :: AMQPExchange::delete() :: ' .
+            'Exception(PhpAmqpLib\Exception\AMQPProtocolChannelException) :: message(my text)'
+        );
 
         $this->amqpExchange->delete($exchangeName, $flags);
     }
@@ -663,11 +662,11 @@ class AMQPExchangeTest extends AbstractTestCase
             )
             ->andThrow($exception);
 
-        $this->expectException(AMQPExchangeException::class);
-        $this->expectExceptionMessage('Server channel error: 21, message: my text');
-        $this->logger->expects()
-            ->logAmqplibException('AMQPExchange::publish', $exception)
-            ->once();
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage(
+            'handleExchangeException() :: AMQPExchange::publish() :: ' .
+            'Exception(PhpAmqpLib\Exception\AMQPProtocolChannelException) :: message(my text)'
+        );
 
         $this->amqpExchange->publish($message, $routingKey, $flags);
     }
@@ -784,11 +783,11 @@ class AMQPExchangeTest extends AbstractTestCase
             )
             ->andThrow($exception);
 
-        $this->expectException(AMQPExchangeException::class);
-        $this->expectExceptionMessage('AMQPExchange::unbind(): Amqplib failure: my text');
-        $this->logger->expects()
-            ->logAmqplibException('AMQPExchange::unbind', $exception)
-            ->once();
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage(
+            'handleExchangeException() :: AMQPExchange::unbind() :: ' .
+            'Exception(PhpAmqpLib\Exception\AMQPProtocolChannelException) :: message(my text)'
+        );
 
         $this->amqpExchange->unbind($sourceExchangeName, $routingKey, $arguments);
     }
