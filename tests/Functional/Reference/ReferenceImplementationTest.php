@@ -88,7 +88,6 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpqueue_consume_multiple_no_doubles.phpt',
         'amqpqueue_consume_nonexistent.phpt',
         'amqpqueue_consume_timeout.phpt',
-        'amqpqueue_empty_name.phpt',
         'amqpqueue_get_channel.phpt',
         'amqpqueue_get_empty_body.phpt',
         'amqpqueue_get_headers.phpt',
@@ -101,7 +100,6 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpqueue_setArgument.phpt',
         'amqpqueue_unbind_basic_empty_routing_key.phpt',
         'amqpqueue_unbind_basic_headers_arguments.phpt',
-        'amqpqueue_var_dump.phpt',
         'amqptimestamp_php8.phpt',
         'bug_19707.phpt',
         'bug_62354.phpt',
@@ -126,6 +124,7 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpconnection_construct_with_limits.php' => [1],
         'amqpenvelope_construct.php' => [1],
         'amqpenvelope_var_dump.php' => [5, 5],
+        'amqpqueue_var_dump.php' => [4, 1, 2, 1],
     ];
 
     /**

@@ -383,6 +383,37 @@ class AMQPQueueTest extends AbstractTestCase
         static::assertSame(21, $this->amqpQueue->declareQueue(), 'Message count should be returned');
     }
 
+    public function testDeclareQueueStoresReturnedQueueName(): void
+    {
+        $this->amqpQueue->setFlags(AMQP_PASSIVE | AMQP_EXCLUSIVE | AMQP_AUTODELETE);
+        $this->amqpQueue->setArguments(['x-dead-letter-exchange' => 'my_retry_exchange']);
+        $this->amqplibChannel->allows()
+            ->queue_declare(
+                '',
+                true,
+                false,
+                true,
+                true,
+                false,
+                Mockery::type(AmqplibTable::class)
+            )
+            ->andReturnUsing(function () {
+                $queueName = 'my_generated_queue';
+                $messageCount = 21;
+                $consumerCount = 7;
+
+                return [$queueName, $messageCount, $consumerCount];
+            });
+
+        $this->amqpQueue->declareQueue();
+
+        static::assertSame(
+            'my_generated_queue',
+            $this->amqpQueue->getName(),
+            'Returned queue name should be used'
+        );
+    }
+
     public function testDeclareQueueHandlesAmqplibExceptionCorrectly(): void
     {
         $this->amqpQueue->setName('my_queue');
@@ -394,7 +425,7 @@ class AMQPQueueTest extends AbstractTestCase
                 false,
                 false,
                 false,
-                false,
+                true,
                 false,
                 Mockery::type(AmqplibTable::class)
             )
@@ -419,7 +450,7 @@ class AMQPQueueTest extends AbstractTestCase
                 false,
                 false,
                 false,
-                false,
+                true,
                 false,
                 Mockery::type(AmqplibTable::class)
             )
@@ -441,7 +472,7 @@ class AMQPQueueTest extends AbstractTestCase
                 false,
                 false,
                 false,
-                false,
+                true,
                 false,
                 Mockery::type(AmqplibTable::class)
             )
@@ -684,9 +715,9 @@ class AMQPQueueTest extends AbstractTestCase
         );
     }
 
-    public function testGetFlagsReturnsZeroInitially(): void
+    public function testGetFlagsReturnsOnlyAutoDeleteInitially(): void
     {
-        static::assertSame(0, $this->amqpQueue->getFlags());
+        static::assertSame(AMQP_AUTODELETE, $this->amqpQueue->getFlags());
     }
 
     public function testHasArgumentReturnsTrueForASetArgument(): void

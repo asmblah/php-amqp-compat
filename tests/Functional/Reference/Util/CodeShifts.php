@@ -14,8 +14,10 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util;
 
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpBasicPropertiesEmulator;
+use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpChannelEmulator;
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpConnectionEmulator;
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpEnvelopeEmulator;
+use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpQueueEmulator;
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\DelegatingClassEmulator;
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\DelegatingClassEmulatorInterface;
 use Asmblah\PhpCodeShift\CodeShift;
@@ -73,8 +75,10 @@ class CodeShifts
         self::$classEmulator = $classEmulator;
 
         $classEmulator->registerClassEmulator(new AmqpBasicPropertiesEmulator());
+        $classEmulator->registerClassEmulator(new AmqpChannelEmulator());
         $classEmulator->registerClassEmulator(new AmqpConnectionEmulator());
         $classEmulator->registerClassEmulator(new AmqpEnvelopeEmulator());
+        $classEmulator->registerClassEmulator(new AmqpQueueEmulator());
 
         $codeShift->shift(
             new FunctionHookShiftSpec(

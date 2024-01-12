@@ -40,13 +40,13 @@ class AMQPQueue
      * @var array<string, scalar>
      */
     private $arguments = [];
-    private bool $autoDelete = false;
+    private bool $autoDelete = true; // By default, the auto_delete flag should be set.
     private readonly AmqpChannelBridgeInterface $channelBridge;
     private bool $durable = false;
     private readonly EnvelopeTransformerInterface $envelopeTransformer;
     private readonly ExceptionHandlerInterface $exceptionHandler;
     private bool $exclusive = false;
-    private ?string $lastConsumerTag;
+    private ?string $lastConsumerTag = null;
     private readonly LoggerInterface $logger;
     private bool $noWait = false;
     private bool $passive = false;
@@ -344,6 +344,9 @@ class AMQPQueue
         if (!is_array($result)) {
             throw new AMQPQueueException(__METHOD__ . '(): Amqplib result was not an array');
         }
+
+        // If the queue name was auto-generated, we need to extract it.
+        $this->queueName = $result[0];
 
         if (count($result) < 2) {
             throw new AMQPQueueException(__METHOD__ . '(): Amqplib result should contain message count at [1]');
