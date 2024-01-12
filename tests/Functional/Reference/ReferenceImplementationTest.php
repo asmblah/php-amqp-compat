@@ -105,7 +105,6 @@ class ReferenceImplementationTest extends AbstractTestCase
         'bug_gh155_direct_reply_to.phpt',
         'bug_gh53-2.phpt',
         'bug_gh53.phpt',
-        'bug_gh72-2.phpt',
         'package-version.phpt',
     ];
     /**

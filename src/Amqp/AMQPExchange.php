@@ -440,6 +440,11 @@ class AMQPExchange
      */
     public function setName(string $exchangeName): void
     {
+        // This logic and message matches the reference implementation.
+        if (strlen($exchangeName) > 255) {
+            throw new AMQPExchangeException('Invalid exchange name given, must be less than 255 characters long.');
+        }
+
         $this->exchangeName = $exchangeName;
     }
 

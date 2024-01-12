@@ -16,6 +16,7 @@ namespace Asmblah\PhpAmqpCompat\Tests\Unit\Amqp;
 use AMQPChannel;
 use AMQPChannelException;
 use AMQPExchange;
+use AMQPExchangeException;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
@@ -693,6 +694,24 @@ class AMQPExchangeTest extends AbstractTestCase
                 ['x-first' => 'I am 1', 'x-second' => 'I am 2'],
             ],
         ];
+    }
+
+    public function testSetNameRaisesExceptionWhenNameExceeds255Characters(): void
+    {
+        $this->expectException(AMQPExchangeException::class);
+        $this->expectExceptionMessage('Invalid exchange name given, must be less than 255 characters long.');
+
+        $this->amqpExchange->setName(str_repeat('x', 256));
+    }
+
+    // Note that this is unlike the error message suggests.
+    public function testSetNameDoesNotRaiseExceptionWhenNameIsExactly255Characters(): void
+    {
+        $validLongName = str_repeat('x', 255);
+
+        $this->amqpExchange->setName($validLongName);
+
+        static::assertSame($validLongName, $this->amqpExchange->getName());
     }
 
     /**
