@@ -98,7 +98,7 @@ class AMQPExchange
             );
         } catch (AMQPExceptionInterface $exception) {
             /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleExchangeException($exception, $this, __METHOD__);
+            $this->exceptionHandler->handleException($exception, AMQPExchangeException::class, __METHOD__);
         }
 
         $this->logger->debug(__METHOD__ . '(): Exchange bound');
@@ -174,7 +174,7 @@ class AMQPExchange
             );
         } catch (AMQPExceptionInterface $exception) {
             /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleExchangeException($exception, $this, __METHOD__);
+            $this->exceptionHandler->handleException($exception, AMQPExchangeException::class, __METHOD__);
         }
 
         $this->logger->debug(__METHOD__ . '(): Exchange declared');
@@ -218,7 +218,7 @@ class AMQPExchange
             );
         } catch (AMQPExceptionInterface $exception) {
             /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleExchangeException($exception, $this, __METHOD__);
+            $this->exceptionHandler->handleException($exception, AMQPExchangeException::class, __METHOD__);
         }
 
         $this->logger->debug(__METHOD__ . '(): Exchange deleted');
@@ -374,7 +374,7 @@ class AMQPExchange
             );
         } catch (AMQPExceptionInterface $exception) {
             /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleExchangeException($exception, $this, __METHOD__);
+            $this->exceptionHandler->handleException($exception, AMQPExchangeException::class, __METHOD__);
         }
 
         $this->logger->debug(__METHOD__ . '(): Message published');
@@ -490,7 +490,7 @@ class AMQPExchange
             );
         } catch (AMQPExceptionInterface $exception) {
             /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleExchangeException($exception, $this, __METHOD__);
+            $this->exceptionHandler->handleException($exception, AMQPExchangeException::class, __METHOD__);
         }
 
         $this->logger->debug(__METHOD__ . '(): Exchange unbound');

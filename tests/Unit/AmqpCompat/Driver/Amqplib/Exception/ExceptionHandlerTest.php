@@ -14,7 +14,6 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Driver\Amqplib\Exception;
 
 use AMQPConnectionException;
-use AMQPExchange;
 use AMQPExchangeException;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Exception\ExceptionHandler;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
@@ -33,13 +32,11 @@ use RuntimeException;
  */
 class ExceptionHandlerTest extends AbstractTestCase
 {
-    private MockInterface&AMQPExchange $amqpExchange;
     private ExceptionHandler $handler;
     private MockInterface&LoggerInterface $logger;
 
     public function setUp(): void
     {
-        $this->amqpExchange = mock(AMQPExchange::class);
         $this->logger = mock(LoggerInterface::class, [
             'logAmqplibException' => null,
         ]);
@@ -47,17 +44,37 @@ class ExceptionHandlerTest extends AbstractTestCase
         $this->handler = new ExceptionHandler($this->logger);
     }
 
-    public function testHandleExchangeExceptionRaisesExceptionWhenNonAmqplibExceptionIsGiven(): void
+    public function testHandleExceptionRaisesExceptionWhenNonAmqplibLibraryExceptionIsGiven(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage(
             'Expected an instance of "PhpAmqpLib\Exception\AMQPExceptionInterface" but got "RuntimeException"'
         );
 
-        $this->handler->handleExchangeException(new RuntimeException('Bang!'), $this->amqpExchange, 'myMethod');
+        $this->handler->handleException(
+            new RuntimeException('Bang!'),
+            AMQPExchangeException::class,
+            'myMethod'
+        );
     }
 
-    public function testHandleExchangeExceptionLogsAmqplibExceptionViaLogger(): void
+    public function testHandleExceptionRaisesExceptionWhenNonAmqpExceptionClassIsGiven(): void
+    {
+        $exception = new AMQPLogicException('Bang!');
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage(
+            'Expected a class that extends "AMQPException" but got "RuntimeException"'
+        );
+
+        $this->handler->handleException(
+            $exception,
+            RuntimeException::class, // @phpstan-ignore-line Due to intentional invalid class being given.
+            'myMethod'
+        );
+    }
+
+    public function testHandleExceptionLogsAmqplibExceptionViaLogger(): void
     {
         $exception = new AMQPLogicException('Bang!');
 
@@ -66,21 +83,21 @@ class ExceptionHandlerTest extends AbstractTestCase
             ->once();
 
         try {
-            $this->handler->handleExchangeException($exception, $this->amqpExchange, 'myMethod');
+            $this->handler->handleException($exception, AMQPExchangeException::class, 'myMethod');
         } catch (AMQPConnectionException) {}
     }
 
-    public function testHandleExchangeExceptionRaisesExchangeExceptionOnAmqpProtocolException(): void
+    public function testHandleExceptionRaisesExchangeExceptionOnAmqpProtocolException(): void
     {
         $exception = new AMQPProtocolException(21, 'my reply text', [21, 23]);
 
         $this->expectException(AMQPExchangeException::class);
         $this->expectExceptionMessage('Server channel error: 21, message: my reply text');
 
-        $this->handler->handleExchangeException($exception, $this->amqpExchange, 'myMethod');
+        $this->handler->handleException($exception, AMQPExchangeException::class, 'myMethod');
     }
 
-    public function testHandleExchangeExceptionRaisesTrimmedConnectionExceptionOnOtherAmqpException(): void
+    public function testHandleExceptionRaisesTrimmedConnectionExceptionOnOtherAmqpException(): void
     {
         $exception = new AMQPIOException('my message that ends in extra data(21, 45)');
 
@@ -89,6 +106,6 @@ class ExceptionHandlerTest extends AbstractTestCase
             '/Server connection error: 0, message: my message that ends in extra data$/'
         );
 
-        $this->handler->handleExchangeException($exception, $this->amqpExchange, 'myMethod');
+        $this->handler->handleException($exception, AMQPExchangeException::class, 'myMethod');
     }
 }

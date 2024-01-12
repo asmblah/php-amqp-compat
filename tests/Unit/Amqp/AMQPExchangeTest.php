@@ -66,13 +66,14 @@ class AMQPExchangeTest extends AbstractTestCase
         ]);
         AmqpBridge::bridgeChannel($this->amqpChannel, $this->channelBridge);
 
-        $this->exceptionHandler->allows('handleExchangeException')
-            ->andReturnUsing(function (Exception $exception, AMQPExchange $exchange, string $methodName) {
+        $this->exceptionHandler->allows('handleException')
+            ->andReturnUsing(function (Exception $libraryException, string $exceptionClass, string $methodName) {
                 throw new Exception(sprintf(
-                    'handleExchangeException() :: %s() :: Exception(%s) :: message(%s)',
+                    'handleException() :: %s() :: Library Exception<%s> -> %s :: message(%s)',
                     $methodName,
-                    $exception::class,
-                    $exception->getMessage()
+                    $libraryException::class,
+                    $exceptionClass,
+                    $libraryException->getMessage()
                 ));
             })
             ->byDefault();
@@ -204,10 +205,10 @@ class AMQPExchangeTest extends AbstractTestCase
             )
             ->andThrow($exception);
 
-        $this->expectException(Exception::class);
         $this->expectExceptionMessage(
-            'handleExchangeException() :: AMQPExchange::bind() :: ' .
-            'Exception(PhpAmqpLib\Exception\AMQPProtocolChannelException) :: message(my text)'
+            'handleException() :: AMQPExchange::bind() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPExchangeException :: ' .
+            'message(my text)'
         );
 
         $this->amqpExchange->bind($sourceExchangeName, $routingKey, $arguments);
@@ -361,8 +362,8 @@ class AMQPExchangeTest extends AbstractTestCase
             ->andThrow($exception);
 
         $this->expectExceptionMessage(
-            'handleExchangeException() :: AMQPExchange::declareExchange() :: ' .
-            'Exception(PhpAmqpLib\Exception\AMQPProtocolChannelException) :: ' .
+            'handleException() :: AMQPExchange::declareExchange() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPExchangeException :: ' .
             'message(my text)'
         );
 
@@ -519,10 +520,10 @@ class AMQPExchangeTest extends AbstractTestCase
             )
             ->andThrow($exception);
 
-        $this->expectException(Exception::class);
         $this->expectExceptionMessage(
-            'handleExchangeException() :: AMQPExchange::delete() :: ' .
-            'Exception(PhpAmqpLib\Exception\AMQPProtocolChannelException) :: message(my text)'
+            'handleException() :: AMQPExchange::delete() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPExchangeException :: ' .
+            'message(my text)'
         );
 
         $this->amqpExchange->delete($exchangeName, $flags);
@@ -650,7 +651,7 @@ class AMQPExchangeTest extends AbstractTestCase
         array $attributes
     ): void {
         $this->amqpExchange->setName($exchangeName);
-        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
+        $exception = new AMQPProtocolChannelException(21, 'your text', [1, 2, 3]);
 
         $this->amqplibChannel->allows()
             ->basic_publish(
@@ -662,10 +663,10 @@ class AMQPExchangeTest extends AbstractTestCase
             )
             ->andThrow($exception);
 
-        $this->expectException(Exception::class);
         $this->expectExceptionMessage(
-            'handleExchangeException() :: AMQPExchange::publish() :: ' .
-            'Exception(PhpAmqpLib\Exception\AMQPProtocolChannelException) :: message(my text)'
+            'handleException() :: AMQPExchange::publish() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPExchangeException :: ' .
+            'message(your text)'
         );
 
         $this->amqpExchange->publish($message, $routingKey, $flags);
@@ -783,10 +784,10 @@ class AMQPExchangeTest extends AbstractTestCase
             )
             ->andThrow($exception);
 
-        $this->expectException(Exception::class);
         $this->expectExceptionMessage(
-            'handleExchangeException() :: AMQPExchange::unbind() :: ' .
-            'Exception(PhpAmqpLib\Exception\AMQPProtocolChannelException) :: message(my text)'
+            'handleException() :: AMQPExchange::unbind() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPExchangeException :: ' .
+            'message(my text)'
         );
 
         $this->amqpExchange->unbind($sourceExchangeName, $routingKey, $arguments);

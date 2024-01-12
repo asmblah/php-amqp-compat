@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Driver\Common\Exception;
 
-use AMQPExchange;
+use AMQPException;
 use Exception;
 
 /**
@@ -26,7 +26,9 @@ use Exception;
 interface ExceptionHandlerInterface
 {
     /**
-     * Handles the given exception for an AMQPExchange, usually by raising a different exception.
+     * Handles the given exception for an AMQP operation, usually by raising a different exception.
+     *
+     * @param class-string<AMQPException> $exceptionClass
      */
-    public function handleExchangeException(Exception $exception, AMQPExchange $exchange, string $methodName): void;
+    public function handleException(Exception $libraryException, string $exceptionClass, string $methodName): never;
 }

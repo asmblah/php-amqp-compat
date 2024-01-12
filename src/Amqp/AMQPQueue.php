@@ -14,6 +14,7 @@ declare(strict_types=1);
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
@@ -43,6 +44,7 @@ class AMQPQueue
     private readonly AmqpChannelBridgeInterface $channelBridge;
     private bool $durable = false;
     private readonly EnvelopeTransformerInterface $envelopeTransformer;
+    private readonly ExceptionHandlerInterface $exceptionHandler;
     private bool $exclusive = false;
     private ?string $lastConsumerTag;
     private readonly LoggerInterface $logger;
@@ -58,6 +60,7 @@ class AMQPQueue
     public function __construct(private readonly AMQPChannel $amqpChannel)
     {
         $this->channelBridge = AmqpBridge::getBridgeChannel($this->amqpChannel);
+        $this->exceptionHandler = $this->channelBridge->getExceptionHandler();
 
         // Always set here in the constructor, however the API allows for the class to be extended
         // and so this parent constructor may not be called. See reference implementation tests.
@@ -95,12 +98,8 @@ class AMQPQueue
         try {
             $amqplibChannel->basic_ack($deliveryTag, (bool) ($flags & AMQP_MULTIPLE));
         } catch (AMQPExceptionInterface $exception) {
-            // Log details of the internal php-amqplib exception,
-            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
-            $this->logger->logAmqplibException(__METHOD__, $exception);
-
-            // TODO: Handle errors identically to php-amqp.
-            throw new AMQPQueueException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, AMQPQueueException::class, __METHOD__);
         }
 
         $this->logger->debug(__METHOD__ . '(): Message acknowledged');
@@ -338,12 +337,8 @@ class AMQPQueue
                 new AmqplibTable($this->arguments)
             );
         } catch (AMQPExceptionInterface $exception) {
-            // Log details of the internal php-amqplib exception,
-            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
-            $this->logger->logAmqplibException(__METHOD__, $exception);
-
-            // TODO: Handle errors identically to php-amqp.
-            throw new AMQPQueueException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, AMQPQueueException::class, __METHOD__);
         }
 
         if (!is_array($result)) {
@@ -374,6 +369,11 @@ class AMQPQueue
     {
         $amqplibChannel = $this->checkChannelOrThrow('Could not delete queue.');
 
+        $this->logger->debug(__METHOD__ . '(): Queue deletion attempt', [
+            'flags' => $flags,
+            'queue' => $this->queueName,
+        ]);
+
         try {
             $result = $amqplibChannel->queue_delete(
                 $this->queueName,
@@ -382,13 +382,11 @@ class AMQPQueue
                 $this->noWait
             );
         } catch (AMQPExceptionInterface $exception) {
-            // Log details of the internal php-amqplib exception,
-            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
-            $this->logger->logAmqplibException(__METHOD__, $exception);
-
-            // TODO: Handle errors identically to php-amqp.
-            throw new AMQPQueueException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, AMQPQueueException::class, __METHOD__);
         }
+
+        $this->logger->debug(__METHOD__ . '(): Queue deleted');
 
         return (int) $result;
     }
@@ -431,12 +429,8 @@ class AMQPQueue
                 (bool) ($flags & AMQP_AUTOACK) // A.K.A "no_ack".
             );
         } catch (AMQPExceptionInterface $exception) {
-            // Log details of the internal php-amqplib exception,
-            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
-            $this->logger->logAmqplibException(__METHOD__, $exception);
-
-            // TODO: Handle errors identically to php-amqp.
-            throw new AMQPQueueException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, AMQPQueueException::class, __METHOD__);
         }
 
         if ($amqplibMessage === null) {
@@ -600,12 +594,8 @@ class AMQPQueue
                 (bool) ($flags & AMQP_REQUEUE)
             );
         } catch (AMQPExceptionInterface $exception) {
-            // Log details of the internal php-amqplib exception,
-            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
-            $this->logger->logAmqplibException(__METHOD__, $exception);
-
-            // TODO: Handle errors identically to php-amqp.
-            throw new AMQPQueueException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, AMQPQueueException::class, __METHOD__);
         }
 
         $this->logger->debug(__METHOD__ . '(): Message negatively acknowledged');

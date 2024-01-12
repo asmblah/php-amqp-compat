@@ -14,8 +14,7 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Driver\Amqplib\Exception;
 
 use AMQPConnectionException;
-use AMQPExchange;
-use AMQPExchangeException;
+use AMQPException;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Exception;
@@ -40,42 +39,50 @@ class ExceptionHandler implements ExceptionHandlerInterface
     /**
      * @inheritDoc
      */
-    public function handleExchangeException(Exception $exception, AMQPExchange $exchange, string $methodName): void
+    public function handleException(Exception $libraryException, string $exceptionClass, string $methodName): never
     {
-        if (!$exception instanceof AMQPExceptionInterface) {
+        if (!$libraryException instanceof AMQPExceptionInterface) {
             throw new InvalidArgumentException(sprintf(
                 'Expected an instance of "%s" but got "%s"',
                 AMQPExceptionInterface::class,
-                $exception::class
+                $libraryException::class
+            ));
+        }
+
+        if (!is_subclass_of($exceptionClass, AMQPException::class)) {
+            throw new InvalidArgumentException(sprintf(
+                'Expected a class that extends "%s" but got "%s"',
+                AMQPException::class,
+                $exceptionClass
             ));
         }
 
         // Log details of the internal php-amqplib exception,
         // that cannot be included in the php-amqp/ext-amqp -compatible exception.
-        $this->logger->logAmqplibException($methodName, $exception);
+        $this->logger->logAmqplibException($methodName, $libraryException);
 
-        if ($exception instanceof AMQPProtocolException) {
-            throw new AMQPExchangeException(
+        if ($libraryException instanceof AMQPProtocolException) {
+            throw new $exceptionClass(
                 sprintf(
                     'Server channel error: %d, message: %s',
-                    $exception->getCode(),
-                    $exception->getMessage()
+                    $libraryException->getCode(),
+                    $libraryException->getMessage()
                 ),
-                $exception->getCode(),
-                $exception
+                $libraryException->getCode(),
+                $libraryException
             );
         }
 
-        $libraryMessage = $exception->getMessage();
+        $libraryMessage = $libraryException->getMessage();
 
         throw new AMQPConnectionException(
             sprintf(
                 'Server connection error: %d, message: %s',
-                $exception->getCode(),
+                $libraryException->getCode(),
                 preg_replace('/\(\d+, \d+\)$/', '', $libraryMessage)
             ),
-            $exception->getCode(),
-            $exception
+            $libraryException->getCode(),
+            $libraryException
         );
     }
 }
