@@ -99,11 +99,9 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpqueue_unbind_basic_empty_routing_key.phpt',
         'amqpqueue_unbind_basic_headers_arguments.phpt',
         'amqptimestamp_php8.phpt',
-        'bug_19707.phpt',
         'bug_62354.phpt',
         'bug_gh147.phpt',
         'bug_gh155_direct_reply_to.phpt',
-        'bug_gh53-2.phpt',
         'bug_gh53.phpt',
         'package-version.phpt',
     ];
