@@ -45,7 +45,6 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpchannel_set_prefetch_and_global_prefetch_size.phpt',
         'amqpchannel_set_prefetch_count.phpt',
         'amqpchannel_set_prefetch_size.phpt',
-        'amqpchannel_var_dump.phpt',
         'amqpconnection_heartbeat.phpt',
         'amqpconnection_heartbeat_with_consumer.phpt',
         'amqpconnection_heartbeat_with_persistent.phpt',
@@ -60,7 +59,6 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpconnection_setTimeout_out_of_range.phpt',
         'amqpconnection_setTimeout_string.phpt',
         'amqpconnection_toomanychannels.phpt',
-        'amqpconnection_var_dump.phpt',
         'amqpenvelope_get_accessors.phpt',
         'amqpexchange_get_channel.phpt',
         'amqpexchange_publish_confirms.phpt',
@@ -121,7 +119,9 @@ class ReferenceImplementationTest extends AbstractTestCase
      */
     public const VAR_DUMP_OBJECT_IDS = [
         'amqpbasicproperties.php' => [1, 2],
+        'amqpchannel_var_dump.php' => [2, 1, 2, 1],
         'amqpconnection_construct_with_limits.php' => [1],
+        'amqpconnection_var_dump.php' => [1, 1, 1],
         'amqpenvelope_construct.php' => [1],
         'amqpenvelope_var_dump.php' => [5, 5],
         'amqpqueue_var_dump.php' => [4, 1, 2, 1],
