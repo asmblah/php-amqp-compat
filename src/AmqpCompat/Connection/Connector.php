@@ -42,8 +42,14 @@ class Connector implements ConnectorInterface
         $connectionTimeout = $this->coerceTimeout($config->getConnectionTimeout());
         $readTimeout = $this->coerceTimeout($config->getReadTimeout());
         $rpcTimeout = $this->coerceTimeout($config->getRpcTimeout());
+        $writeTimeout = $this->coerceTimeout($config->getWriteTimeout());
 
-        // TODO: What do we do about write_timeout, seeing as php-amqplib only supports a single read/write timeout?
+        /*
+         * Php-amqplib only supports a single read/write timeout,
+         * so use the minimum of the two
+         * as in PhpAmqpLib\Connection\AMQPConnectionFactory::getReadWriteTimeout(...).
+         */
+        $readWriteTimeout = min($readTimeout, $writeTimeout);
 
         return $this->connectionFactory->connect(
             $config->getHost(),
@@ -55,7 +61,7 @@ class Connector implements ConnectorInterface
             AMQPConnectionConfig::AUTH_AMQPPLAIN,
             $this->locale,
             $connectionTimeout,
-            $readTimeout,
+            $readWriteTimeout,
             false,
             $config->getHeartbeatInterval(),
             $rpcTimeout,

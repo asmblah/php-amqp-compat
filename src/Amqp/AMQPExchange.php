@@ -97,12 +97,8 @@ class AMQPExchange
                 new AmqplibTable($arguments)
             );
         } catch (AMQPExceptionInterface $exception) {
-            // Log details of the internal php-amqplib exception,
-            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
-            $this->logger->logAmqplibException(__METHOD__, $exception);
-
-            // TODO: Handle errors identically to php-amqp.
-            throw new AMQPExchangeException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, AMQPExchangeException::class, __METHOD__);
         }
 
         $this->logger->debug(__METHOD__ . '(): Exchange bound');
@@ -178,7 +174,7 @@ class AMQPExchange
             );
         } catch (AMQPExceptionInterface $exception) {
             /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleExchangeException($exception, $this, __METHOD__);
+            $this->exceptionHandler->handleException($exception, AMQPExchangeException::class, __METHOD__);
         }
 
         $this->logger->debug(__METHOD__ . '(): Exchange declared');
@@ -221,19 +217,8 @@ class AMQPExchange
                 (bool) ($flags & AMQP_NOWAIT)
             );
         } catch (AMQPExceptionInterface $exception) {
-            // Log details of the internal php-amqplib exception,
-            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
-            $this->logger->logAmqplibException(__METHOD__, $exception);
-
-            throw new AMQPExchangeException(
-                sprintf(
-                    'Server channel error: %d, message: %s',
-                    $exception->getCode(),
-                    $exception->getMessage()
-                ),
-                $exception->getCode(),
-                $exception
-            );
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, AMQPExchangeException::class, __METHOD__);
         }
 
         $this->logger->debug(__METHOD__ . '(): Exchange deleted');
@@ -388,19 +373,8 @@ class AMQPExchange
                 (bool) ($flags & AMQP_IMMEDIATE)
             );
         } catch (AMQPExceptionInterface $exception) {
-            // Log details of the internal php-amqplib exception,
-            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
-            $this->logger->logAmqplibException(__METHOD__, $exception);
-
-            throw new AMQPExchangeException(
-                sprintf(
-                    'Server channel error: %d, message: %s',
-                    $exception->getCode(),
-                    $exception->getMessage()
-                ),
-                $exception->getCode(),
-                $exception
-            );
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, AMQPExchangeException::class, __METHOD__);
         }
 
         $this->logger->debug(__METHOD__ . '(): Message published');
@@ -466,6 +440,11 @@ class AMQPExchange
      */
     public function setName(string $exchangeName): void
     {
+        // This logic and message matches the reference implementation.
+        if (strlen($exchangeName) > 255) {
+            throw new AMQPExchangeException('Invalid exchange name given, must be less than 255 characters long.');
+        }
+
         $this->exchangeName = $exchangeName;
     }
 
@@ -498,6 +477,14 @@ class AMQPExchange
         $routingKey ??= '';
         $amqplibChannel = $this->checkChannelOrThrow('Could not unbind from exchange.');
 
+        $this->logger->debug(__METHOD__ . '(): Exchange unbind attempt', [
+            'arguments' => $arguments,
+            'exchange_name' => $this->exchangeName,
+            'flags' => $this->flags,
+            'routing_key' => $routingKey,
+            'source_exchange_name' => $exchangeName,
+        ]);
+
         try {
             $amqplibChannel->exchange_unbind(
                 $this->exchangeName,
@@ -507,8 +494,8 @@ class AMQPExchange
                 new AmqplibTable($arguments)
             );
         } catch (AMQPExceptionInterface $exception) {
-            // TODO: Handle errors identically to php-amqp.
-            throw new AMQPExchangeException(__METHOD__ . ' failed: ' . $exception->getMessage());
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, AMQPExchangeException::class, __METHOD__);
         }
 
         $this->logger->debug(__METHOD__ . '(): Exchange unbound');

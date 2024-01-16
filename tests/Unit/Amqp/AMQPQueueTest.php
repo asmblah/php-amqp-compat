@@ -22,9 +22,11 @@ use AMQPQueueException;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Closure;
+use Exception;
 use Mockery;
 use Mockery\MockInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
@@ -48,6 +50,7 @@ class AMQPQueueTest extends AbstractTestCase
     private MockInterface&AmqplibConnection $amqplibConnection;
     private MockInterface&AmqpChannelBridgeInterface $channelBridge;
     private MockInterface&EnvelopeTransformerInterface $envelopeTransformer;
+    private MockInterface&ExceptionHandlerInterface $exceptionHandler;
     private MockInterface&LoggerInterface $logger;
 
     public function setUp(): void
@@ -59,21 +62,36 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqplibChannel = mock(AmqplibChannel::class, [
             'basic_ack' => null,
             'basic_consume' => 'my_consumer_tag',
+            'basic_nack' => null,
             'getConnection' => $this->amqplibConnection,
             'is_open' => true,
         ]);
         $this->envelopeTransformer = mock(EnvelopeTransformerInterface::class);
+        $this->exceptionHandler = mock(ExceptionHandlerInterface::class);
         $this->logger = mock(LoggerInterface::class, [
             'debug' => null,
         ]);
         $this->channelBridge = mock(AmqpChannelBridgeInterface::class, [
             'getAmqplibChannel' => $this->amqplibChannel,
             'getEnvelopeTransformer' => $this->envelopeTransformer,
+            'getExceptionHandler' => $this->exceptionHandler,
             'getLogger' => $this->logger,
             'isConsumerSubscribed' => true,
             'subscribeConsumer' => null,
         ]);
         AmqpBridge::bridgeChannel($this->amqpChannel, $this->channelBridge);
+
+        $this->exceptionHandler->allows('handleException')
+            ->andReturnUsing(function (Exception $libraryException, string $exceptionClass, string $methodName) {
+                throw new Exception(sprintf(
+                    'handleException() :: %s() :: Library Exception<%s> -> %s :: message(%s)',
+                    $methodName,
+                    $libraryException::class,
+                    $exceptionClass,
+                    $libraryException->getMessage()
+                ));
+            })
+            ->byDefault();
 
         $this->amqpQueue = new AMQPQueue($this->amqpChannel);
     }
@@ -95,6 +113,7 @@ class AMQPQueueTest extends AbstractTestCase
 
     public function testAckLogsAttemptAsDebug(): void
     {
+        $this->amqpQueue->setName('my_queue');
         $this->amqplibChannel->allows()
             ->basic_ack(123, false);
 
@@ -102,6 +121,7 @@ class AMQPQueueTest extends AbstractTestCase
             ->debug('AMQPQueue::ack(): Acknowledgement attempt', [
                 'delivery_tag' => 123,
                 'flags' => AMQP_NOPARAM,
+                'queue' => 'my_queue',
             ])
             ->once();
 
@@ -115,7 +135,7 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqpQueue->ack(123);
     }
 
-    public function testAckAcknowledgesViaAmqplib(): void
+    public function testAckAcknowledgesViaAmqplibWithDefaultFlags(): void
     {
         $this->amqplibChannel->expects()
             ->basic_ack(321, false)
@@ -131,6 +151,22 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqpQueue->ack(321);
     }
 
+    public function testAckAcknowledgesViaAmqplibWithMultipleFlag(): void
+    {
+        $this->amqplibChannel->expects()
+            ->basic_ack(321, true)
+            ->once();
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::ack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        $this->amqpQueue->ack(321, AMQP_MULTIPLE);
+    }
+
     public function testAckHandlesAmqplibExceptionCorrectly(): void
     {
         $exception = new AMQPIOException('Bang!', 123);
@@ -138,11 +174,11 @@ class AMQPQueueTest extends AbstractTestCase
             ->basic_ack(123, false)
             ->andThrow($exception);
 
-        $this->expectException(AMQPQueueException::class);
-        $this->expectExceptionMessage('AMQPQueue::ack(): Amqplib failure: Bang!');
-        $this->logger->expects()
-            ->logAmqplibException('AMQPQueue::ack', $exception)
-            ->once();
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPQueue::ack() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPIOException> -> AMQPQueueException :: ' .
+            'message(Bang!)'
+        );
 
         /*
          * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
@@ -164,6 +200,26 @@ class AMQPQueueTest extends AbstractTestCase
          * @phpstan-ignore-next-line
          */
         static::assertTrue($this->amqpQueue->ack(321));
+    }
+
+    public function testAckLogsSuccessAsDebug(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->basic_ack(123, false);
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::ack(): Message acknowledged')
+            ->once();
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::ack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        $this->amqpQueue->ack(123);
     }
 
     public function testConsumeSubscribesConsumerWhenNoCallbackGiven(): void
@@ -327,6 +383,37 @@ class AMQPQueueTest extends AbstractTestCase
         static::assertSame(21, $this->amqpQueue->declareQueue(), 'Message count should be returned');
     }
 
+    public function testDeclareQueueStoresReturnedQueueName(): void
+    {
+        $this->amqpQueue->setFlags(AMQP_PASSIVE | AMQP_EXCLUSIVE | AMQP_AUTODELETE);
+        $this->amqpQueue->setArguments(['x-dead-letter-exchange' => 'my_retry_exchange']);
+        $this->amqplibChannel->allows()
+            ->queue_declare(
+                '',
+                true,
+                false,
+                true,
+                true,
+                false,
+                Mockery::type(AmqplibTable::class)
+            )
+            ->andReturnUsing(function () {
+                $queueName = 'my_generated_queue';
+                $messageCount = 21;
+                $consumerCount = 7;
+
+                return [$queueName, $messageCount, $consumerCount];
+            });
+
+        $this->amqpQueue->declareQueue();
+
+        static::assertSame(
+            'my_generated_queue',
+            $this->amqpQueue->getName(),
+            'Returned queue name should be used'
+        );
+    }
+
     public function testDeclareQueueHandlesAmqplibExceptionCorrectly(): void
     {
         $this->amqpQueue->setName('my_queue');
@@ -338,17 +425,17 @@ class AMQPQueueTest extends AbstractTestCase
                 false,
                 false,
                 false,
-                false,
+                true,
                 false,
                 Mockery::type(AmqplibTable::class)
             )
             ->andThrow($exception);
 
-        $this->expectException(AMQPQueueException::class);
-        $this->expectExceptionMessage('AMQPQueue::declareQueue(): Amqplib failure: my text');
-        $this->logger->expects()
-            ->logAmqplibException('AMQPQueue::declareQueue', $exception)
-            ->once();
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPQueue::declareQueue() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPQueueException :: ' .
+            'message(my text)'
+        );
 
         $this->amqpQueue->declareQueue();
     }
@@ -363,7 +450,7 @@ class AMQPQueueTest extends AbstractTestCase
                 false,
                 false,
                 false,
-                false,
+                true,
                 false,
                 Mockery::type(AmqplibTable::class)
             )
@@ -385,7 +472,7 @@ class AMQPQueueTest extends AbstractTestCase
                 false,
                 false,
                 false,
-                false,
+                true,
                 false,
                 Mockery::type(AmqplibTable::class)
             )
@@ -397,6 +484,207 @@ class AMQPQueueTest extends AbstractTestCase
         );
 
         $this->amqpQueue->declareQueue();
+    }
+
+    public function testDeleteLogsAttemptAsDebug(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->queue_delete('my_queue', false, false, false)
+            ->andReturn(0);
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::delete(): Queue deletion attempt', [
+                'flags' => AMQP_NOPARAM,
+                'queue' => 'my_queue',
+            ])
+            ->once();
+
+        $this->amqpQueue->delete();
+    }
+
+    public function testDeleteDeletesQueueViaAmqplibWithDefaultFlags(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+
+        $this->amqplibChannel->expects()
+            ->queue_delete('my_queue', false, false, false)
+            ->once();
+
+        $this->amqpQueue->delete();
+    }
+
+    public function testDeleteDeletesQueueViaAmqplibWithIfUnusedFlag(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+
+        $this->amqplibChannel->expects()
+            ->queue_delete('my_queue', true, false, false)
+            ->once();
+
+        $this->amqpQueue->delete(AMQP_IFUNUSED);
+    }
+
+    public function testDeleteDeletesQueueViaAmqplibWithIfEmptyFlag(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+
+        $this->amqplibChannel->expects()
+            ->queue_delete('my_queue', false, true, false)
+            ->once();
+
+        $this->amqpQueue->delete(AMQP_IFEMPTY);
+    }
+
+    public function testDeleteDeletesQueueViaAmqplibWithNoWaitFlagSetOnQueue(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $this->amqpQueue->setFlags(AMQP_NOWAIT);
+
+        $this->amqplibChannel->expects()
+            ->queue_delete('my_queue', false, false, true)
+            ->once();
+
+        $this->amqpQueue->delete();
+    }
+
+    public function testDeleteHandlesAmqplibExceptionCorrectly(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $exception = new AMQPIOException('Bang!', 123);
+        $this->amqplibChannel->allows()
+            ->queue_delete('my_queue', false, false, false)
+            ->andThrow($exception);
+
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPQueue::delete() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPIOException> -> AMQPQueueException :: ' .
+            'message(Bang!)'
+        );
+
+        $this->amqpQueue->delete();
+    }
+
+    public function testDeleteReturnsTheNumberOfMessagesThatWereInTheDeletedQueue(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->queue_delete('my_queue', false, false, false)
+            ->andReturn(21);
+
+        static::assertSame(21, $this->amqpQueue->delete());
+    }
+
+    public function testDeleteLogsSuccessAsDebug(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->queue_delete('my_queue', false, false, false);
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::delete(): Queue deleted')
+            ->once();
+
+        $this->amqpQueue->delete();
+    }
+
+    public function testGetLogsAttemptAsDebug(): void
+    {
+        $amqplibMessage = mock(AmqplibMessage::class, [
+            'getBody' => 'my message body',
+            'getDeliveryTag' => 4321,
+        ]);
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->basic_get('my_queue', false)
+            ->andReturn($amqplibMessage);
+        $envelope = mock(AMQPEnvelope::class);
+        $this->envelopeTransformer->allows()
+            ->transformMessage($amqplibMessage)
+            ->andReturn($envelope);
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::get(): Message fetch attempt (get)', [
+                'flags' => AMQP_NOPARAM,
+                'queue' => 'my_queue',
+            ])
+            ->once();
+
+        $this->amqpQueue->get();
+    }
+
+    public function testGetFetchesViaAmqplib(): void
+    {
+        $amqplibMessage = mock(AmqplibMessage::class, [
+            'getBody' => 'my message body',
+            'getDeliveryTag' => 4321,
+        ]);
+        $this->amqpQueue->setName('my_queue');
+        $envelope = mock(AMQPEnvelope::class);
+        $this->envelopeTransformer->allows()
+            ->transformMessage($amqplibMessage)
+            ->andReturn($envelope);
+
+        $this->amqplibChannel->expects()
+            ->basic_get('my_queue', false)
+            ->once()
+            ->andReturn($amqplibMessage);
+
+        $this->amqpQueue->get();
+    }
+
+    public function testGetHandlesAmqplibExceptionCorrectly(): void
+    {
+        $exception = new AMQPIOException('Bang!', 123);
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->basic_get('my_queue', false)
+            ->andThrow($exception);
+
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPQueue::get() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPIOException> -> AMQPQueueException :: ' .
+            'message(Bang!)'
+        );
+
+        $this->amqpQueue->get();
+    }
+
+    public function testGetHandlesMessageFetchCorrectlyWhenOneIsAvailable(): void
+    {
+        $amqplibMessage = mock(AmqplibMessage::class, [
+            'getBody' => 'my message body',
+            'getDeliveryTag' => 4321,
+        ]);
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->basic_get('my_queue', false)
+            ->andReturn($amqplibMessage);
+        $envelope = mock(AMQPEnvelope::class);
+        $this->envelopeTransformer->allows()
+            ->transformMessage($amqplibMessage)
+            ->andReturn($envelope);
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::get(): Message fetched', [
+                'body' => 'my message body',
+                'delivery_tag' => 4321,
+            ])
+            ->once();
+        static::assertSame($envelope, $this->amqpQueue->get());
+    }
+
+    public function testGetHandlesMessageFetchCorrectlyWhenNoneIsAvailable(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->basic_get('my_queue', false)
+            ->andReturnNull();
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::get(): No message available, none fetched')
+            ->once();
+        static::assertFalse($this->amqpQueue->get());
     }
 
     public function testGetArgumentReturnsTheSpecifiedArgumentValue(): void
@@ -427,9 +715,9 @@ class AMQPQueueTest extends AbstractTestCase
         );
     }
 
-    public function testGetFlagsReturnsZeroInitially(): void
+    public function testGetFlagsReturnsOnlyAutoDeleteInitially(): void
     {
-        static::assertSame(0, $this->amqpQueue->getFlags());
+        static::assertSame(AMQP_AUTODELETE, $this->amqpQueue->getFlags());
     }
 
     public function testHasArgumentReturnsTrueForASetArgument(): void
@@ -444,6 +732,133 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqpQueue->setArgument('my_key', 21);
 
         static::assertFalse($this->amqpQueue->hasArgument('not_my_key'));
+    }
+
+    public function testNackLogsAttemptAsDebug(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->basic_nack(123, false, false);
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::nack(): Negative acknowledgement attempt', [
+                'delivery_tag' => 123,
+                'flags' => AMQP_NOPARAM,
+                'queue' => 'my_queue',
+            ])
+            ->once();
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        $this->amqpQueue->nack(123);
+    }
+
+    public function testNackNegativelyAcknowledgesViaAmqplibWithDefaultFlags(): void
+    {
+        $this->amqplibChannel->expects()
+            ->basic_nack(321, false, false)
+            ->once();
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        $this->amqpQueue->nack(321);
+    }
+
+    public function testNackNegativelyAcknowledgesViaAmqplibWithMultipleFlag(): void
+    {
+        $this->amqplibChannel->expects()
+            ->basic_nack(321, true, false)
+            ->once();
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        $this->amqpQueue->nack(321, AMQP_MULTIPLE);
+    }
+
+    public function testNackNegativelyAcknowledgesViaAmqplibWithRequeueFlag(): void
+    {
+        $this->amqplibChannel->expects()
+            ->basic_nack(321, false, true)
+            ->once();
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        $this->amqpQueue->nack(321, AMQP_REQUEUE);
+    }
+
+    public function testNackHandlesAmqplibExceptionCorrectly(): void
+    {
+        $exception = new AMQPIOException('Bang!', 123);
+        $this->amqplibChannel->allows()
+            ->basic_nack(123, false, false)
+            ->andThrow($exception);
+
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPQueue::nack() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPIOException> -> AMQPQueueException :: ' .
+            'message(Bang!)'
+        );
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        $this->amqpQueue->nack(123);
+    }
+
+    public function testNackReturnsTrue(): void
+    {
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        static::assertTrue($this->amqpQueue->nack(321));
+    }
+
+    public function testNackLogsSuccessAsDebug(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->basic_nack(123, false, false);
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::nack(): Message negatively acknowledged')
+            ->once();
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        $this->amqpQueue->nack(123);
     }
 
     public function testSetArgumentThrowsWhenGivenInvalidValue(): void

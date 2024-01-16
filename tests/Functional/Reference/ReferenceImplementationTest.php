@@ -45,7 +45,6 @@ class ReferenceImplementationTest extends AbstractFunctionalTestCase
         'amqpchannel_set_prefetch_and_global_prefetch_size.phpt',
         'amqpchannel_set_prefetch_count.phpt',
         'amqpchannel_set_prefetch_size.phpt',
-        'amqpchannel_var_dump.phpt',
         'amqpconnection_heartbeat.phpt',
         'amqpconnection_heartbeat_with_consumer.phpt',
         'amqpconnection_heartbeat_with_persistent.phpt',
@@ -60,7 +59,6 @@ class ReferenceImplementationTest extends AbstractFunctionalTestCase
         'amqpconnection_setTimeout_out_of_range.phpt',
         'amqpconnection_setTimeout_string.phpt',
         'amqpconnection_toomanychannels.phpt',
-        'amqpconnection_var_dump.phpt',
         'amqpenvelope_get_accessors.phpt',
         'amqpexchange_get_channel.phpt',
         'amqpexchange_publish_confirms.phpt',
@@ -88,8 +86,6 @@ class ReferenceImplementationTest extends AbstractFunctionalTestCase
         'amqpqueue_consume_multiple_no_doubles.phpt',
         'amqpqueue_consume_nonexistent.phpt',
         'amqpqueue_consume_timeout.phpt',
-        'amqpqueue_empty_name.phpt',
-        'amqpqueue_get_basic.phpt',
         'amqpqueue_get_channel.phpt',
         'amqpqueue_get_empty_body.phpt',
         'amqpqueue_get_headers.phpt',
@@ -97,21 +93,16 @@ class ReferenceImplementationTest extends AbstractFunctionalTestCase
         'amqpqueue_headers_with_bool.phpt',
         'amqpqueue_headers_with_float.phpt',
         'amqpqueue_headers_with_null.phpt',
-        'amqpqueue_nack.phpt',
         'amqpqueue_nested_arrays.phpt',
         'amqpqueue_nested_headers.phpt',
         'amqpqueue_setArgument.phpt',
         'amqpqueue_unbind_basic_empty_routing_key.phpt',
         'amqpqueue_unbind_basic_headers_arguments.phpt',
-        'amqpqueue_var_dump.phpt',
         'amqptimestamp_php8.phpt',
-        'bug_19707.phpt',
         'bug_62354.phpt',
         'bug_gh147.phpt',
         'bug_gh155_direct_reply_to.phpt',
-        'bug_gh53-2.phpt',
         'bug_gh53.phpt',
-        'bug_gh72-2.phpt',
         'package-version.phpt',
     ];
     /**
@@ -125,9 +116,12 @@ class ReferenceImplementationTest extends AbstractFunctionalTestCase
      */
     public const VAR_DUMP_OBJECT_IDS = [
         'amqpbasicproperties.php' => [1, 2],
+        'amqpchannel_var_dump.php' => [2, 1, 2, 1],
         'amqpconnection_construct_with_limits.php' => [1],
+        'amqpconnection_var_dump.php' => [1, 1, 1],
         'amqpenvelope_construct.php' => [1],
         'amqpenvelope_var_dump.php' => [5, 5],
+        'amqpqueue_var_dump.php' => [4, 1, 2, 1],
     ];
 
     /**

@@ -14,6 +14,7 @@ declare(strict_types=1);
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
@@ -39,12 +40,13 @@ class AMQPQueue
      * @var array<string, scalar>
      */
     private $arguments = [];
-    private bool $autoDelete = false;
+    private bool $autoDelete = true; // By default, the auto_delete flag should be set.
     private readonly AmqpChannelBridgeInterface $channelBridge;
     private bool $durable = false;
     private readonly EnvelopeTransformerInterface $envelopeTransformer;
+    private readonly ExceptionHandlerInterface $exceptionHandler;
     private bool $exclusive = false;
-    private ?string $lastConsumerTag;
+    private ?string $lastConsumerTag = null;
     private readonly LoggerInterface $logger;
     private bool $noWait = false;
     private bool $passive = false;
@@ -58,6 +60,7 @@ class AMQPQueue
     public function __construct(private readonly AMQPChannel $amqpChannel)
     {
         $this->channelBridge = AmqpBridge::getBridgeChannel($this->amqpChannel);
+        $this->exceptionHandler = $this->channelBridge->getExceptionHandler();
 
         // Always set here in the constructor, however the API allows for the class to be extended
         // and so this parent constructor may not be called. See reference implementation tests.
@@ -89,18 +92,17 @@ class AMQPQueue
         $this->logger->debug(__METHOD__ . '(): Acknowledgement attempt', [
             'delivery_tag' => $deliveryTag,
             'flags' => $flags,
+            'queue' => $this->queueName,
         ]);
 
         try {
             $amqplibChannel->basic_ack($deliveryTag, (bool) ($flags & AMQP_MULTIPLE));
         } catch (AMQPExceptionInterface $exception) {
-            // Log details of the internal php-amqplib exception,
-            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
-            $this->logger->logAmqplibException(__METHOD__, $exception);
-
-            // TODO: Handle errors identically to php-amqp.
-            throw new AMQPQueueException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, AMQPQueueException::class, __METHOD__);
         }
+
+        $this->logger->debug(__METHOD__ . '(): Message acknowledged');
 
         return true;
     }
@@ -335,17 +337,16 @@ class AMQPQueue
                 new AmqplibTable($this->arguments)
             );
         } catch (AMQPExceptionInterface $exception) {
-            // Log details of the internal php-amqplib exception,
-            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
-            $this->logger->logAmqplibException(__METHOD__, $exception);
-
-            // TODO: Handle errors identically to php-amqp.
-            throw new AMQPQueueException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, AMQPQueueException::class, __METHOD__);
         }
 
         if (!is_array($result)) {
             throw new AMQPQueueException(__METHOD__ . '(): Amqplib result was not an array');
         }
+
+        // If the queue name was auto-generated, we need to extract it.
+        $this->queueName = $result[0];
 
         if (count($result) < 2) {
             throw new AMQPQueueException(__METHOD__ . '(): Amqplib result should contain message count at [1]');
@@ -371,6 +372,11 @@ class AMQPQueue
     {
         $amqplibChannel = $this->checkChannelOrThrow('Could not delete queue.');
 
+        $this->logger->debug(__METHOD__ . '(): Queue deletion attempt', [
+            'flags' => $flags,
+            'queue' => $this->queueName,
+        ]);
+
         try {
             $result = $amqplibChannel->queue_delete(
                 $this->queueName,
@@ -379,13 +385,11 @@ class AMQPQueue
                 $this->noWait
             );
         } catch (AMQPExceptionInterface $exception) {
-            // Log details of the internal php-amqplib exception,
-            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
-            $this->logger->logAmqplibException(__METHOD__, $exception);
-
-            // TODO: Handle errors identically to php-amqp.
-            throw new AMQPQueueException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, AMQPQueueException::class, __METHOD__);
         }
+
+        $this->logger->debug(__METHOD__ . '(): Queue deleted');
 
         return (int) $result;
     }
@@ -407,15 +411,43 @@ class AMQPQueue
      *                       value is not provided, it will use the
      *                       value of ini-setting amqp.auto_ack.
      *
-     * @return AMQPEnvelope|boolean
+     * @return AMQPEnvelope|false
      *
-     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPChannelException If the channel is not open.
      * @throws AMQPConnectionException If the connection to the broker was lost.
-     * @throws AMQPQueueException      If queue is not exist.
+     * @throws AMQPQueueException If queue does not exist.
      */
-    public function get(int $flags = AMQP_NOPARAM)
+    public function get(int $flags = AMQP_NOPARAM): AMQPEnvelope|false
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not get messages from queue.');
+
+        $this->logger->debug(__METHOD__ . '(): Message fetch attempt (get)', [
+            'flags' => $flags,
+            'queue' => $this->queueName,
+        ]);
+
+        try {
+            $amqplibMessage = $amqplibChannel->basic_get(
+                $this->queueName,
+                (bool) ($flags & AMQP_AUTOACK) // A.K.A "no_ack".
+            );
+        } catch (AMQPExceptionInterface $exception) {
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, AMQPQueueException::class, __METHOD__);
+        }
+
+        if ($amqplibMessage === null) {
+            $this->logger->debug(__METHOD__ . '(): No message available, none fetched');
+
+            return false;
+        }
+
+        $this->logger->debug(__METHOD__ . '(): Message fetched', [
+            'body' => $amqplibMessage->getBody(),
+            'delivery_tag' => $amqplibMessage->getDeliveryTag(),
+        ]);
+
+        return $this->envelopeTransformer->transformMessage($amqplibMessage);
     }
 
     /**
@@ -538,19 +570,40 @@ class AMQPQueue
      * behavior of calling this method while connected to any other broker is
      * undefined.
      *
-     * @param integer $deliveryTag  Delivery tag of last message to reject.
-     * @param integer $flags        AMQP_REQUEUE to requeue the message(s),
-     *                              AMQP_MULTIPLE to nack all previous
-     *                              unacked messages as well.
+     * @param int $deliveryTag Delivery tag of last message to reject.
+     * @param int $flags AMQP_REQUEUE to requeue the message(s),
+     *                   AMQP_MULTIPLE to nack all previous
+     *                   unacked messages as well.
      *
-     * @return boolean
+     * @return bool
      *
      * @throws AMQPConnectionException If the connection to the broker was lost.
-     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPChannelException If the channel is not open.
      */
     public function nack(int $deliveryTag, int $flags = AMQP_NOPARAM): bool
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not nack message.');
+
+        $this->logger->debug(__METHOD__ . '(): Negative acknowledgement attempt', [
+            'delivery_tag' => $deliveryTag,
+            'flags' => $flags,
+            'queue' => $this->queueName,
+        ]);
+
+        try {
+            $amqplibChannel->basic_nack(
+                $deliveryTag,
+                (bool) ($flags & AMQP_MULTIPLE),
+                (bool) ($flags & AMQP_REQUEUE)
+            );
+        } catch (AMQPExceptionInterface $exception) {
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, AMQPQueueException::class, __METHOD__);
+        }
+
+        $this->logger->debug(__METHOD__ . '(): Message negatively acknowledged');
+
+        return true;
     }
 
     /**

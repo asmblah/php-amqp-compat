@@ -74,7 +74,7 @@ class DelegatingClassEmulator implements DelegatingClassEmulatorInterface
             $result = $this->nativeDump($value);
         }
 
-        $padding = str_repeat(' ', $depth * 2);
+        $padding = $depth > 0 ? '  ' : '';
 
         return str_replace(PHP_EOL, PHP_EOL . $padding, $result);
     }

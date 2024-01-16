@@ -67,13 +67,14 @@ class AMQPExchangeTest extends AbstractTestCase
         ]);
         AmqpBridge::bridgeChannel($this->amqpChannel, $this->channelBridge);
 
-        $this->exceptionHandler->allows('handleExchangeException')
-            ->andReturnUsing(function (Exception $exception, AMQPExchange $exchange, string $methodName) {
+        $this->exceptionHandler->allows('handleException')
+            ->andReturnUsing(function (Exception $libraryException, string $exceptionClass, string $methodName) {
                 throw new Exception(sprintf(
-                    'handleExchangeException() :: %s() :: Exception(%s) :: message(%s)',
+                    'handleException() :: %s() :: Library Exception<%s> -> %s :: message(%s)',
                     $methodName,
-                    $exception::class,
-                    $exception->getMessage()
+                    $libraryException::class,
+                    $exceptionClass,
+                    $libraryException->getMessage()
                 ));
             })
             ->byDefault();
@@ -205,11 +206,11 @@ class AMQPExchangeTest extends AbstractTestCase
             )
             ->andThrow($exception);
 
-        $this->expectException(AMQPExchangeException::class);
-        $this->expectExceptionMessage('AMQPExchange::bind(): Amqplib failure: my text');
-        $this->logger->expects()
-            ->logAmqplibException('AMQPExchange::bind', $exception)
-            ->once();
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPExchange::bind() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPExchangeException :: ' .
+            'message(my text)'
+        );
 
         $this->amqpExchange->bind($sourceExchangeName, $routingKey, $arguments);
     }
@@ -362,8 +363,8 @@ class AMQPExchangeTest extends AbstractTestCase
             ->andThrow($exception);
 
         $this->expectExceptionMessage(
-            'handleExchangeException() :: AMQPExchange::declareExchange() :: ' .
-            'Exception(PhpAmqpLib\Exception\AMQPProtocolChannelException) :: ' .
+            'handleException() :: AMQPExchange::declareExchange() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPExchangeException :: ' .
             'message(my text)'
         );
 
@@ -520,11 +521,11 @@ class AMQPExchangeTest extends AbstractTestCase
             )
             ->andThrow($exception);
 
-        $this->expectException(AMQPExchangeException::class);
-        $this->expectExceptionMessage('Server channel error: 21, message: my text');
-        $this->logger->expects()
-            ->logAmqplibException('AMQPExchange::delete', $exception)
-            ->once();
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPExchange::delete() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPExchangeException :: ' .
+            'message(my text)'
+        );
 
         $this->amqpExchange->delete($exchangeName, $flags);
     }
@@ -651,7 +652,7 @@ class AMQPExchangeTest extends AbstractTestCase
         array $attributes
     ): void {
         $this->amqpExchange->setName($exchangeName);
-        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
+        $exception = new AMQPProtocolChannelException(21, 'your text', [1, 2, 3]);
 
         $this->amqplibChannel->allows()
             ->basic_publish(
@@ -663,11 +664,11 @@ class AMQPExchangeTest extends AbstractTestCase
             )
             ->andThrow($exception);
 
-        $this->expectException(AMQPExchangeException::class);
-        $this->expectExceptionMessage('Server channel error: 21, message: my text');
-        $this->logger->expects()
-            ->logAmqplibException('AMQPExchange::publish', $exception)
-            ->once();
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPExchange::publish() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPExchangeException :: ' .
+            'message(your text)'
+        );
 
         $this->amqpExchange->publish($message, $routingKey, $flags);
     }
@@ -691,6 +692,145 @@ class AMQPExchangeTest extends AbstractTestCase
                 'my_routing_key',
                 'this is my second message',
                 ['x-first' => 'I am 1', 'x-second' => 'I am 2'],
+            ],
+        ];
+    }
+
+    public function testSetNameRaisesExceptionWhenNameExceeds255Characters(): void
+    {
+        $this->expectException(AMQPExchangeException::class);
+        $this->expectExceptionMessage('Invalid exchange name given, must be less than 255 characters long.');
+
+        $this->amqpExchange->setName(str_repeat('x', 256));
+    }
+
+    // Note that this is unlike the error message suggests.
+    public function testSetNameDoesNotRaiseExceptionWhenNameIsExactly255Characters(): void
+    {
+        $validLongName = str_repeat('x', 255);
+
+        $this->amqpExchange->setName($validLongName);
+
+        static::assertSame($validLongName, $this->amqpExchange->getName());
+    }
+
+    /**
+     * @param array<string, scalar> $arguments
+     * @dataProvider unbindDataProvider
+     */
+    public function testUnbindLogsAttemptAsDebug(
+        string $exchangeName,
+        string $sourceExchangeName,
+        string $routingKey,
+        int $flags,
+        array $arguments
+    ): void {
+        $this->amqpExchange->setFlags($flags);
+        $this->amqpExchange->setName($exchangeName);
+        $this->amqplibChannel->allows()
+            ->exchange_unbind(
+                $exchangeName,
+                $sourceExchangeName,
+                $routingKey,
+                $flags & AMQP_NOWAIT,
+                Mockery::type(AmqplibTable::class)
+            );
+
+        $this->logger->expects()
+            ->debug('AMQPExchange::unbind(): Exchange unbind attempt', [
+                'arguments' => $arguments,
+                'exchange_name' => $exchangeName,
+                'flags' => $flags,
+                'routing_key' => $routingKey,
+                'source_exchange_name' => $sourceExchangeName,
+            ])
+            ->once();
+
+        $this->amqpExchange->unbind($sourceExchangeName, $routingKey, $arguments);
+    }
+
+    /**
+     * @param array<string, scalar> $arguments
+     * @dataProvider unbindDataProvider
+     */
+    public function testUnbindGoesViaAmqplib(
+        string $exchangeName,
+        string $sourceExchangeName,
+        string $routingKey,
+        int $flags,
+        array $arguments
+    ): void {
+        $this->amqpExchange->setFlags($flags);
+        $this->amqpExchange->setName($exchangeName);
+
+        $this->amqplibChannel->expects()
+            ->exchange_unbind(
+                $exchangeName,
+                $sourceExchangeName,
+                $routingKey,
+                $flags & AMQP_NOWAIT,
+                Mockery::type(AmqplibTable::class)
+            )
+            ->once()
+            ->andReturnUsing(function ($_1, $_2, $_3, $_4, AmqplibTable $table) use ($arguments) {
+                static::assertEquals($arguments, $table->getNativeData());
+            });
+
+        static::assertTrue($this->amqpExchange->unbind($sourceExchangeName, $routingKey, $arguments));
+    }
+
+    /**
+     * @param array<string, scalar> $arguments
+     * @dataProvider unbindDataProvider
+     */
+    public function testUnbindHandlesAmqplibExceptionCorrectly(
+        string $exchangeName,
+        string $sourceExchangeName,
+        string $routingKey,
+        int $flags,
+        array $arguments
+    ): void {
+        $this->amqpExchange->setFlags($flags);
+        $this->amqpExchange->setName($exchangeName);
+        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
+        $this->amqplibChannel->allows()
+            ->exchange_unbind(
+                $exchangeName,
+                $sourceExchangeName,
+                $routingKey,
+                $flags & AMQP_NOWAIT,
+                Mockery::type(AmqplibTable::class)
+            )
+            ->andThrow($exception);
+
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPExchange::unbind() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPExchangeException :: ' .
+            'message(my text)'
+        );
+
+        $this->amqpExchange->unbind($sourceExchangeName, $routingKey, $arguments);
+    }
+
+    /**
+     * @return array<array<mixed>>
+     */
+    public static function unbindDataProvider(): array
+    {
+        return [
+            [
+                'my_exchange',
+                'your_exchange',
+                'my_routing_key',
+                AMQP_NOWAIT,
+                ['x-first' => 'one', 'x-second' => 'two'],
+            ],
+            [
+                'exchange_a',
+                'exchange_b',
+                'their_routing_key',
+                AMQP_NOPARAM,
+                ['x-first' => 'eins', 'x-second' => 'zwei'],
             ],
         ];
     }
