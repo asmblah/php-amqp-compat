@@ -19,8 +19,11 @@ use AMQPConnection;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
+use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
+use Exception;
 use LogicException;
 use Mockery\MockInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
@@ -39,7 +42,9 @@ class AMQPChannelTest extends AbstractTestCase
     private MockInterface&AmqplibChannel $amqplibChannel;
     private MockInterface&AmqplibConnection $amqplibConnection;
     private MockInterface&AmqpChannelBridgeInterface $channelBridge;
+    private MockInterface&ConnectionConfigInterface $connectionConfig;
     private MockInterface&AmqpConnectionBridgeInterface $connectionBridge;
+    private MockInterface&ExceptionHandlerInterface $exceptionHandler;
     private MockInterface&LoggerInterface $logger;
 
     public function setUp(): void
@@ -58,16 +63,37 @@ class AMQPChannelTest extends AbstractTestCase
             'getAmqplibChannel' => $this->amqplibChannel,
             'unregisterChannel' => null,
         ]);
+        $this->connectionConfig = mock(ConnectionConfigInterface::class, [
+            'getGlobalPrefetchCount' => 100,
+            'getGlobalPrefetchSize' => 512,
+            'getPrefetchCount' => 50,
+            'getPrefetchSize' => 128,
+        ]);
+        $this->exceptionHandler = mock(ExceptionHandlerInterface::class);
         $this->logger = mock(LoggerInterface::class, [
             'debug' => null,
         ]);
         $this->connectionBridge = mock(AmqpConnectionBridgeInterface::class, [
             'getAmqplibConnection' => $this->amqplibConnection,
             'createChannelBridge' => $this->channelBridge,
+            'getConnectionConfig' => $this->connectionConfig,
+            'getExceptionHandler' => $this->exceptionHandler,
             'getLogger' => $this->logger,
         ]);
 
         AmqpBridge::bridgeConnection($this->amqpConnection, $this->connectionBridge);
+
+        $this->exceptionHandler->allows('handleException')
+            ->andReturnUsing(function (Exception $libraryException, string $exceptionClass, string $methodName) {
+                throw new Exception(sprintf(
+                    'handleException() :: %s() :: Library Exception<%s> -> %s :: message(%s)',
+                    $methodName,
+                    $libraryException::class,
+                    $exceptionClass,
+                    $libraryException->getMessage()
+                ));
+            })
+            ->byDefault();
 
         $this->amqpChannel = new AMQPChannel($this->amqpConnection);
     }
@@ -161,17 +187,15 @@ class AMQPChannelTest extends AbstractTestCase
 
     public function testBasicRecoverHandlesAmqplibExceptionCorrectly(): void
     {
-        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
-
         $this->amqplibChannel->allows()
             ->basic_recover(true)
-            ->andThrow($exception);
+            ->andThrow(new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]));
 
-        $this->expectException(AMQPChannelException::class);
-        $this->expectExceptionMessage('AMQPChannel::basicRecover(): Amqplib failure: my text');
-        $this->logger->expects()
-            ->logAmqplibException('AMQPChannel::basicRecover', $exception)
-            ->once();
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPChannel::basicRecover() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPChannelException :: ' .
+            'message(my text)'
+        );
 
         $this->amqpChannel->basicRecover();
     }
@@ -182,6 +206,18 @@ class AMQPChannelTest extends AbstractTestCase
     public static function basicRecoverDataProvider(): array
     {
         return [[true], [false]];
+    }
+
+    public function testBasicRecoverLogsSuccessAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->basic_recover(true);
+
+        $this->logger->expects()
+            ->debug('AMQPChannel::basicRecover(): Recovered')
+            ->once();
+
+        $this->amqpChannel->basicRecover();
     }
 
     public function testCloseLogsAttemptAsDebug(): void
@@ -212,22 +248,21 @@ class AMQPChannelTest extends AbstractTestCase
 
     public function testCloseHandlesAmqplibExceptionCorrectly(): void
     {
-        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
         $this->amqplibChannel->allows()
             ->close()
-            ->andReturnUsing(function () use ($exception) {
+            ->andReturnUsing(function () {
                 $this->amqplibChannel->allows()
                     ->is_open()
                     ->andReturn(false);
 
-                throw $exception;
+                throw new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
             });
 
-        $this->expectException(AMQPChannelException::class);
-        $this->expectExceptionMessage('AMQPChannel::close(): Amqplib failure: my text');
-        $this->logger->expects()
-            ->logAmqplibException('AMQPChannel::close', $exception)
-            ->once();
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPChannel::close() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPChannelException :: ' .
+            'message(my text)'
+        );
 
         $this->amqpChannel->close();
     }
@@ -264,6 +299,18 @@ class AMQPChannelTest extends AbstractTestCase
         $this->amqpChannel->close();
     }
 
+    public function testCloseLogsSuccessAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->close();
+
+        $this->logger->expects()
+            ->debug('AMQPChannel::close(): Channel closed')
+            ->once();
+
+        $this->amqpChannel->close();
+    }
+
     public function testCommitTransactionLogsAttemptAsDebug(): void
     {
         $this->amqplibChannel->allows()
@@ -287,16 +334,26 @@ class AMQPChannelTest extends AbstractTestCase
 
     public function testCommitTransactionHandlesAmqplibExceptionCorrectly(): void
     {
-        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
-
         $this->amqplibChannel->allows()
             ->tx_commit()
-            ->andThrow($exception);
+            ->andThrow(new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]));
 
-        $this->expectException(AMQPChannelException::class);
-        $this->expectExceptionMessage('AMQPChannel::commitTransaction(): Amqplib failure: my text');
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPChannel::commitTransaction() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPChannelException :: ' .
+            'message(my text)'
+        );
+
+        $this->amqpChannel->commitTransaction();
+    }
+
+    public function testCommitTransactionLogsSuccessAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->tx_commit();
+
         $this->logger->expects()
-            ->logAmqplibException('AMQPChannel::commitTransaction', $exception)
+            ->debug('AMQPChannel::commitTransaction(): Transaction committed')
             ->once();
 
         $this->amqpChannel->commitTransaction();
@@ -335,22 +392,29 @@ class AMQPChannelTest extends AbstractTestCase
         static::assertTrue($this->amqpChannel->qos($prefetchSize, $prefetchCount, $global));
     }
 
+    public function testQosDefaultsGlobalToFalse(): void
+    {
+        $this->amqplibChannel->expects()
+            ->basic_qos(256, 21, false)
+            ->once();
+
+        static::assertTrue($this->amqpChannel->qos(256, 21));
+    }
+
     /**
      * @dataProvider qosDataProvider
      */
     public function testQosHandlesAmqplibExceptionCorrectly(int $prefetchSize, int $prefetchCount, bool $global): void
     {
-        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
-
         $this->amqplibChannel->allows()
             ->basic_qos($prefetchSize, $prefetchCount, $global)
-            ->andThrow($exception);
+            ->andThrow(new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]));
 
-        $this->expectException(AMQPChannelException::class);
-        $this->expectExceptionMessage('AMQPChannel::qos(): Amqplib failure: my text');
-        $this->logger->expects()
-            ->logAmqplibException('AMQPChannel::qos', $exception)
-            ->once();
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPChannel::qos() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPChannelException :: ' .
+            'message(my text)'
+        );
 
         // @phpstan-ignore-next-line
         $this->amqpChannel->qos($prefetchSize, $prefetchCount, $global);
@@ -365,6 +429,18 @@ class AMQPChannelTest extends AbstractTestCase
             [123, 456, true],
             [3, 7, false],
         ];
+    }
+
+    public function testQosLogsSuccessAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->basic_qos(512, 20, false);
+
+        $this->logger->expects()
+            ->debug('AMQPChannel::qos(): QOS settings changed')
+            ->once();
+
+        $this->amqpChannel->qos(512, 20);
     }
 
     public function testRollbackTransactionLogsAttemptAsDebug(): void
@@ -390,19 +466,249 @@ class AMQPChannelTest extends AbstractTestCase
 
     public function testRollbackTransactionHandlesAmqplibExceptionCorrectly(): void
     {
-        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
-
         $this->amqplibChannel->allows()
             ->tx_rollback()
-            ->andThrow($exception);
+            ->andThrow(new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]));
 
-        $this->expectException(AMQPChannelException::class);
-        $this->expectExceptionMessage('AMQPChannel::rollbackTransaction(): Amqplib failure: my text');
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPChannel::rollbackTransaction() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPChannelException :: ' .
+            'message(my text)'
+        );
+
+        $this->amqpChannel->rollbackTransaction();
+    }
+
+    public function testRollbackTransactionLogsSuccessAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->tx_rollback();
+
         $this->logger->expects()
-            ->logAmqplibException('AMQPChannel::rollbackTransaction', $exception)
+            ->debug('AMQPChannel::rollbackTransaction(): Transaction rolled back')
             ->once();
 
         $this->amqpChannel->rollbackTransaction();
+    }
+
+    public function testSetGlobalPrefetchCountLogsAttemptAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->basic_qos(0, 100, true);
+
+        $this->logger->expects()
+            ->debug('AMQPChannel::setGlobalPrefetchCount(): Global prefetch count change attempt', [
+                'count' => 100,
+            ])
+            ->once();
+
+        $this->amqpChannel->setGlobalPrefetchCount(100);
+    }
+
+    public function testSetGlobalPrefetchCountGoesViaAmqplib(): void
+    {
+        $this->amqplibChannel->expects()
+            ->basic_qos(0, 20, true)
+            ->once();
+
+        static::assertTrue($this->amqpChannel->setGlobalPrefetchCount(20));
+    }
+
+    public function testSetGlobalPrefetchCountHandlesAmqplibExceptionCorrectly(): void
+    {
+        $this->amqplibChannel->allows()
+            ->basic_qos(0, 10, true)
+            ->andThrow(new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]));
+
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPChannel::setGlobalPrefetchCount() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPChannelException :: ' .
+            'message(my text)'
+        );
+
+        $this->amqpChannel->setGlobalPrefetchCount(10);
+    }
+
+    public function testSetGlobalPrefetchCountLogsSuccessAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->basic_qos(0, 100, true);
+
+        $this->logger->expects()
+            ->debug('AMQPChannel::setGlobalPrefetchCount(): Global prefetch count changed')
+            ->once();
+
+        $this->amqpChannel->setGlobalPrefetchCount(100);
+    }
+
+    public function testSetGlobalPrefetchSizeLogsAttemptAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->basic_qos(128, 0, true);
+
+        $this->logger->expects()
+            ->debug('AMQPChannel::setGlobalPrefetchSize(): Global prefetch size change attempt', [
+                'size' => 128,
+            ])
+            ->once();
+
+        $this->amqpChannel->setGlobalPrefetchSize(128);
+    }
+
+    public function testSetGlobalPrefetchSizeGoesViaAmqplib(): void
+    {
+        $this->amqplibChannel->expects()
+            ->basic_qos(128, 0, true)
+            ->once();
+
+        static::assertTrue($this->amqpChannel->setGlobalPrefetchSize(128));
+    }
+
+    public function testSetGlobalPrefetchSizeHandlesAmqplibExceptionCorrectly(): void
+    {
+        $this->amqplibChannel->allows()
+            ->basic_qos(64, 0, true)
+            ->andThrow(new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]));
+
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPChannel::setGlobalPrefetchSize() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPChannelException :: ' .
+            'message(my text)'
+        );
+
+        $this->amqpChannel->setGlobalPrefetchSize(64);
+    }
+
+    public function testSetGlobalPrefetchSizeLogsSuccessAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->basic_qos(512, 0, true);
+
+        $this->logger->expects()
+            ->debug('AMQPChannel::setGlobalPrefetchSize(): Global prefetch size changed')
+            ->once();
+
+        $this->amqpChannel->setGlobalPrefetchSize(512);
+    }
+
+    public function testSetPrefetchCountLogsAttemptAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->basic_qos(0, 7, false);
+        $this->amqplibChannel->allows()
+            ->basic_qos(512, 100, true);
+
+        $this->logger->expects()
+            ->debug('AMQPChannel::setPrefetchCount(): Non-global prefetch count change attempt', [
+                'count' => 7,
+            ])
+            ->once();
+
+        $this->amqpChannel->setPrefetchCount(7);
+    }
+
+    public function testSetPrefetchCountGoesViaAmqplib(): void
+    {
+        $this->amqplibChannel->expects()
+            ->basic_qos(0, 8, false)
+            ->once();
+        // Global settings must be re-applied.
+        $this->amqplibChannel->expects()
+            ->basic_qos(512, 100, true)
+            ->once();
+
+        static::assertTrue($this->amqpChannel->setPrefetchCount(8));
+    }
+
+    public function testSetPrefetchCountHandlesAmqplibExceptionCorrectly(): void
+    {
+        $this->amqplibChannel->allows()
+            ->basic_qos(0, 6, false)
+            ->andThrow(new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]));
+        $this->amqplibChannel->allows()
+            ->basic_qos(512, 100, true);
+
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPChannel::setPrefetchCount() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPChannelException :: ' .
+            'message(my text)'
+        );
+
+        $this->amqpChannel->setPrefetchCount(6);
+    }
+
+    public function testSetPrefetchCountLogsSuccessAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->basic_qos(0, 7, false);
+        $this->amqplibChannel->allows()
+            ->basic_qos(512, 100, true);
+
+        $this->logger->expects()
+            ->debug('AMQPChannel::setPrefetchCount(): Non-global prefetch count changed')
+            ->once();
+
+        $this->amqpChannel->setPrefetchCount(7);
+    }
+
+    public function testSetPrefetchSizeLogsAttemptAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->basic_qos(128, 0, false);
+        $this->amqplibChannel->allows()
+            ->basic_qos(512, 100, true);
+
+        $this->logger->expects()
+            ->debug('AMQPChannel::setPrefetchSize(): Non-global prefetch size change attempt', [
+                'size' => 128,
+            ])
+            ->once();
+
+        $this->amqpChannel->setPrefetchSize(128);
+    }
+
+    public function testSetPrefetchSizeGoesViaAmqplib(): void
+    {
+        $this->amqplibChannel->allows()
+            ->basic_qos(128, 0, false)
+            ->once();
+        // Global settings must be re-applied.
+        $this->amqplibChannel->expects()
+            ->basic_qos(512, 100, true)
+            ->once();
+
+        static::assertTrue($this->amqpChannel->setPrefetchSize(128));
+    }
+
+    public function testSetPrefetchSizeHandlesAmqplibExceptionCorrectly(): void
+    {
+        $this->amqplibChannel->allows()
+            ->basic_qos(64, 0, false)
+            ->andThrow(new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]));
+        $this->amqplibChannel->allows()
+            ->basic_qos(512, 100, true);
+
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPChannel::setPrefetchSize() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPChannelException :: ' .
+            'message(my text)'
+        );
+
+        $this->amqpChannel->setPrefetchSize(64);
+    }
+
+    public function testSetPrefetchSizeLogsSuccessAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->basic_qos(64, 0, false);
+        $this->amqplibChannel->allows()
+            ->basic_qos(512, 100, true);
+
+        $this->logger->expects()
+            ->debug('AMQPChannel::setPrefetchSize(): Non-global prefetch size changed')
+            ->once();
+
+        $this->amqpChannel->setPrefetchSize(64);
     }
 
     public function testStartTransactionLogsAttemptAsDebug(): void
@@ -428,16 +734,26 @@ class AMQPChannelTest extends AbstractTestCase
 
     public function testStartTransactionHandlesAmqplibExceptionCorrectly(): void
     {
-        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
-
         $this->amqplibChannel->allows()
             ->tx_select()
-            ->andThrow($exception);
+            ->andThrow(new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]));
 
-        $this->expectException(AMQPChannelException::class);
-        $this->expectExceptionMessage('AMQPChannel::startTransaction(): Amqplib failure: my text');
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPChannel::startTransaction() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPChannelException :: ' .
+            'message(my text)'
+        );
+
+        $this->amqpChannel->startTransaction();
+    }
+
+    public function testStartTransactionLogsSuccessAsDebug(): void
+    {
+        $this->amqplibChannel->allows()
+            ->tx_select();
+
         $this->logger->expects()
-            ->logAmqplibException('AMQPChannel::startTransaction', $exception)
+            ->debug('AMQPChannel::startTransaction(): Transaction started')
             ->once();
 
         $this->amqpChannel->startTransaction();

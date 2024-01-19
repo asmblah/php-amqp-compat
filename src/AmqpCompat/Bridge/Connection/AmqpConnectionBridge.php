@@ -17,6 +17,7 @@ use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\Consumer;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
+use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
@@ -40,6 +41,7 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
 
     public function __construct(
         private readonly AmqplibConnection $amqplibConnection,
+        private readonly ConnectionConfigInterface $connectionConfig,
         private readonly EnvelopeTransformerInterface $envelopeTransformer,
         private readonly ErrorReporterInterface $errorReporter,
         private readonly ExceptionHandlerInterface $exceptionHandler,
@@ -68,6 +70,14 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
     public function getAmqplibConnection(): AmqplibConnection
     {
         return $this->amqplibConnection;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getConnectionConfig(): ConnectionConfigInterface
+    {
+        return $this->connectionConfig;
     }
 
     /**

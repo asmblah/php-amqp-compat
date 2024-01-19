@@ -67,6 +67,7 @@ class AmqpIntegration implements AmqpIntegrationInterface
         // Internal representation of the AMQP connection that this compatibility layer uses.
         $connectionBridge = new AmqpConnectionBridge(
             $amqplibConnection,
+            $config,
             $this->envelopeTransformer,
             $this->errorReporter,
             $this->exceptionHandler,

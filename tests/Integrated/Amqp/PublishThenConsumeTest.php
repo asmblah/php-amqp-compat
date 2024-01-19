@@ -65,6 +65,10 @@ class PublishThenConsumeTest extends AbstractTestCase
             'getConnectionTimeout' => 0,
             'getDeprecatedTimeoutCredentialUsage' => TimeoutDeprecationUsageEnum::NOT_USED,
             'getDeprecatedTimeoutIniSettingUsage' => TimeoutDeprecationUsageEnum::NOT_USED,
+            'getGlobalPrefetchCount' => 10,
+            'getGlobalPrefetchSize' => 512,
+            'getPrefetchCount' => 4,
+            'getPrefetchSize' => 128,
             'toLoggableArray' => ['my' => 'loggable connection config'],
         ]);
         $this->logger = mock(LoggerInterface::class, [
@@ -97,6 +101,7 @@ class PublishThenConsumeTest extends AbstractTestCase
 
         $this->amqpConnectionBridge = new AmqpConnectionBridge(
             $this->amqplibConnection,
+            $this->connectionConfig,
             new EnvelopeTransformer(),
             $this->errorReporter,
             new ExceptionHandler($this->logger),
