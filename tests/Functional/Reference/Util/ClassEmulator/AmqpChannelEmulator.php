@@ -39,13 +39,13 @@ object(AMQPChannel)#$objectId (6) {
   ["connection":"AMQPChannel":private]=>
   {$emulator->dump($amqpChannel->getConnection(), $depth + 1)}
   ["prefetch_count":"AMQPChannel":private]=>
-  int(3)
+  {$emulator->dump($amqpChannel->getPrefetchCount(), $depth + 1)}
   ["prefetch_size":"AMQPChannel":private]=>
-  int(0)
+  {$emulator->dump($amqpChannel->getPrefetchSize(), $depth + 1)}
   ["global_prefetch_count":"AMQPChannel":private]=>
-  int(0)
+  {$emulator->dump($amqpChannel->getGlobalPrefetchCount(), $depth + 1)}
   ["global_prefetch_size":"AMQPChannel":private]=>
-  int(0)
+  {$emulator->dump($amqpChannel->getGlobalPrefetchSize(), $depth + 1)}
   ["consumers":"AMQPChannel":private]=>
   array(0) {
   }
