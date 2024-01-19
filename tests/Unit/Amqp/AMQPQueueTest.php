@@ -879,6 +879,19 @@ class AMQPQueueTest extends AbstractTestCase
         );
     }
 
+    public function testSetArgumentRemovesHeaderWhenGivenValueIsNull(): void
+    {
+        $this->amqpQueue->setArguments(['first_key' => 21, 'second_key' => 'my value']);
+
+        $this->amqpQueue->setArgument('first_key', null);
+
+        static::assertEquals(
+            ['second_key' => 'my value'],
+            $this->amqpQueue->getArguments()
+        );
+        static::assertFalse($this->amqpQueue->hasArgument('first_key'));
+    }
+
     public function testSetFlagsSetsAllGivenFlags(): void
     {
         $this->amqpQueue->setFlags(AMQP_AUTODELETE | AMQP_EXCLUSIVE | AMQP_PASSIVE);
