@@ -383,23 +383,24 @@ class AMQPExchange
     }
 
     /**
-     * Sets the value of the specified argument.
+     * Sets an exchange argument.
      *
-     * @param string $key Name of the argument to set.
-     * @param string|float|int|null $value Value of the argument to set.
-     *
-     * @return boolean TRUE on success or FALSE on failure.
      * @throws AMQPExchangeException When an invalid value is given.
      */
-    public function setArgument(string $key, $value): bool
+    public function setArgument(string $key, mixed $value): bool
     {
-        if ($value !== 'null' && !is_int($value) && !is_float($value) && !is_string($value)) {
+        if ($value !== null && !is_int($value) && !is_float($value) && !is_string($value)) {
             throw new AMQPExchangeException(
                 'The value parameter must be of type NULL, int, double or string.'
             );
         }
 
-        $this->arguments[$key] = $value;
+        if ($value === null) {
+            // When null is given, it is treated specially: it represents that the argument is to be removed.
+            unset($this->arguments[$key]);
+        } else {
+            $this->arguments[$key] = $value;
+        }
 
         return true;
     }

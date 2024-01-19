@@ -643,6 +643,8 @@ class AMQPQueue
 
     /**
      * Sets a queue argument.
+     *
+     * @throws AMQPQueueException When an invalid value is given.
      */
     public function setArgument(string $key, mixed $value): bool
     {

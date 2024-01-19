@@ -64,7 +64,6 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpexchange_publish_with_properties_user_id_failure.phpt',
         'amqpexchange_publish_with_timestamp_header.phpt', // TODO: Needs ValueProcessor for AMQPExchange support.
         'amqpexchange_publish_xdeath.phpt',
-        'amqpexchange_setArgument.phpt',
         'amqpexchange_set_flags.phpt',
         'amqpexchange_var_dump.phpt',
         'amqpqueue-cancel-no-consumers.phpt',
@@ -104,6 +103,7 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpenvelope_construct.php' => [1],
         'amqpenvelope_get_accessors.php' => [5],
         'amqpenvelope_var_dump.php' => [5, 5],
+        'amqpexchange_setArgument.php' => [3, 1, 2, 1, 4, 1, 2, 1, 4, 1, 2, 1],
         'amqpqueue_setArgument.php' => [3, 1, 2, 1, 4, 1, 2, 1, 4, 1, 2, 1],
         'amqpqueue_var_dump.php' => [4, 1, 2, 1],
     ];

@@ -30,6 +30,7 @@ use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 use PhpAmqpLib\Exception\AMQPProtocolChannelException;
 use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
 use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;
+use stdClass;
 
 /**
  * Class AMQPExchangeTest.
@@ -694,6 +695,51 @@ class AMQPExchangeTest extends AbstractTestCase
                 ['x-first' => 'I am 1', 'x-second' => 'I am 2'],
             ],
         ];
+    }
+
+    public function testSetArgumentThrowsWhenGivenInvalidValue(): void
+    {
+        $this->expectException(AMQPExchangeException::class);
+        $this->expectExceptionMessage('The value parameter must be of type NULL, int, double or string.');
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "Parameter #2 $value of method AMQPExchange::setArgument() expects int|string, stdClass given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        $this->amqpExchange->setArgument('my_key', new stdClass);
+    }
+
+    public function testSetArgumentsSetsAllGivenArguments(): void
+    {
+        $this->amqpExchange->setArguments(['first_key' => 21, 'second_key' => 'my value']);
+
+        static::assertEquals(
+            ['first_key' => 21, 'second_key' => 'my value'],
+            $this->amqpExchange->getArguments()
+        );
+    }
+
+    public function testSetArgumentRemovesHeaderWhenGivenValueIsNull(): void
+    {
+        $this->amqpExchange->setArguments(['first_key' => 21, 'second_key' => 'my value']);
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "Parameter #2 $value of method AMQPExchange::setArgument() expects int|string, null given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        $this->amqpExchange->setArgument('first_key', null);
+
+        static::assertEquals(
+            ['second_key' => 'my value'],
+            $this->amqpExchange->getArguments()
+        );
+        static::assertFalse($this->amqpExchange->hasArgument('first_key'));
     }
 
     public function testSetNameRaisesExceptionWhenNameExceeds255Characters(): void

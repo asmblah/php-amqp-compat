@@ -17,6 +17,7 @@ use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpBasi
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpChannelEmulator;
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpConnectionEmulator;
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpEnvelopeEmulator;
+use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpExchangeEmulator;
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpQueueEmulator;
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\DelegatingClassEmulator;
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\DelegatingClassEmulatorInterface;
@@ -78,6 +79,7 @@ class CodeShifts
         $classEmulator->registerClassEmulator(new AmqpChannelEmulator());
         $classEmulator->registerClassEmulator(new AmqpConnectionEmulator());
         $classEmulator->registerClassEmulator(new AmqpEnvelopeEmulator());
+        $classEmulator->registerClassEmulator(new AmqpExchangeEmulator());
         $classEmulator->registerClassEmulator(new AmqpQueueEmulator());
 
         $codeShift->shift(
