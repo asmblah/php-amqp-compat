@@ -86,7 +86,6 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpqueue_nested_headers.phpt', // TODO: Needs ValueProcessor for AMQPTimestamp support.
         'amqpqueue_unbind_basic_empty_routing_key.phpt',
         'amqpqueue_unbind_basic_headers_arguments.phpt',
-        'amqptimestamp_php8.phpt',
         'bug_62354.phpt',
         'bug_gh155_direct_reply_to.phpt',
         'bug_gh53.phpt',

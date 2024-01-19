@@ -20,23 +20,57 @@ declare(strict_types=1);
  */
 final class AMQPTimestamp
 {
-    const MIN = "0";
-    const MAX = "18446744073709551616";
+    // Note these constants must be strings as per the reference implementation.
+    public const MIN = '0';
+    public const MAX = '18446744073709551616';
     /**
-     * @var string
+     * Use a string as per the reference implementation.
      */
-    private $timestamp;
+    private ?string $timestamp = null;
 
     /**
-     * @param string $timestamp
+     * @param float|int $timestamp Must be untyped for error emulation.
      *
      * @throws AMQPValueException
      */
-    public function __construct(string $timestamp)
+    public function __construct(/*float */mixed $timestamp = 0.0)
     {
-        // TODO: Add checks that throw AMQPValueException on failure (must be between MIN and MAX?).
+        // Manually implement argument count and type checking logic
+        // so that the behaviour is identical to the reference implementation.
+        if (func_num_args() < 1) {
+            throw new ArgumentCountError('AMQPTimestamp::__construct() expects exactly 1 argument, 0 given');
+        }
 
-        $this->timestamp = $timestamp;
+        if (is_int($timestamp)) {
+            $timestamp = (float)$timestamp;
+        } elseif (!is_float($timestamp)) {
+            throw new TypeError(
+                sprintf(
+                    'AMQPTimestamp::__construct(): Argument #1 ($timestamp) must be of type float, %s given',
+                    gettype($timestamp)
+                )
+            );
+        }
+
+        if ($timestamp < self::MIN) {
+            throw new AMQPValueException(
+                sprintf(
+                    'The timestamp parameter must be greater than %0.0f.', self::MIN
+                )
+            );
+        }
+
+        // This logic and message matches the reference implementation.
+        if ($timestamp > self::MAX) {
+            throw new AMQPValueException(
+                sprintf(
+                    'The timestamp parameter must be less than %0.0f.',
+                    self::MAX
+                )
+            );
+        }
+
+        $this->timestamp = (string) floor($timestamp);
     }
 
     /**
@@ -52,6 +86,6 @@ final class AMQPTimestamp
      */
     public function __toString(): string
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        return $this->timestamp;
     }
 }
