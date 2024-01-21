@@ -23,6 +23,7 @@ use Asmblah\PhpAmqpCompat\Connection\Config\DefaultConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
 use Asmblah\PhpAmqpCompat\Connection\ConnectorInterface;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Exception\ExceptionHandler;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSenderInterface;
@@ -47,7 +48,8 @@ class AmqpIntegration implements AmqpIntegrationInterface
         private readonly HeartbeatSenderInterface $heartbeatSender,
         ConfigurationInterface $configuration,
         private readonly DefaultConnectionConfigInterface $defaultConnectionConfig,
-        private readonly EnvelopeTransformerInterface $envelopeTransformer
+        private readonly EnvelopeTransformerInterface $envelopeTransformer,
+        private readonly MessageTransformerInterface $messageTransformer
     ) {
         $this->errorReporter = $configuration->getErrorReporter();
         $this->logger = new Logger($configuration->getLogger());
@@ -69,6 +71,7 @@ class AmqpIntegration implements AmqpIntegrationInterface
             $amqplibConnection,
             $config,
             $this->envelopeTransformer,
+            $this->messageTransformer,
             $this->errorReporter,
             $this->exceptionHandler,
             $this->logger

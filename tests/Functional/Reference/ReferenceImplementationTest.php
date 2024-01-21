@@ -62,8 +62,6 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpexchange_publish_with_properties_ignore_unsupported_header_values.phpt',
         'amqpexchange_publish_with_properties_nested_header.phpt',
         'amqpexchange_publish_with_properties_user_id_failure.phpt',
-        'amqpexchange_publish_with_timestamp_header.phpt', // TODO: Needs ValueProcessor for AMQPExchange support.
-        'amqpexchange_publish_xdeath.phpt',
         'amqpexchange_set_flags.phpt',
         'amqpexchange_var_dump.phpt',
         'amqpqueue-cancel-no-consumers.phpt',
@@ -78,7 +76,6 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpqueue_get_empty_body.phpt',
         'amqpqueue_get_nonexistent.phpt',
         'amqpqueue_headers_with_float.phpt', // TODO: Floats are being stored as strings by Amqplib.
-        'amqpqueue_nested_headers.phpt', // TODO: Needs ValueProcessor for AMQPTimestamp support.
         'amqpqueue_unbind_basic_empty_routing_key.phpt',
         'amqpqueue_unbind_basic_headers_arguments.phpt',
         'bug_62354.phpt',

@@ -19,6 +19,7 @@ use AMQPExchange;
 use AMQPExchangeException;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
@@ -46,6 +47,7 @@ class AMQPExchangeTest extends AbstractTestCase
     private MockInterface&AmqpChannelBridgeInterface $channelBridge;
     private MockInterface&ExceptionHandlerInterface $exceptionHandler;
     private MockInterface&LoggerInterface $logger;
+    private MockInterface&MessageTransformerInterface $messageTransformer;
 
     public function setUp(): void
     {
@@ -61,10 +63,12 @@ class AMQPExchangeTest extends AbstractTestCase
         $this->logger = mock(LoggerInterface::class, [
             'debug' => null,
         ]);
+        $this->messageTransformer = mock(MessageTransformerInterface::class);
         $this->channelBridge = mock(AmqpChannelBridgeInterface::class, [
             'getAmqplibChannel' => $this->amqplibChannel,
             'getExceptionHandler' => $this->exceptionHandler,
             'getLogger' => $this->logger,
+            'getMessageTransformer' => $this->messageTransformer,
         ]);
         AmqpBridge::bridgeChannel($this->amqpChannel, $this->channelBridge);
 
@@ -568,9 +572,13 @@ class AMQPExchangeTest extends AbstractTestCase
         array $attributes
     ): void {
         $this->amqpExchange->setName($exchangeName);
+        $amqplibMessage = mock(AmqplibMessage::class);
+        $this->messageTransformer->allows()
+            ->transformEnvelope($message, $attributes)
+            ->andReturn($amqplibMessage);
         $this->amqplibChannel->allows()
             ->basic_publish(
-                Mockery::type(AmqplibMessage::class),
+                $amqplibMessage,
                 $exchangeName,
                 $routingKey,
                 (bool) ($flags & AMQP_MANDATORY),
@@ -593,9 +601,13 @@ class AMQPExchangeTest extends AbstractTestCase
     public function testPublishLogsSuccessAsDebug(): void
     {
         $this->amqpExchange->setName('my_exchange');
+        $amqplibMessage = mock(AmqplibMessage::class);
+        $this->messageTransformer->allows()
+            ->transformEnvelope('my message', [])
+            ->andReturn($amqplibMessage);
         $this->amqplibChannel->allows()
             ->basic_publish(
-                Mockery::type(AmqplibMessage::class),
+                $amqplibMessage,
                 'my_exchange',
                 null,
                 false,
@@ -612,33 +624,43 @@ class AMQPExchangeTest extends AbstractTestCase
     public function testPublishPublishesViaAmqplibWhenGivenMessageOnly(): void
     {
         $this->amqpExchange->setName('my_exchange');
+        $amqplibMessage = mock(AmqplibMessage::class);
+        $this->messageTransformer->allows()
+            ->transformEnvelope('my message', [])
+            ->andReturn($amqplibMessage);
+
         $this->amqplibChannel->expects()
             ->basic_publish(
-                Mockery::type(AmqplibMessage::class),
+                $amqplibMessage,
                 'my_exchange',
                 null,
                 false,
                 false
             )
-            ->once()
-            ->andReturnUsing(function (AmqplibMessage $amqplibMessage) {
-                static::assertSame('my message', $amqplibMessage->getBody());
-            });
+            ->once();
 
         $this->amqpExchange->publish('my message');
     }
 
-    public function testPublishSetsDefaultContentTypeIfNeeded(): void
+    public function testPublishTransformsViaMessageTransformer(): void
     {
         $this->amqpExchange->setName('my_exchange');
-        $this->amqplibChannel->expects()
-            ->basic_publish(Mockery::andAnyOtherArgs())
-            ->once()
-            ->andReturnUsing(function (AmqplibMessage $amqpMessage) {
-                static::assertSame('text/plain', $amqpMessage->get_properties()['content_type']);
-            });
+        $amqplibMessage = mock(AmqplibMessage::class);
+        $this->amqplibChannel->allows()
+            ->basic_publish(
+                $amqplibMessage,
+                'my_exchange',
+                null,
+                false,
+                false
+            );
 
-        $this->amqpExchange->publish('my message');
+        $this->messageTransformer->expects()
+            ->transformEnvelope('my message', ['x-my-attribute' => 'my value'])
+            ->once()
+            ->andReturn($amqplibMessage);
+
+        $this->amqpExchange->publish('my message', attributes: ['x-my-attribute' => 'my value']);
     }
 
     /**
@@ -653,11 +675,15 @@ class AMQPExchangeTest extends AbstractTestCase
         array $attributes
     ): void {
         $this->amqpExchange->setName($exchangeName);
+        $amqplibMessage = mock(AmqplibMessage::class);
+        $this->messageTransformer->allows()
+            ->transformEnvelope($message, $attributes)
+            ->andReturn($amqplibMessage);
         $exception = new AMQPProtocolChannelException(21, 'your text', [1, 2, 3]);
 
         $this->amqplibChannel->allows()
             ->basic_publish(
-                Mockery::type(AmqplibMessage::class),
+                $amqplibMessage,
                 $exchangeName,
                 $routingKey,
                 (bool) ($flags & AMQP_MANDATORY),
@@ -671,7 +697,7 @@ class AMQPExchangeTest extends AbstractTestCase
             'message(your text)'
         );
 
-        $this->amqpExchange->publish($message, $routingKey, $flags);
+        $this->amqpExchange->publish($message, $routingKey, $flags, $attributes);
     }
 
     /**

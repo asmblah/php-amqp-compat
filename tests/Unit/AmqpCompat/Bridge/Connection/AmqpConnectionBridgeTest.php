@@ -17,6 +17,7 @@ use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
@@ -39,6 +40,7 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
     private MockInterface&ErrorReporterInterface $errorReporter;
     private MockInterface&ExceptionHandlerInterface $exceptionHandler;
     private MockInterface&LoggerInterface $logger;
+    private MockInterface&MessageTransformerInterface $messageTransformer;
 
     public function setUp(): void
     {
@@ -48,11 +50,13 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
         $this->errorReporter = mock(ErrorReporterInterface::class);
         $this->exceptionHandler = mock(ExceptionHandlerInterface::class);
         $this->logger = mock(LoggerInterface::class);
+        $this->messageTransformer = mock(MessageTransformerInterface::class);
 
         $this->connectionBridge = new AmqpConnectionBridge(
             $this->amqplibConnection,
             $this->connectionConfig,
             $this->envelopeTransformer,
+            $this->messageTransformer,
             $this->errorReporter,
             $this->exceptionHandler,
             $this->logger
@@ -116,6 +120,11 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
     public function testGetLoggerReturnsTheLogger(): void
     {
         static::assertSame($this->logger, $this->connectionBridge->getLogger());
+    }
+
+    public function testGetMessageTransformerReturnsTheTransformer(): void
+    {
+        static::assertSame($this->messageTransformer, $this->connectionBridge->getMessageTransformer());
     }
 
     public function testGetUsedChannelsReturnsZeroInitially(): void

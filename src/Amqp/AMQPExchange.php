@@ -12,11 +12,11 @@
 declare(strict_types=1);
 
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Exception\AMQPExceptionInterface;
-use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
 use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;
 
 /**
@@ -24,6 +24,7 @@ use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;
  *
  * Emulates AMQPExchange from pecl-amqp.
  *
+ * @phpstan-import-type EnvelopeAttributes from MessageTransformerInterface
  * @see {@link https://github.com/php-amqp/php-amqp/blob/v1.11.0/stubs/AMQPExchange.php}
  */
 class AMQPExchange
@@ -43,6 +44,7 @@ class AMQPExchange
     private string $exchangeType = ''; // Must be set to one of the AMQP_EX__TYPE* constants.
     private int $flags = 0;
     private readonly LoggerInterface $logger;
+    private readonly MessageTransformerInterface $messageTransformer;
 
     /**
      * @throws AMQPChannelException When channel is not connected.
@@ -56,6 +58,7 @@ class AMQPExchange
         $channelBridge = AmqpBridge::getBridgeChannel($amqpChannel);
         $this->exceptionHandler = $channelBridge->getExceptionHandler();
         $this->logger = $channelBridge->getLogger();
+        $this->messageTransformer = $channelBridge->getMessageTransformer();
 
         // Always set here in the constructor, however the API allows for the class to be extended
         // and so this parent constructor may not be called. See reference implementation tests.
@@ -321,10 +324,7 @@ class AMQPExchange
      *                           publish to.
      * @param integer $flags One or more of AMQP_MANDATORY and
      *                       AMQP_IMMEDIATE.
-     * @param array<string, mixed> $attributes One of content_type, content_encoding,
-     *                                         message_id, user_id, app_id, delivery_mode,
-     *                                         priority, timestamp, expiration, type
-     *                                         or reply_to, headers.
+     * @param EnvelopeAttributes $attributes
      *
      * @return bool TRUE on success or FALSE on failure.
      *
@@ -349,20 +349,7 @@ class AMQPExchange
             'routing_key' => $routingKey,
         ]);
 
-        if (array_key_exists('headers', $attributes)) {
-            // Amqplib expects "application_headers" instead.
-            // TODO: Factor out into ValueProcessor abstraction that can handle AMQPDecimal, AMQPTimestamp etc. here.
-            $attributes['application_headers'] = new AmqplibTable($attributes['headers']);
-
-            unset($attributes['headers']);
-        }
-
-        if (!array_key_exists('content_type', $attributes) || $attributes['content_type'] === '') {
-            // Default content type is text/plain.
-            $attributes['content_type'] = 'text/plain';
-        }
-
-        $amqplibMessage = new AmqplibMessage($message, $attributes);
+        $amqplibMessage = $this->messageTransformer->transformEnvelope($message, $attributes);
 
         try {
             $amqplibChannel->basic_publish(

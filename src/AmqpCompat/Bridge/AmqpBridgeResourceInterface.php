@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Bridge;
 
 use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
@@ -46,4 +47,9 @@ interface AmqpBridgeResourceInterface
      * Fetches the logger.
      */
     public function getLogger(): LoggerInterface;
+
+    /**
+     * Fetches the AMQP message transformer.
+     */
+    public function getMessageTransformer(): MessageTransformerInterface;
 }
