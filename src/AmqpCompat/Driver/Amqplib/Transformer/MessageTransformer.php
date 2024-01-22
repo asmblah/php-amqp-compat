@@ -51,11 +51,30 @@ class MessageTransformer implements MessageTransformerInterface
             unset($attributes['headers']);
         }
 
-        if (!array_key_exists('content_type', $attributes)) {
+        if (array_key_exists('content_type', $attributes)) {
+            $attributes['content_type'] = (string) $attributes['content_type'];
+        } else {
             // Default content type is text/plain.
             $attributes['content_type'] = 'text/plain';
         }
 
-        return new AmqplibMessage($message, $attributes);
+        foreach (['app_id', 'content_encoding', 'correlation_id', 'message_id', 'reply_to', 'type'] as $attributeName) {
+            if (array_key_exists($attributeName, $attributes)) {
+                $attributes[$attributeName] = (string) $attributes[$attributeName];
+            }
+        }
+
+        foreach (['delivery_mode', 'priority', 'timestamp'] as $attributeName) {
+            if (array_key_exists($attributeName, $attributes)) {
+                $attributes[$attributeName] = (int) $attributes[$attributeName];
+            }
+        }
+
+        $amqplibMessage = new AmqplibMessage($message, $attributes);
+
+        // Content encoding is handled a bit strangely by php-amqplib, stored in two places.
+        $amqplibMessage->content_encoding = $attributes['content_encoding'] ?? '';
+
+        return $amqplibMessage;
     }
 }

@@ -31,10 +31,8 @@ class ReferenceImplementationTest extends AbstractTestCase
         '004-queue-consume-nested.phpt',
         '004-queue-consume-orphaned.phpt',
         'amqpchannel_basicRecover.phpt',
-        'amqpchannel_close.phpt',
         'amqpchannel_confirmSelect.phpt',
         'amqpchannel_getChannelId.phpt',
-        'amqpchannel_multi_channel_connection.phpt',
         'amqpconnection_heartbeat.phpt',
         'amqpconnection_heartbeat_with_consumer.phpt',
         'amqpconnection_heartbeat_with_persistent.phpt',
@@ -49,7 +47,6 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpconnection_setTimeout_out_of_range.phpt',
         'amqpconnection_setTimeout_string.phpt',
         'amqpconnection_toomanychannels.phpt',
-        'amqpexchange_get_channel.phpt',
         'amqpexchange_publish_confirms.phpt',
         'amqpexchange_publish_confirms_consume.phpt',
         'amqpexchange_publish_mandatory.phpt',
@@ -57,13 +54,8 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpexchange_publish_mandatory_multiple_channels_pitfal.phpt',
         'amqpexchange_publish_with_decimal_header.phpt', // TODO: Needs ValueProcessor for AMQPDecimal support.
         'amqpexchange_publish_with_null.phpt',
-        'amqpexchange_publish_with_properties.phpt',
         'amqpexchange_publish_with_properties_ignore_num_header.phpt',
         'amqpexchange_publish_with_properties_ignore_unsupported_header_values.phpt',
-        'amqpexchange_publish_with_properties_nested_header.phpt',
-        'amqpexchange_publish_with_properties_user_id_failure.phpt',
-        'amqpexchange_set_flags.phpt',
-        'amqpexchange_var_dump.phpt',
         'amqpqueue-cancel-no-consumers.phpt',
         'amqpqueue_bind_basic_headers_arguments.phpt',
         'amqpqueue_cancel.phpt',
@@ -72,7 +64,6 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpqueue_consume_multiple_no_doubles.phpt',
         'amqpqueue_consume_nonexistent.phpt',
         'amqpqueue_consume_timeout.phpt',
-        'amqpqueue_get_channel.phpt',
         'amqpqueue_get_empty_body.phpt',
         'amqpqueue_get_nonexistent.phpt',
         'amqpqueue_headers_with_float.phpt', // TODO: Floats are being stored as strings by Amqplib.
@@ -80,7 +71,6 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpqueue_unbind_basic_headers_arguments.phpt',
         'bug_62354.phpt',
         'bug_gh155_direct_reply_to.phpt',
-        'bug_gh53.phpt',
         'package-version.phpt',
     ];
     /**
@@ -101,6 +91,8 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpenvelope_get_accessors.php' => [5],
         'amqpenvelope_var_dump.php' => [5, 5],
         'amqpexchange_setArgument.php' => [3, 1, 2, 1, 4, 1, 2, 1, 4, 1, 2, 1],
+        'amqpexchange_set_flags.php' => [3, 1, 2, 1],
+        'amqpexchange_var_dump.php' => [3, 1, 2, 1, 3, 1, 2, 1],
         'amqpqueue_setArgument.php' => [3, 1, 2, 1, 4, 1, 2, 1, 4, 1, 2, 1],
         'amqpqueue_var_dump.php' => [4, 1, 2, 1],
     ];

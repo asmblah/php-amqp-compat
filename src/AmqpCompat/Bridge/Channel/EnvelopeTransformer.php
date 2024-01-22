@@ -52,6 +52,14 @@ class EnvelopeTransformer implements EnvelopeTransformerInterface
 
         $headers = $this->valueProcessor->processValueFromDriver($headers);
 
+        /** @var ?string $contentEncoding */
+        $contentEncoding = $message->getContentEncoding();
+
+        if ($contentEncoding === '' || $contentEncoding === null) {
+            // Content encoding is handled a bit strangely by php-amqplib, potentially stored in two places.
+            $contentEncoding = $properties['content_encoding'] ?? '';
+        }
+
         return new AMQPEnvelope(
             $message->getBody(),
             $message->getConsumerTag() ?? '',
@@ -60,7 +68,7 @@ class EnvelopeTransformer implements EnvelopeTransformerInterface
             $message->isRedelivered(),
             $message->getRoutingKey(),
             $properties['content_type'] ?? null,
-            $message->getContentEncoding(),
+            $contentEncoding,
             $headers,
             $properties['delivery_mode'] ?? AMQP_DELIVERY_MODE_TRANSIENT,
             $properties['priority'] ?? 0,

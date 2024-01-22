@@ -48,6 +48,7 @@ class EnvelopeTransformerTest extends AbstractTestCase
                     'x-my-second-header' => 'my second value',
                     'x-my-transformed-header' => 'my original value',
                 ]),
+                'content_encoding' => 'x-should-be-overridden',
                 'content_type' => 'text/x-custom',
             ],
             'isRedelivered' => false,
@@ -118,6 +119,46 @@ class EnvelopeTransformerTest extends AbstractTestCase
         static::assertNull($amqpEnvelope->getExchangeName());
         static::assertNull($amqpEnvelope->getRoutingKey());
         static::assertNull($amqpEnvelope->isRedelivery());
+    }
+
+    public function testTransformEnvelopeFallsBackToFetchingContentEncodingFromPropertiesWhenMethodReturnsNull(): void
+    {
+        $this->amqplibMessage->allows('getContentEncoding')
+            ->andReturnNull();
+        $this->amqplibMessage->allows('get_properties')
+            ->andReturn([
+                'application_headers' => new AmqplibTable([
+                    'x-my-first-header' => 'my first value',
+                    'x-my-second-header' => 'my second value',
+                    'x-my-transformed-header' => 'my original value',
+                ]),
+                'content_encoding' => 'x-should-be-fallen-back-to',
+                'content_type' => 'text/x-custom',
+            ]);
+
+        $amqpEnvelope = $this->envelopeTransformer->transformMessage($this->amqplibMessage);
+
+        static::assertSame('x-should-be-fallen-back-to', $amqpEnvelope->getContentEncoding());
+    }
+
+    public function testTransformEnvelopeFallsBackToFetchingContentEncodingFromPropertiesWhenMethodReturnsEmptyString(): void
+    {
+        $this->amqplibMessage->allows('getContentEncoding')
+            ->andReturn('');
+        $this->amqplibMessage->allows('get_properties')
+            ->andReturn([
+                'application_headers' => new AmqplibTable([
+                    'x-my-first-header' => 'my first value',
+                    'x-my-second-header' => 'my second value',
+                    'x-my-transformed-header' => 'my original value',
+                ]),
+                'content_encoding' => 'x-should-be-fallen-back-to',
+                'content_type' => 'text/x-custom',
+            ]);
+
+        $amqpEnvelope = $this->envelopeTransformer->transformMessage($this->amqplibMessage);
+
+        static::assertSame('x-should-be-fallen-back-to', $amqpEnvelope->getContentEncoding());
     }
 
     public function testTransformMessageReturnsEnvelopeWithEmptyHeadersWhenNoneReturnedFromDriver(): void
