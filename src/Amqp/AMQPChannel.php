@@ -88,6 +88,24 @@ class AMQPChannel
         $this->globalPrefetchSize = $connectionConfig->getGlobalPrefetchSize();
         $this->prefetchCount = $connectionConfig->getPrefetchCount();
         $this->prefetchSize = $connectionConfig->getPrefetchSize();
+
+        // Set initial Quality-Of-Service/prefetch settings for the channel.
+        try {
+            $this->amqplibChannel->basic_qos($this->prefetchSize, $this->prefetchCount, false);
+        } catch (AMQPExceptionInterface $exception) {
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, AMQPChannelException::class, __METHOD__);
+        }
+
+        if ($this->globalPrefetchCount !== 0 || $this->globalPrefetchSize !== 0) {
+            // Writing consumer prefetch settings will override global ones - so they must be re-written if set.
+            try {
+                $this->amqplibChannel->basic_qos($this->globalPrefetchSize, $this->globalPrefetchCount, true);
+            } catch (AMQPExceptionInterface $exception) {
+                /** @var AMQPExceptionInterface&Exception $exception */
+                $this->exceptionHandler->handleException($exception, AMQPChannelException::class, __METHOD__);
+            }
+        }
     }
 
     public function __destruct()

@@ -53,6 +53,7 @@ class AMQPChannelTest extends AbstractTestCase
             'isConnected' => true,
         ]);
         $this->amqplibChannel = mock(AmqplibChannel::class, [
+            'basic_qos' => null,
             'close' => null,
             'getChannelId' => 12345,
             'getConnection' => $this->amqpConnection,
@@ -123,6 +124,38 @@ class AMQPChannelTest extends AbstractTestCase
         new AMQPChannel($this->amqpConnection);
 
         static::assertSame($this->channelBridge, AmqpBridge::getBridgeChannel($this->amqpChannel));
+    }
+
+    public function testConstructorSetsPrefetchSettingsWhenGlobalAreNonZero(): void
+    {
+        $this->amqplibChannel->expects()
+            ->basic_qos(128, 50, false)
+            ->once()
+            ->globally()->ordered();
+        $this->amqplibChannel->expects()
+            ->basic_qos(512, 100, true)
+            ->once()
+            ->globally()->ordered(); // Global must be configured last.
+
+        new AMQPChannel($this->amqpConnection);
+    }
+
+    public function testConstructorSetsPrefetchSettingsWhenGlobalAreZero(): void
+    {
+        $this->connectionConfig->allows('getGlobalPrefetchCount')
+            ->andReturn(0);
+        $this->connectionConfig->allows('getGlobalPrefetchSize')
+            ->andReturn(0);
+
+        $this->amqplibChannel->expects()
+            ->basic_qos(128, 50, false)
+            ->once()
+            ->globally()->ordered();
+        $this->amqplibChannel->expects('basic_qos')
+            ->never()
+            ->globally()->ordered(); // Global must be configured last.
+
+        new AMQPChannel($this->amqpConnection);
     }
 
     public function testDestructorClosesChannelWhenOpen(): void
