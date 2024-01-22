@@ -104,4 +104,25 @@ class AMQPEnvelopeTest extends AbstractTestCase
         static::assertSame('', $envelope->getAppId());
         static::assertSame('', $envelope->getClusterId());
     }
+
+    public function testGetHeaderFetchesTheSetHeader(): void
+    {
+        $envelope = new AMQPEnvelope(headers: [
+            'x-my-array' => ['first', 'second'],
+            'x-my-true-boolean' => true,
+            'x-my-false-boolean' => false,
+            'x-my-float' => 123.456,
+            'x-my-integer' => 234,
+            'x-my-null' => null,
+            'x-my-string' => 'my string',
+        ]);
+
+        static::assertEquals(['first', 'second'], $envelope->getHeader('x-my-array'));
+        static::assertTrue($envelope->getHeader('x-my-true-boolean'));
+        static::assertFalse($envelope->getHeader('x-my-false-boolean'));
+        static::assertSame(123.456, $envelope->getHeader('x-my-float'));
+        static::assertSame(234, $envelope->getHeader('x-my-integer'));
+        static::assertNull($envelope->getHeader('x-my-null'));
+        static::assertSame('my string', $envelope->getHeader('x-my-string'));
+    }
 }

@@ -128,6 +128,22 @@ class ConnectionConfig implements ConnectionConfigInterface
     /**
      * @inheritDoc
      */
+    public function getGlobalPrefetchCount(): int
+    {
+        return $this->defaultConnectionConfig->getGlobalPrefetchCount();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getGlobalPrefetchSize(): int
+    {
+        return $this->defaultConnectionConfig->getGlobalPrefetchSize();
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function getHeartbeatInterval(): int
     {
         return $this->heartbeatInterval;
@@ -171,6 +187,22 @@ class ConnectionConfig implements ConnectionConfigInterface
     public function getPort(): int
     {
         return $this->port;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getPrefetchCount(): int
+    {
+        return $this->defaultConnectionConfig->getPrefetchCount();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getPrefetchSize(): int
+    {
+        return $this->defaultConnectionConfig->getPrefetchSize();
     }
 
     /**
@@ -325,6 +357,8 @@ class ConnectionConfig implements ConnectionConfigInterface
         return [
             'connection_name' => $this->connectionName,
             'connection_timeout' => $this->connectionTimeout,
+            'global_prefetch_count' => $this->getGlobalPrefetchCount(),
+            'global_prefetch_size' => $this->getGlobalPrefetchSize(),
             'heartbeat_interval' => $this->heartbeatInterval,
             'host' => $this->host,
             'max_channels' => $this->maxChannels,
@@ -332,6 +366,8 @@ class ConnectionConfig implements ConnectionConfigInterface
             // Obfuscate the password as it is sensitive.
             'password' => str_pad(substr($this->password, 0, 2), 8, '*'),
             'port' => $this->port,
+            'prefetch_count' => $this->getPrefetchCount(),
+            'prefetch_size' => $this->getPrefetchSize(),
             'read_timeout' => $this->readTimeout,
             'rpc_timeout' => $this->rpcTimeout,
             'user' => $this->user,

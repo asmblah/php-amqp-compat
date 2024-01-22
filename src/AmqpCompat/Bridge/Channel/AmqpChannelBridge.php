@@ -16,6 +16,7 @@ namespace Asmblah\PhpAmqpCompat\Bridge\Channel;
 use AMQPEnvelope;
 use AMQPQueue;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
@@ -116,6 +117,14 @@ class AmqpChannelBridge implements AmqpChannelBridgeInterface
     public function getLogger(): LoggerInterface
     {
         return $this->connectionBridge->getLogger();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getMessageTransformer(): MessageTransformerInterface
+    {
+        return $this->connectionBridge->getMessageTransformer();
     }
 
     /**

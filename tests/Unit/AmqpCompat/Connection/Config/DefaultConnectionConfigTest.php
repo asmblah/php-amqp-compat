@@ -164,6 +164,40 @@ class DefaultConnectionConfigTest extends AbstractTestCase
         );
     }
 
+    public function testGetPrefetchCountReturnsCountWhenSetInIni(): void
+    {
+        $this->ini->allows()
+            ->getRawIniSetting('amqp.prefetch_count')
+            ->andReturn(123);
+
+        static::assertSame(123, $this->config->getPrefetchCount());
+    }
+
+    public function testGetPrefetchCountReturnsDefaultCountWhenNotSetInIni(): void
+    {
+        static::assertSame(
+            DefaultConnectionConfigInterface::DEFAULT_PREFETCH_COUNT,
+            $this->config->getPrefetchCount()
+        );
+    }
+
+    public function testGetPrefetchSizeReturnsSizeWhenSetInIni(): void
+    {
+        $this->ini->allows()
+            ->getRawIniSetting('amqp.prefetch_size')
+            ->andReturn(512);
+
+        static::assertSame(512, $this->config->getPrefetchSize());
+    }
+
+    public function testGetPrefetchSizeReturnsDefaultSizeWhenNotSetInIni(): void
+    {
+        static::assertSame(
+            DefaultConnectionConfigInterface::DEFAULT_PREFETCH_SIZE,
+            $this->config->getPrefetchSize()
+        );
+    }
+
     public function testGetReadTimeoutCorrectlyHandlesOnlyNewCredentialBeingSetInIni(): void
     {
         $this->ini->allows()
@@ -279,6 +313,40 @@ class DefaultConnectionConfigTest extends AbstractTestCase
         static::assertSame(
             DefaultConnectionConfigInterface::DEFAULT_WRITE_TIMEOUT,
             $this->config->getWriteTimeout()
+        );
+    }
+
+    public function testGetGlobalPrefetchCountReturnsCountWhenSetInIni(): void
+    {
+        $this->ini->allows()
+            ->getRawIniSetting('amqp.global_prefetch_count')
+            ->andReturn(150);
+
+        static::assertSame(150, $this->config->getGlobalPrefetchCount());
+    }
+
+    public function testGetGlobalPrefetchCountReturnsDefaultCountWhenNotSetInIni(): void
+    {
+        static::assertSame(
+            DefaultConnectionConfigInterface::DEFAULT_GLOBAL_PREFETCH_COUNT,
+            $this->config->getGlobalPrefetchCount()
+        );
+    }
+
+    public function testGetGlobalPrefetchSizeReturnsSizeWhenSetInIni(): void
+    {
+        $this->ini->allows()
+            ->getRawIniSetting('amqp.global_prefetch_size')
+            ->andReturn(1024);
+
+        static::assertSame(1024, $this->config->getGlobalPrefetchSize());
+    }
+
+    public function testGetGlobalPrefetchSizeReturnsDefaultSizeWhenNotSetInIni(): void
+    {
+        static::assertSame(
+            DefaultConnectionConfigInterface::DEFAULT_GLOBAL_PREFETCH_SIZE,
+            $this->config->getGlobalPrefetchSize()
         );
     }
 }

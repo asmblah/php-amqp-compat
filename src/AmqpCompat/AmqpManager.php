@@ -19,6 +19,8 @@ use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Connection\Amqplib\ConnectionFactory;
 use Asmblah\PhpAmqpCompat\Connection\Config\DefaultConnectionConfig;
 use Asmblah\PhpAmqpCompat\Connection\Connector;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Processor\ValueProcessor;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformer;
 use Asmblah\PhpAmqpCompat\Heartbeat\PcntlHeartbeatSender;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
@@ -46,6 +48,7 @@ class AmqpManager
     {
         if (self::$amqpIntegration === null) {
             $configuration = self::getConfiguration();
+            $valueProcessor = new ValueProcessor();
 
             self::$amqpIntegration = new AmqpIntegration(
                 new Connector(
@@ -55,7 +58,8 @@ class AmqpManager
                 new PcntlHeartbeatSender(new Clock()),
                 $configuration,
                 new DefaultConnectionConfig(new Ini()),
-                new EnvelopeTransformer()
+                new EnvelopeTransformer($valueProcessor),
+                new MessageTransformer($valueProcessor)
             );
         }
 

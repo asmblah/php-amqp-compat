@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Bridge\Channel;
 
 use AMQPEnvelope;
+use Asmblah\PhpAmqpCompat\Driver\Common\Processor\ValueProcessorInterface;
 use LogicException;
 use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
 use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;
@@ -27,6 +28,11 @@ use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;
  */
 class EnvelopeTransformer implements EnvelopeTransformerInterface
 {
+    public function __construct(
+        private readonly ValueProcessorInterface $valueProcessor
+    ) {
+    }
+
     /**
      * @inheritDoc
      */
@@ -41,8 +47,10 @@ class EnvelopeTransformer implements EnvelopeTransformerInterface
         } elseif ($applicationHeadersTable instanceof AmqplibTable) {
             $headers = $applicationHeadersTable->getNativeData();
         } else {
-            throw new LogicException(__METHOD__ . ' :: application_headers is not an AMQPTable');
+            throw new LogicException(__METHOD__ . '() :: application_headers is not an AMQPTable');
         }
+
+        $headers = $this->valueProcessor->processValueFromDriver($headers);
 
         return new AMQPEnvelope(
             $message->getBody(),

@@ -63,6 +63,30 @@ class DefaultConnectionConfig implements DefaultConnectionConfigInterface
     /**
      * @inheritDoc
      */
+    public function getGlobalPrefetchCount(): int
+    {
+        $iniSetting = $this->getIniSetting('amqp.global_prefetch_count');
+
+        return $iniSetting !== null ?
+            (int)$iniSetting :
+            static::DEFAULT_GLOBAL_PREFETCH_COUNT;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getGlobalPrefetchSize(): int
+    {
+        $iniSetting = $this->getIniSetting('amqp.global_prefetch_size');
+
+        return $iniSetting !== null ?
+            (int)$iniSetting :
+            static::DEFAULT_GLOBAL_PREFETCH_SIZE;
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function getHeartbeatInterval(): int
     {
         $iniSetting = $this->getIniSetting('amqp.heartbeat');
@@ -153,6 +177,30 @@ class DefaultConnectionConfig implements DefaultConnectionConfigInterface
         return $iniSetting !== null ?
             (int)$iniSetting :
             static::DEFAULT_PORT;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getPrefetchCount(): int
+    {
+        $iniSetting = $this->getIniSetting('amqp.prefetch_count');
+
+        return $iniSetting !== null ?
+            (int)$iniSetting :
+            static::DEFAULT_PREFETCH_COUNT;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getPrefetchSize(): int
+    {
+        $iniSetting = $this->getIniSetting('amqp.prefetch_size');
+
+        return $iniSetting !== null ?
+            (int)$iniSetting :
+            static::DEFAULT_PREFETCH_SIZE;
     }
 
     /**

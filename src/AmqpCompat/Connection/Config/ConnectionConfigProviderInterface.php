@@ -38,6 +38,17 @@ interface ConnectionConfigProviderInterface
     public function getDeprecatedTimeoutIniSettingUsage(): TimeoutDeprecationUsageEnum;
 
     /**
+     * Fetches the configured number of messages to prefetch in total across all consumers on a channel.
+     */
+    public function getGlobalPrefetchCount(): int;
+
+    /**
+     * Fetches the configured maximum amount of content (measured in octets)
+     * to prefetch in total across all consumers on a channel.
+     */
+    public function getGlobalPrefetchSize(): int;
+
+    /**
      * Fetches the configured heartbeat interval in seconds.
      */
     public function getHeartbeatInterval(): int;
@@ -68,6 +79,17 @@ interface ConnectionConfigProviderInterface
      * Fetches the configured port, or the default if none was given.
      */
     public function getPort(): int;
+
+    /**
+     * Fetches the configured number of messages to prefetch in total across all consumers on a channel.
+     */
+    public function getPrefetchCount(): int;
+
+    /**
+     * Fetches the configured maximum amount of content (measured in octets)
+     * to prefetch in total across all consumers on a channel.
+     */
+    public function getPrefetchSize(): int;
 
     /**
      * Fetches the configured read timeout (in seconds), or the default if none was given.

@@ -31,7 +31,12 @@ class ConnectionConfigTest extends AbstractTestCase
 
     public function setUp(): void
     {
-        $this->defaultConnectionConfig = mock(DefaultConnectionConfigInterface::class);
+        $this->defaultConnectionConfig = mock(DefaultConnectionConfigInterface::class, [
+            'getGlobalPrefetchCount' => 7,
+            'getGlobalPrefetchSize' => 512,
+            'getPrefetchCount' => 4,
+            'getPrefetchSize' => 128,
+        ]);
 
         $this->config = new ConnectionConfig($this->defaultConnectionConfig);
     }
@@ -58,12 +63,16 @@ class ConnectionConfigTest extends AbstractTestCase
 
         static::assertSame('my-special-connection-name', $config->getConnectionName());
         static::assertSame(123.45, $config->getConnectionTimeout());
+        static::assertSame(7, $config->getGlobalPrefetchCount());
+        static::assertSame(512, $config->getGlobalPrefetchSize());
         static::assertSame(432, $config->getHeartbeatInterval());
         static::assertSame('myhostname', $config->getHost());
         static::assertSame(123, $config->getMaxChannels());
         static::assertSame(321, $config->getMaxFrameSize());
         static::assertSame('mysecretpassword', $config->getPassword());
         static::assertSame(1234, $config->getPort());
+        static::assertSame(4, $config->getPrefetchCount());
+        static::assertSame(128, $config->getPrefetchSize());
         static::assertSame(567.89, $config->getReadTimeout());
         static::assertSame(678.9, $config->getRpcTimeout());
         static::assertSame('myusername', $config->getUser());
@@ -151,11 +160,15 @@ class ConnectionConfigTest extends AbstractTestCase
                 'connection_name' => null,
                 'connection_timeout' => DefaultConnectionConfigInterface::DEFAULT_CONNECTION_TIMEOUT,
                 'heartbeat_interval' => DefaultConnectionConfigInterface::DEFAULT_HEARTBEAT_INTERVAL,
+                'global_prefetch_count' => 7,
+                'global_prefetch_size' => 512,
                 'host' => DefaultConnectionConfigInterface::DEFAULT_HOST,
                 'max_channels' => DefaultConnectionConfigInterface::DEFAULT_MAX_CHANNELS,
                 'max_frame_size' => DefaultConnectionConfigInterface::DEFAULT_MAX_FRAME_SIZE,
                 'password' => 'gu******', // Should be obfuscated.
                 'port' => DefaultConnectionConfigInterface::DEFAULT_PORT,
+                'prefetch_count' => 4,
+                'prefetch_size' => 128,
                 'read_timeout' => DefaultConnectionConfigInterface::DEFAULT_READ_TIMEOUT,
                 'rpc_timeout' => DefaultConnectionConfigInterface::DEFAULT_RPC_TIMEOUT,
                 'user' => DefaultConnectionConfigInterface::DEFAULT_USER,
@@ -187,11 +200,15 @@ class ConnectionConfigTest extends AbstractTestCase
                 'connection_name' => 'my-connection',
                 'connection_timeout' => 123.45,
                 'heartbeat_interval' => 21,
+                'global_prefetch_count' => 7,
+                'global_prefetch_size' => 512,
                 'host' => 'myhost',
                 'max_channels' => 89,
                 'max_frame_size' => 67,
                 'password' => 'se******',
                 'port' => 321,
+                'prefetch_count' => 4,
+                'prefetch_size' => 128,
                 'read_timeout' => 12.34,
                 'rpc_timeout' => 56.78,
                 'user' => 'myuser',

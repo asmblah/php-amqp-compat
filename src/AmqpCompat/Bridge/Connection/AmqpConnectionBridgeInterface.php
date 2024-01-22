@@ -15,6 +15,7 @@ namespace Asmblah\PhpAmqpCompat\Bridge\Connection;
 
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridgeResourceInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
+use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 
 /**
@@ -35,6 +36,11 @@ interface AmqpConnectionBridgeInterface extends AmqpBridgeResourceInterface
      * Fetches the internal php-amqplib connection.
      */
     public function getAmqplibConnection(): AmqplibConnection;
+
+    /**
+     * Fetches the connection configuration.
+     */
+    public function getConnectionConfig(): ConnectionConfigInterface;
 
     /**
      * Fetches the configured interval between heartbeats,
