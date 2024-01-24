@@ -52,7 +52,6 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpexchange_publish_mandatory.phpt',
         'amqpexchange_publish_mandatory_consume.phpt',
         'amqpexchange_publish_mandatory_multiple_channels_pitfal.phpt',
-        'amqpexchange_publish_with_decimal_header.phpt', // TODO: Needs ValueProcessor for AMQPDecimal support.
         'amqpexchange_publish_with_null.phpt',
         'amqpexchange_publish_with_properties_ignore_num_header.phpt',
         'amqpexchange_publish_with_properties_ignore_unsupported_header_values.phpt',
@@ -90,6 +89,7 @@ class ReferenceImplementationTest extends AbstractTestCase
         'amqpenvelope_construct.php' => [1],
         'amqpenvelope_get_accessors.php' => [5],
         'amqpenvelope_var_dump.php' => [5, 5],
+        'amqpexchange_publish_with_decimal_header.php' => [7, 5],
         'amqpexchange_setArgument.php' => [3, 1, 2, 1, 4, 1, 2, 1, 4, 1, 2, 1],
         'amqpexchange_set_flags.php' => [3, 1, 2, 1],
         'amqpexchange_var_dump.php' => [3, 1, 2, 1, 3, 1, 2, 1],
