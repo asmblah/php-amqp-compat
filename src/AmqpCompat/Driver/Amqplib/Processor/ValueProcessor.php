@@ -13,10 +13,12 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Driver\Amqplib\Processor;
 
+use AMQPDecimal;
 use AMQPTimestamp;
 use Asmblah\PhpAmqpCompat\Driver\Common\Processor\ValueProcessorInterface;
 use DateTime;
 use DateTimeInterface;
+use PhpAmqpLib\Wire\AMQPDecimal as AmqplibDecimal;
 
 /**
  * Class ValueProcessor.
@@ -40,7 +42,10 @@ class ValueProcessor implements ValueProcessorInterface
             return $value;
         }
 
-        // TODO: Handle AMQPDecimal.
+        if ($value instanceof AMQPDecimal) {
+            // Note that php-amqplib's significand and exponent parameters are reversed.
+            return new AmqplibDecimal($value->getSignificand(), $value->getExponent());
+        }
 
         if ($value instanceof AMQPTimestamp) {
             return DateTime::createFromFormat('U', $value->getTimestamp());
@@ -62,7 +67,10 @@ class ValueProcessor implements ValueProcessorInterface
             return $value;
         }
 
-        // TODO: Handle AMQPDecimal.
+        if ($value instanceof AmqplibDecimal) {
+            // Note that php-amqplib's significand and exponent parameters are reversed.
+            return new AMQPDecimal($value->getE(), $value->getN());
+        }
 
         if ($value instanceof DateTimeInterface) {
             return new AMQPTimestamp($value->getTimestamp());

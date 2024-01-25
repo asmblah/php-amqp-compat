@@ -49,8 +49,12 @@ class DelegatingClassEmulator implements DelegatingClassEmulatorInterface
      */
     private array $objectIndexesByFile = [];
 
+    /**
+     * @param array<string, int[]> $varDumpObjectIds
+     */
     public function __construct(
-        private readonly ContextResolver $contextResolver
+        private readonly ContextResolver $contextResolver,
+        private readonly array $varDumpObjectIds
     ) {
     }
 
@@ -69,6 +73,17 @@ class DelegatingClassEmulator implements DelegatingClassEmulatorInterface
                 $objectId,
                 $this
             );
+        } elseif (is_array($value)) {
+            // Array dumping must be emulated so that we have control over nested value processing.
+            // Note that recursive structures are not handled.
+            $result = 'array(' . count($value) . ') {' . PHP_EOL;
+
+            foreach ($value as $key => $elementValue) {
+                $result .= '  [' . (is_string($key) ? '"' . $key . '"' : $key) . ']=>' . PHP_EOL .
+                    '  ' . $this->dump($elementValue, $depth + 1) . PHP_EOL;
+            }
+
+            $result .= '}';
         } else {
             // Class is not being emulated: just defer to the native `var_dump(...)` handling.
             $result = $this->nativeDump($value);
@@ -112,7 +127,7 @@ class DelegatingClassEmulator implements DelegatingClassEmulatorInterface
             $this->objectIndexesByFile[$file] = 0;
         }
 
-        $ids = ReferenceImplementationTest::VAR_DUMP_OBJECT_IDS[$file] ?? [];
+        $ids = $this->varDumpObjectIds[$file] ?? [];
 
         if ($this->objectIndexesByFile[$file] > count($ids) - 1) {
             throw new LogicException(__METHOD__ . '(): Ran out of object IDs to dump');
