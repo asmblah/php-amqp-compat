@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Integration;
 
+use Asmblah\PhpAmqpCompat\Bridge\Channel\Consumer;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
@@ -46,7 +47,7 @@ class AmqpIntegration implements AmqpIntegrationInterface
     public function __construct(
         private readonly ConnectorInterface $connector,
         private readonly HeartbeatSenderInterface $heartbeatSender,
-        ConfigurationInterface $configuration,
+        private readonly ConfigurationInterface $configuration,
         private readonly DefaultConnectionConfigInterface $defaultConnectionConfig,
         private readonly EnvelopeTransformerInterface $envelopeTransformer,
         private readonly MessageTransformerInterface $messageTransformer
@@ -162,6 +163,14 @@ class AmqpIntegration implements AmqpIntegrationInterface
             $connectionName,
             $deprecatedTimeoutCredentialUsage
         );
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getConfiguration(): ConfigurationInterface
+    {
+        return $this->configuration;
     }
 
     /**

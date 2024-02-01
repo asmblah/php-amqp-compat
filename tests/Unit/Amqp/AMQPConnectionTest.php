@@ -18,6 +18,7 @@ use AMQPConnectionException;
 use Asmblah\PhpAmqpCompat\AmqpManager;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
+use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
@@ -84,6 +85,7 @@ class AMQPConnectionTest extends AbstractTestCase
         $this->amqpIntegration = mock(AmqpIntegrationInterface::class, [
             'connect' => $this->connectionBridge,
             'createConnectionConfig' => $this->connectionConfig,
+            'getConfiguration' => mock(ConfigurationInterface::class),
             'getErrorReporter' => $this->errorReporter,
             'getLogger' => $this->logger,
         ]);
