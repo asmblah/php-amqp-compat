@@ -211,6 +211,11 @@ class AmqpIntegrationTest extends AbstractTestCase
         static::assertSame(456.7, $config->getReadTimeout());
     }
 
+    public function testGetConfigurationReturnsTheConfiguration(): void
+    {
+        static::assertSame($this->configuration, $this->amqpIntegration->getConfiguration());
+    }
+
     public function testGetErrorReporterReturnsTheErrorReporter(): void
     {
         static::assertSame($this->errorReporter, $this->amqpIntegration->getErrorReporter());
