@@ -15,7 +15,7 @@ namespace Asmblah\PhpAmqpCompat\Tests\Functional\AmqpCompat\Heartbeat\PcntlHeart
 
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use hollodotme\FastCGI\Client;
-use hollodotme\FastCGI\Exceptions\ConnectException;
+use hollodotme\FastCGI\Exceptions\FastCGIClientException;
 use hollodotme\FastCGI\Requests\GetRequest;
 use hollodotme\FastCGI\Requests\PostRequest;
 use hollodotme\FastCGI\SocketConnections\NetworkSocket;
@@ -58,7 +58,7 @@ class PhpCgiBehaviourTest extends AbstractTestCase
         // Spawn a long-running php-cgi process for handling FastCGI requests.
         $process = proc_open(
             sprintf(
-                'PHP_FCGI_CHILDREN=0 PHP_FCGI_MAX_REQUESTS=1000 php-cgi -d open_basedir=%s -b %s:%s',
+                'PHP_FCGI_CHILDREN=0 PHP_FCGI_MAX_REQUESTS=1000 exec php-cgi -d open_basedir=%s -b %s:%s',
                 $this->baseDir,
                 self::SERVER_HOST,
                 self::SERVER_PORT
@@ -83,16 +83,25 @@ class PhpCgiBehaviourTest extends AbstractTestCase
                     $this->fastCgiConnection,
                     new GetRequest('/', '')
                 );
-            } catch (ConnectException $exception) {
-                if (!str_contains($exception->getMessage(), 'Unable to connect to FastCGI application')) {
-                    throw $exception;
-                }
-
+            } catch (FastCGIClientException) {
                 $response = null;
             }
 
             if ($response && $response->getHeaderLine('Status') === '404 Not Found') {
                 break;
+            }
+
+            $status = proc_get_status($this->process);
+
+            if (!$status['running']) {
+                $this->fail(
+                    sprintf(
+                        'php-cgi process exited unexpectedly with signal %d, stdout: "%s", stderr: "%s"',
+                        $status['termsig'],
+                        stream_get_contents($this->pipes[1]),
+                        stream_get_contents($this->pipes[2])
+                    )
+                );
             }
 
             usleep(100000);
@@ -105,26 +114,27 @@ class PhpCgiBehaviourTest extends AbstractTestCase
         fclose($this->pipes[1]);
         fclose($this->pipes[2]);
 
-        $running = proc_get_status($this->process)['running'];
+        $status = proc_get_status($this->process);
 
-        if (!$running) {
-            $exitCode = proc_close($this->process);
+        if (!$status['running']) {
+            proc_close($this->process);
 
-            if ($exitCode !== -1) {
-                $this->fail('php-cgi process had stopped unexpectedly, exit code was ' . $exitCode);
-            }
+            $this->fail('php-cgi process had stopped unexpectedly, exit code was ' . $status['exitcode']);
         }
 
         proc_terminate($this->process, SIGTERM);
         usleep(100 * 1000);
         proc_terminate($this->process, SIGKILL);
+
         proc_close($this->process);
     }
 
-    public function testSubsequentRequestsDoNotReceiveLingeringSigalrms(): void
+    public function testPhpCgiProcessDoesNotReceiveLingeringSigalrmsWhileIdleAfterRequestEnds(): void
     {
-        // Send first request, which will set SIGALRM to be triggered
-        // for the php-cgi process while it waits to process the next request.
+        /*
+         * Send first request, which will set SIGALRM to be triggered
+         * for the php-cgi process while it waits to process the next request.
+         */
         $response1 = $this->fastCgiClient->sendRequest(
             $this->fastCgiConnection,
             new PostRequest(
@@ -155,7 +165,60 @@ class PhpCgiBehaviourTest extends AbstractTestCase
             )
         );
 
-        static::assertSame('Installed heartbeat sender with 2 second interval' . PHP_EOL, $response1->getBody());
-        static::assertSame('Did not install heartbeat sender' . PHP_EOL, $response2->getBody());
+        static::assertSame(
+            'Installed heartbeat sender with 2 second interval' . PHP_EOL .
+            'Did not sleep' . PHP_EOL,
+            $response1->getBody()
+        );
+        static::assertSame(
+            'Did not install heartbeat sender' . PHP_EOL .
+            'Did not sleep' . PHP_EOL,
+            $response2->getBody()
+        );
+    }
+
+    public function testPhpCgiProcessDoesNotReceiveLingeringSigalrmsDuringSubsequentRequests(): void
+    {
+        /*
+         * Send first request, which will set SIGALRM to be triggered
+         * for the php-cgi process while it waits to process the next request.
+         */
+        $response1 = $this->fastCgiClient->sendRequest(
+            $this->fastCgiConnection,
+            new PostRequest(
+                $this->wwwDir . '/maybe_install_heartbeat_sender.php',
+                'heartbeat_interval=2'
+            )
+        );
+
+        /*
+         * In a second request, sleep for slightly longer than the interval given for SIGALRM to ensure it is triggered.
+         * If it has been left pending, then this will cause the php-cgi process to unexpectedly exit
+         * with an exit code of SIGALRM (14).
+         */
+        $response2 = $this->fastCgiClient->sendRequest(
+            $this->fastCgiConnection,
+            new PostRequest(
+                $this->wwwDir . '/maybe_install_heartbeat_sender.php',
+                'sleep_duration=3'
+            )
+        );
+
+        $status = proc_get_status($this->process);
+
+        static::assertFalse(
+            $status['signaled'],
+            'php-cgi process was terminated with signal ' . $status['termsig']
+        );
+        static::assertSame(
+            'Installed heartbeat sender with 2 second interval' . PHP_EOL .
+            'Did not sleep' . PHP_EOL,
+            $response1->getBody()
+        );
+        static::assertSame(
+            'Did not install heartbeat sender' . PHP_EOL .
+            'Slept for 3 seconds' . PHP_EOL,
+            $response2->getBody()
+        );
     }
 }
