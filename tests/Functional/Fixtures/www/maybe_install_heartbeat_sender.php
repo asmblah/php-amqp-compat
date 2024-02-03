@@ -6,7 +6,7 @@ use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Heartbeat\PcntlHeartbeatSender;
 use Asmblah\PhpAmqpCompat\Misc\Clock;
 
-require_once dirname(__DIR__, 5) . '/vendor/autoload.php';
+require_once dirname(__DIR__, 4) . '/vendor/autoload.php';
 
 $heartbeatInterval = isset($_POST['heartbeat_interval']) ? (int)$_POST['heartbeat_interval'] : null;
 $sleepDuration = isset($_POST['sleep_duration']) ? (int)$_POST['sleep_duration'] : null;
