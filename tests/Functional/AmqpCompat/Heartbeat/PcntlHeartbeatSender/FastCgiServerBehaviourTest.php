@@ -33,9 +33,9 @@ class FastCgiServerBehaviourTest extends AbstractTestCase
     private const SERVER_PORT = 9877;
 
     private string $baseDir;
+    private string $errorLogPath;
     private Client $fastCgiClient;
     private NetworkSocket $fastCgiConnection;
-    private int $pid = -1;
     /** @var array<int, resource> */
     private array $pipes = [];
     /**
@@ -48,6 +48,7 @@ class FastCgiServerBehaviourTest extends AbstractTestCase
     {
         $this->baseDir = dirname(__DIR__, 5);
         $this->wwwDir = $this->baseDir . '/tests/Functional/Fixtures/www';
+        $this->errorLogPath = $this->baseDir . '/var/log/test.log';
 
         $this->fastCgiClient = new Client();
         $this->fastCgiConnection = new NetworkSocket(self::SERVER_HOST, self::SERVER_PORT);
@@ -55,12 +56,14 @@ class FastCgiServerBehaviourTest extends AbstractTestCase
 
     public function tearDown(): void
     {
-        $isPhpFpm = $this->pid !== -1;
+        if (file_exists($this->errorLogPath)) {
+            $errorLog = file_get_contents($this->errorLogPath);
 
-        if ($isPhpFpm) {
-            posix_kill($this->pid, SIGTERM);
-            usleep(100 * 1000);
-            posix_kill($this->pid, SIGKILL);
+            if ($errorLog !== '') {
+                unlink($this->errorLogPath);
+
+                $this->fail('php-fpm logged errors: ' . $errorLog);
+            }
         }
 
         fclose($this->pipes[0]);
@@ -71,10 +74,6 @@ class FastCgiServerBehaviourTest extends AbstractTestCase
 
         if (!$status['running']) {
             proc_close($this->process);
-
-            if ($isPhpFpm) {
-                return;
-            }
 
             $this->fail('FastCGI server process had stopped unexpectedly, exit code was ' . $status['exitcode']);
         }
@@ -240,11 +239,10 @@ class FastCgiServerBehaviourTest extends AbstractTestCase
 
     private function whenPhpFpm(): void
     {
-        $runDir = $this->baseDir . '/var/run';
-        $pidfilePath = $runDir . '/php-fpm.pid';
+        $logDir = $this->baseDir . '/var/log';
 
-        if (!is_dir($runDir)) {
-            mkdir($runDir, 0775, true);
+        if (!is_dir($logDir)) {
+            mkdir($logDir, 0775, true);
         }
 
         // Start long-running php-fpm process.
@@ -257,10 +255,10 @@ class FastCgiServerBehaviourTest extends AbstractTestCase
         // Spawn a long-running php-fpm process for handling FastCGI requests.
         $process = proc_open(
             sprintf(
-                'exec php-fpm -d open_basedir=%s -y %s -g %s',
+                'exec php-fpm -d open_basedir=%s -d error_log=%s -d disable_functions="" --fpm-config=%s --nodaemonize',
                 $this->baseDir,
-                $this->baseDir . '/tests/Functional/Fixtures/PhpFpm/conf/php-fpm.conf',
-                $pidfilePath
+                $this->baseDir . '/var/log/test.log',
+                $this->baseDir . '/tests/Functional/Fixtures/PhpFpm/conf/php-fpm.conf'
             ),
             $descriptorSpec,
             $this->pipes
@@ -271,17 +269,6 @@ class FastCgiServerBehaviourTest extends AbstractTestCase
         }
 
         $this->process = $process;
-
-        /*
-         * Wait for php-fpm to create the file and write its PID out for us to capture,
-         * because this will be different to the process represented by $process,
-         * presumably due to php-fpm dropping privileges by spawning a child process.
-         */
-        while (!file_exists($pidfilePath)) {
-            usleep(100 * 1000);
-        }
-
-        $this->pid = (int)file_get_contents($pidfilePath);
     }
 
     private function waitForFastCgiServerToBeReady(): void
