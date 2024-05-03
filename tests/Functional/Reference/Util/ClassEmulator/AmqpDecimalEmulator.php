@@ -13,42 +13,33 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator;
 
-use AMQPChannel;
+use AMQPDecimal;
 use LogicException;
 
 /**
- * Class AmqpChannelEmulator.
+ * Class AmqpDecimalEmulator.
  *
- * Dumps instances of AMQPChannel exactly as expected by the reference implementation tests.
+ * Dumps instances of AMQPDecimal exactly as expected by the reference implementation tests.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-class AmqpChannelEmulator implements ClassEmulatorInterface
+class AmqpDecimalEmulator implements ClassEmulatorInterface
 {
     /**
-     * Dumps the given AMQPChannel instance.
+     * Dumps the given AMQPDecimal instance.
      */
     public function dump(
-        AMQPChannel $amqpChannel,
+        AMQPDecimal $decimal,
         int $depth,
         int $objectId,
         DelegatingClassEmulatorInterface $emulator
     ): string {
         return <<<OUT
-object(AMQPChannel)#$objectId (6) {
-  ["connection":"AMQPChannel":private]=>
-  {$emulator->dump($amqpChannel->getConnection(), $depth + 1)}
-  ["prefetch_count":"AMQPChannel":private]=>
-  {$emulator->dump($amqpChannel->getPrefetchCount(), $depth + 1)}
-  ["prefetch_size":"AMQPChannel":private]=>
-  {$emulator->dump($amqpChannel->getPrefetchSize(), $depth + 1)}
-  ["global_prefetch_count":"AMQPChannel":private]=>
-  {$emulator->dump($amqpChannel->getGlobalPrefetchCount(), $depth + 1)}
-  ["global_prefetch_size":"AMQPChannel":private]=>
-  {$emulator->dump($amqpChannel->getGlobalPrefetchSize(), $depth + 1)}
-  ["consumers":"AMQPChannel":private]=>
-  array(0) {
-  }
+object(AMQPDecimal)#$objectId (2) {
+  ["exponent":"AMQPDecimal":private]=>
+  {$emulator->dump($decimal->getExponent(), $depth + 1)}
+  ["significand":"AMQPDecimal":private]=>
+  {$emulator->dump($decimal->getSignificand(), $depth + 1)}
 }
 OUT;
     }
@@ -58,7 +49,7 @@ OUT;
      */
     public function getClassName(): string
     {
-        return AMQPChannel::class;
+        return AMQPDecimal::class;
     }
 
     /**

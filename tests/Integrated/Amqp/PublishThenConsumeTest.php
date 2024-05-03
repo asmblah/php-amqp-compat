@@ -22,9 +22,12 @@ use Asmblah\PhpAmqpCompat\AmqpManager;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformer;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
+use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Exception\ExceptionHandler;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Processor\ValueProcessor;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformer;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
@@ -65,6 +68,10 @@ class PublishThenConsumeTest extends AbstractTestCase
             'getConnectionTimeout' => 0,
             'getDeprecatedTimeoutCredentialUsage' => TimeoutDeprecationUsageEnum::NOT_USED,
             'getDeprecatedTimeoutIniSettingUsage' => TimeoutDeprecationUsageEnum::NOT_USED,
+            'getGlobalPrefetchCount' => 10,
+            'getGlobalPrefetchSize' => 512,
+            'getPrefetchCount' => 4,
+            'getPrefetchSize' => 128,
             'toLoggableArray' => ['my' => 'loggable connection config'],
         ]);
         $this->logger = mock(LoggerInterface::class, [
@@ -73,12 +80,14 @@ class PublishThenConsumeTest extends AbstractTestCase
         $this->errorReporter = mock(ErrorReporterInterface::class);
         $this->amqpIntegration = mock(AmqpIntegrationInterface::class, [
             'createConnectionConfig' => $this->connectionConfig,
+            'getConfiguration' => mock(ConfigurationInterface::class),
             'getErrorReporter' => $this->errorReporter,
             'getLogger' => $this->logger,
         ]);
         $this->amqplibChannel = mock(AmqplibChannel::class, [
             'basic_consume' => 'my-consumer-tag',
             'basic_publish' => null,
+            'basic_qos' => null,
             'close' => null,
             'exchange_declare' => null,
             'is_open' => true,
@@ -95,9 +104,12 @@ class PublishThenConsumeTest extends AbstractTestCase
             ->getConnection()
             ->andReturn($this->amqplibConnection);
 
+        $valueProcessor = new ValueProcessor();
         $this->amqpConnectionBridge = new AmqpConnectionBridge(
             $this->amqplibConnection,
-            new EnvelopeTransformer(),
+            $this->connectionConfig,
+            new EnvelopeTransformer($valueProcessor),
+            new MessageTransformer($valueProcessor),
             $this->errorReporter,
             new ExceptionHandler($this->logger),
             $this->logger

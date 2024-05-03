@@ -111,10 +111,10 @@ class AMQPEnvelope extends AMQPBasicProperties
      *
      * @param string $headerKey Name of the header to get the value for.
      *
-     * @return string|false The contents of the specified header or FALSE
-     *                      if not set.
+     * @return mixed|false The contents of the specified header or FALSE
+     *                     if not set.
      */
-    public function getHeader(string $headerKey): string|false
+    public function getHeader(string $headerKey): mixed
     {
         return $this->hasHeader($headerKey) ?
             $this->headers[$headerKey] :

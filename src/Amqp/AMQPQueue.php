@@ -643,16 +643,23 @@ class AMQPQueue
 
     /**
      * Sets a queue argument.
+     *
+     * @throws AMQPQueueException When an invalid value is given.
      */
     public function setArgument(string $key, mixed $value): bool
     {
-        if ($value !== 'null' && !is_int($value) && !is_float($value) && !is_string($value)) {
+        if ($value !== null && !is_int($value) && !is_float($value) && !is_string($value)) {
             throw new AMQPQueueException(
                 'The value parameter must be of type NULL, int, double or string.'
             );
         }
 
-        $this->arguments[$key] = $value;
+        if ($value === null) {
+            // When null is given, it is treated specially: it represents that the argument is to be removed.
+            unset($this->arguments[$key]);
+        } else {
+            $this->arguments[$key] = $value;
+        }
 
         return true;
     }

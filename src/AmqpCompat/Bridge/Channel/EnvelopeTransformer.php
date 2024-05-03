@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Bridge\Channel;
 
 use AMQPEnvelope;
+use Asmblah\PhpAmqpCompat\Driver\Common\Processor\ValueProcessorInterface;
 use LogicException;
 use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
 use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;
@@ -27,6 +28,11 @@ use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;
  */
 class EnvelopeTransformer implements EnvelopeTransformerInterface
 {
+    public function __construct(
+        private readonly ValueProcessorInterface $valueProcessor
+    ) {
+    }
+
     /**
      * @inheritDoc
      */
@@ -41,7 +47,17 @@ class EnvelopeTransformer implements EnvelopeTransformerInterface
         } elseif ($applicationHeadersTable instanceof AmqplibTable) {
             $headers = $applicationHeadersTable->getNativeData();
         } else {
-            throw new LogicException(__METHOD__ . ' :: application_headers is not an AMQPTable');
+            throw new LogicException(__METHOD__ . '() :: application_headers is not an AMQPTable');
+        }
+
+        $headers = $this->valueProcessor->processValueFromDriver($headers);
+
+        /** @var ?string $contentEncoding */
+        $contentEncoding = $message->getContentEncoding();
+
+        if ($contentEncoding === '' || $contentEncoding === null) {
+            // Content encoding is handled a bit strangely by php-amqplib, potentially stored in two places.
+            $contentEncoding = $properties['content_encoding'] ?? '';
         }
 
         return new AMQPEnvelope(
@@ -52,7 +68,7 @@ class EnvelopeTransformer implements EnvelopeTransformerInterface
             $message->isRedelivered(),
             $message->getRoutingKey(),
             $properties['content_type'] ?? null,
-            $message->getContentEncoding(),
+            $contentEncoding,
             $headers,
             $properties['delivery_mode'] ?? AMQP_DELIVERY_MODE_TRANSIENT,
             $properties['priority'] ?? 0,
