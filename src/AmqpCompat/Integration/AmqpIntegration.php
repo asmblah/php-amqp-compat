@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Integration;
 
+use Asmblah\PhpAmqpCompat\Bridge\Channel\Consumer;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
@@ -23,6 +24,7 @@ use Asmblah\PhpAmqpCompat\Connection\Config\DefaultConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
 use Asmblah\PhpAmqpCompat\Connection\ConnectorInterface;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Exception\ExceptionHandler;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSenderInterface;
@@ -45,9 +47,10 @@ class AmqpIntegration implements AmqpIntegrationInterface
     public function __construct(
         private readonly ConnectorInterface $connector,
         private readonly HeartbeatSenderInterface $heartbeatSender,
-        ConfigurationInterface $configuration,
+        private readonly ConfigurationInterface $configuration,
         private readonly DefaultConnectionConfigInterface $defaultConnectionConfig,
-        private readonly EnvelopeTransformerInterface $envelopeTransformer
+        private readonly EnvelopeTransformerInterface $envelopeTransformer,
+        private readonly MessageTransformerInterface $messageTransformer
     ) {
         $this->errorReporter = $configuration->getErrorReporter();
         $this->logger = new Logger($configuration->getLogger());
@@ -67,7 +70,9 @@ class AmqpIntegration implements AmqpIntegrationInterface
         // Internal representation of the AMQP connection that this compatibility layer uses.
         $connectionBridge = new AmqpConnectionBridge(
             $amqplibConnection,
+            $config,
             $this->envelopeTransformer,
+            $this->messageTransformer,
             $this->errorReporter,
             $this->exceptionHandler,
             $this->logger
@@ -158,6 +163,14 @@ class AmqpIntegration implements AmqpIntegrationInterface
             $connectionName,
             $deprecatedTimeoutCredentialUsage
         );
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getConfiguration(): ConfigurationInterface
+    {
+        return $this->configuration;
     }
 
     /**

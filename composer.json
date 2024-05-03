@@ -18,13 +18,13 @@
     },
     "require": {
         "php": ">=8.1",
-        "ext-pcntl": "*",
         "nytris/nytris": "^0.1",
         "php-amqplib/php-amqplib": "v3.5.4",
         "psr/log": "^1|^2|^3"
     },
     "require-dev": {
         "asmblah/php-code-shift": "^0.1.0",
+        "hollodotme/fast-cgi-client": "^3.1",
         "mockery/mockery": "^1.6",
         "phpstan/phpstan": "^1.10",
         "phpstan/phpstan-mockery": "^1.1",

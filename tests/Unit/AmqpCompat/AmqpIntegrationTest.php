@@ -20,6 +20,7 @@ use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\DefaultConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
 use Asmblah\PhpAmqpCompat\Connection\ConnectorInterface;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSenderInterface;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
@@ -46,6 +47,7 @@ class AmqpIntegrationTest extends AbstractTestCase
     private MockInterface&ErrorReporterInterface $errorReporter;
     private MockInterface&HeartbeatSenderInterface $heartbeatSender;
     private MockInterface&LoggerInterface $logger;
+    private MockInterface&MessageTransformerInterface $messageTransformer;
 
     public function setUp(): void
     {
@@ -66,6 +68,7 @@ class AmqpIntegrationTest extends AbstractTestCase
         ]);
         $this->envelopeTransformer = mock(EnvelopeTransformerInterface::class);
         $this->logger = mock(LoggerInterface::class);
+        $this->messageTransformer = mock(MessageTransformerInterface::class);
         $this->errorReporter = mock(ErrorReporterInterface::class);
         $this->configuration = mock(ConfigurationInterface::class, [
             'getErrorReporter' => $this->errorReporter,
@@ -84,7 +87,8 @@ class AmqpIntegrationTest extends AbstractTestCase
             $this->heartbeatSender,
             $this->configuration,
             $this->defaultConnectionConfig,
-            $this->envelopeTransformer
+            $this->envelopeTransformer,
+            $this->messageTransformer
         );
     }
 
@@ -118,6 +122,13 @@ class AmqpIntegrationTest extends AbstractTestCase
             ->once();
 
         $this->amqpIntegration->connect($this->connectionConfig);
+    }
+
+    public function testConnectReturnsAConnectionBridgeUsingTheMessageTransformer(): void
+    {
+        $connectionBridge = $this->amqpIntegration->connect($this->connectionConfig);
+
+        static::assertSame($this->messageTransformer, $connectionBridge->getMessageTransformer());
     }
 
     public function testCreateConnectionConfigUsesCorrectDefaults(): void
@@ -198,6 +209,11 @@ class AmqpIntegrationTest extends AbstractTestCase
 
         static::assertSame(TimeoutDeprecationUsageEnum::SHADOWED, $config->getDeprecatedTimeoutCredentialUsage());
         static::assertSame(456.7, $config->getReadTimeout());
+    }
+
+    public function testGetConfigurationReturnsTheConfiguration(): void
+    {
+        static::assertSame($this->configuration, $this->amqpIntegration->getConfiguration());
     }
 
     public function testGetErrorReporterReturnsTheErrorReporter(): void

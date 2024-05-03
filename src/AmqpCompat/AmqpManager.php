@@ -20,12 +20,13 @@ use Asmblah\PhpAmqpCompat\Connection\Amqplib\ConnectionFactory;
 use Asmblah\PhpAmqpCompat\Connection\Config\DefaultConnectionConfig;
 use Asmblah\PhpAmqpCompat\Connection\Connector;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Heartbeat\HeartbeatTransmitter;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Processor\ValueProcessor;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformer;
 use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSender;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
 use Asmblah\PhpAmqpCompat\Misc\Clock;
 use Asmblah\PhpAmqpCompat\Misc\Ini;
-use LogicException;
 
 /**
  * Class AmqpManager.
@@ -47,6 +48,7 @@ class AmqpManager
     {
         if (self::$amqpIntegration === null) {
             $configuration = self::getConfiguration();
+            $valueProcessor = new ValueProcessor();
 
             $heartbeatTransmitter = new HeartbeatTransmitter(new Clock());
 
@@ -60,7 +62,8 @@ class AmqpManager
                 new HeartbeatSender($heartbeatScheduler),
                 $configuration,
                 new DefaultConnectionConfig(new Ini()),
-                new EnvelopeTransformer()
+                new EnvelopeTransformer($valueProcessor),
+                new MessageTransformer($valueProcessor)
             );
         }
 
@@ -87,6 +90,7 @@ class AmqpManager
     public static function setAmqpIntegration(?AmqpIntegrationInterface $amqpIntegration): void
     {
         self::$amqpIntegration = $amqpIntegration;
+        self::$configuration = $amqpIntegration?->getConfiguration();
     }
 
     /**
@@ -96,12 +100,10 @@ class AmqpManager
      */
     public static function setConfiguration(?ConfigurationInterface $configuration): void
     {
-        if (self::$amqpIntegration !== null) {
-            // Raise an error, because the configuration would not be used by the current AmqpIntegration
-            // which would be inconsistent.
-            throw new LogicException('Cannot set configuration while an AmqpIntegration has already been set');
-        }
-
         self::$configuration = $configuration;
+
+        // Clear any current integration, otherwise the configuration may not be used by it
+        // which would be inconsistent.
+        self::$amqpIntegration = null;
     }
 }

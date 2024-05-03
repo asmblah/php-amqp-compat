@@ -18,7 +18,6 @@ use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
-use LogicException;
 
 /**
  * Class AmqpManagerTest.
@@ -56,13 +55,30 @@ class AmqpManagerTest extends AbstractTestCase
         static::assertInstanceOf(ConfigurationInterface::class, AmqpManager::getConfiguration());
     }
 
-    public function testSetAmqpIntegrationSetsSpecifiedIntegration(): void
+    public function testSetAmqpIntegrationSetsSpecifiedIntegrationAndConfiguration(): void
     {
-        $amqpIntegration = mock(AmqpIntegrationInterface::class);
+        $configuration = mock(ConfigurationInterface::class);
+        $amqpIntegration = mock(AmqpIntegrationInterface::class, [
+            'getConfiguration' => $configuration,
+        ]);
 
         AmqpManager::setAmqpIntegration($amqpIntegration);
 
         static::assertSame($amqpIntegration, AmqpManager::getAmqpIntegration());
+        static::assertSame($configuration, AmqpManager::getConfiguration());
+    }
+
+    public function testSetAmqpIntegrationClearsIntegrationAndConfigurationWhenNullGiven(): void
+    {
+        $previousConfiguration = mock(ConfigurationInterface::class);
+        $previousAmqpIntegration = mock(AmqpIntegrationInterface::class, [
+            'getConfiguration' => $previousConfiguration,
+        ]);
+
+        AmqpManager::setAmqpIntegration(null);
+
+        static::assertNotSame($previousAmqpIntegration, AmqpManager::getAmqpIntegration());
+        static::assertNotSame($previousConfiguration, AmqpManager::getConfiguration());
     }
 
     public function testSetConfigurationSetsSpecifiedConfiguration(): void
@@ -72,26 +88,5 @@ class AmqpManagerTest extends AbstractTestCase
         AmqpManager::setConfiguration($configuration);
 
         static::assertSame($configuration, AmqpManager::getConfiguration());
-    }
-
-    public function testSetConfigurationThrowsWhenIntegrationHasAlreadyBeenFetchedImplicitly(): void
-    {
-        AmqpManager::getAmqpIntegration();
-
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('Cannot set configuration while an AmqpIntegration has already been set');
-
-        AmqpManager::setConfiguration(mock(ConfigurationInterface::class));
-    }
-
-    public function testSetConfigurationThrowsWhenIntegrationHasAlreadyBeenSetExplicitly(): void
-    {
-        $amqpIntegration = mock(AmqpIntegrationInterface::class);
-        AmqpManager::setAmqpIntegration($amqpIntegration);
-
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('Cannot set configuration while an AmqpIntegration has already been set');
-
-        AmqpManager::setConfiguration(mock(ConfigurationInterface::class));
     }
 }

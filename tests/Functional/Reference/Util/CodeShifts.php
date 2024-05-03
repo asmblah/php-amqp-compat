@@ -13,10 +13,13 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util;
 
+use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\ReferenceImplementationTest;
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpBasicPropertiesEmulator;
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpChannelEmulator;
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpConnectionEmulator;
+use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpDecimalEmulator;
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpEnvelopeEmulator;
+use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpExchangeEmulator;
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\AmqpQueueEmulator;
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\DelegatingClassEmulator;
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator\DelegatingClassEmulatorInterface;
@@ -71,13 +74,18 @@ class CodeShifts
             ])
         );
 
-        $classEmulator = new DelegatingClassEmulator(self::$contextResolver);
+        $classEmulator = new DelegatingClassEmulator(
+            self::$contextResolver,
+            ReferenceImplementationTest::VAR_DUMP_OBJECT_IDS
+        );
         self::$classEmulator = $classEmulator;
 
         $classEmulator->registerClassEmulator(new AmqpBasicPropertiesEmulator());
         $classEmulator->registerClassEmulator(new AmqpChannelEmulator());
         $classEmulator->registerClassEmulator(new AmqpConnectionEmulator());
+        $classEmulator->registerClassEmulator(new AmqpDecimalEmulator());
         $classEmulator->registerClassEmulator(new AmqpEnvelopeEmulator());
+        $classEmulator->registerClassEmulator(new AmqpExchangeEmulator());
         $classEmulator->registerClassEmulator(new AmqpQueueEmulator());
 
         $codeShift->shift(
