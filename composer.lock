@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5bd5f18df021499612943bc4a5e2199a",
+    "content-hash": "06ba5627cdbbd1af9c0f62bffd35e997",
     "packages": [
         {
             "name": "nytris/nytris",

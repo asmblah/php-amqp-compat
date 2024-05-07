@@ -31,6 +31,9 @@
         "tasque/tasque": "^0.1",
         "tasque/event-loop": "^0.1"
     },
+    "provide": {
+        "ext-amqp": "*"
+    },
     "config": {
         "platform": {
             "php": "8.1"
