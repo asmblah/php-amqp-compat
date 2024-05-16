@@ -26,14 +26,15 @@ use LogicException;
  */
 class DefaultConfiguration
 {
-    private static ?SchedulerFactoryInterface $defaultSchedulerFactory = null;
+    private static SchedulerFactoryInterface $defaultSchedulerFactory;
+    private static bool $initialised = false;
 
     /**
      * Fetches the default scheduler factory to use.
      */
     public static function getDefaultSchedulerFactory(): SchedulerFactoryInterface
     {
-        if (self::$defaultSchedulerFactory === null) {
+        if (!self::$initialised) {
             throw new LogicException('DefaultConfiguration has not been initialised');
         }
 
@@ -45,7 +46,20 @@ class DefaultConfiguration
      */
     public static function initialise(): void
     {
+        if (self::$initialised) {
+            return; // Already initialised.
+        }
+
         self::$defaultSchedulerFactory = new NullSchedulerFactory();
+        self::$initialised = true;
+    }
+
+    /**
+     * Determines whether initialisation of the default configuration has been performed yet.
+     */
+    public static function isInitialised(): bool
+    {
+        return self::$initialised;
     }
 
     /**
@@ -55,6 +69,8 @@ class DefaultConfiguration
      */
     public static function setDefaultSchedulerFactory(SchedulerFactoryInterface $schedulerFactory): void
     {
+        self::initialise();
+
         self::$defaultSchedulerFactory = $schedulerFactory;
     }
 
@@ -63,6 +79,8 @@ class DefaultConfiguration
      */
     public static function uninitialise(): void
     {
-        self::$defaultSchedulerFactory = null;
+        self::setDefaultSchedulerFactory(new NullSchedulerFactory());
+
+        self::$initialised = false;
     }
 }

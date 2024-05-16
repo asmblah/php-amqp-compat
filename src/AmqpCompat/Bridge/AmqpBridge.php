@@ -38,6 +38,7 @@ class AmqpBridge
      * @var WeakMap<AMQPConnection, ConnectionConfigInterface>
      */
     private static WeakMap $connectionConfigMap;
+    private static bool $initialised = false;
 
     /**
      * Installs the corresponding AmqpChannelBridge for a given AMQPChannel.
@@ -98,6 +99,25 @@ class AmqpBridge
      */
     public static function initialise(): void
     {
+        if (self::$initialised) {
+            return; // Already initialised.
+        }
+
+        self::initialiseMaps();
+
+        self::$initialised = true;
+    }
+
+    /**
+     * Determines whether initialisation of the bridge has been performed yet.
+     */
+    public static function isInitialised(): bool
+    {
+        return self::$initialised;
+    }
+
+    private static function initialiseMaps(): void
+    {
         /** @var WeakMap<AMQPChannel, AmqpChannelBridgeInterface> $amqpChannelBridgeMap */
         $amqpChannelBridgeMap = new WeakMap();
         /** @var WeakMap<AMQPConnection, AmqpConnectionBridgeInterface> $amqpConnectionBridgeMap */
@@ -108,5 +128,15 @@ class AmqpBridge
         self::$amqpChannelBridgeMap = $amqpChannelBridgeMap;
         self::$amqpConnectionBridgeMap = $amqpConnectionBridgeMap;
         self::$connectionConfigMap = $connectionConfigMap;
+    }
+
+    /**
+     * Uninitialises the bridge.
+     */
+    public static function uninitialise(): void
+    {
+        self::initialiseMaps();
+
+        self::$initialised = false;
     }
 }
