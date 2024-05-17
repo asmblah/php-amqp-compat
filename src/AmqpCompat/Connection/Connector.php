@@ -41,7 +41,7 @@ class Connector implements ConnectorInterface
     {
         $connectionTimeout = $this->coerceTimeout($config->getConnectionTimeout());
         $readTimeout = $this->coerceTimeout($config->getReadTimeout());
-        $rpcTimeout = $this->coerceTimeout($config->getRpcTimeout());
+        $rpcTimeout = $config->getRpcTimeout(); // RPC timeout may be specified as zero for unlimited.
         $writeTimeout = $this->coerceTimeout($config->getWriteTimeout());
 
         /*

@@ -141,7 +141,7 @@ class ConnectorTest extends AbstractTestCase
         $this->connector->connect($this->connectionConfig);
     }
 
-    public function testConnectProvidesUnlimitedTimeoutsWhenSetToZero(): void
+    public function testConnectProvidesUnlimitedTimeoutsExceptRpcTimeoutWhenSetToZero(): void
     {
         $this->connectionFactory->expects()
             ->connect(
@@ -157,7 +157,7 @@ class ConnectorTest extends AbstractTestCase
                 1234,
                 Mockery::any(),
                 Mockery::any(),
-                1234,
+                0, // RPC timeout may be specified as zero for unlimited.
                 Mockery::any(),
                 Mockery::any()
             )
