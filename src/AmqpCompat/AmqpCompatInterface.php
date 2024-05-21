@@ -24,4 +24,5 @@ use Nytris\Core\Package\PackageFacadeInterface;
  */
 interface AmqpCompatInterface extends PackageFacadeInterface
 {
+    public const AMQP_EXT_EMULATION_VERSION = '1.11.0';
 }
