@@ -13,15 +13,15 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Exception;
 
-use Throwable;
+use Exception;
 
 /**
- * Interface ExceptionInterface.
+ * Class SocketConfigurationFailedException.
  *
- * Implemented by all PHP AMQP-Compat exceptions.
+ * Raised when configuration of an open socket fails.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-interface ExceptionInterface extends Throwable
+class SocketConfigurationFailedException extends Exception implements ExceptionInterface
 {
 }

@@ -17,6 +17,7 @@ use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
+use Asmblah\PhpAmqpCompat\Exception\TransportConfigurationFailedException;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use PhpAmqpLib\Connection\AbstractConnection;
@@ -631,14 +632,17 @@ class AMQPConnection
             throw new AMQPConnectionException('Parameter \'read_timeout\' must be greater than or equal to zero.');
         }
 
-        if ($this->amqplibConnection !== null && $this->amqplibConnection->isConnected()) {
-            // Close the connection if already open.
-            $this->amqplibConnection->close();
-
-            return false;
-        }
-
         $this->connectionConfig->setReadTimeout($timeout);
+
+        if ($this->connectionBridge !== null) {
+            // Reconfigure the connection if already open.
+
+            try {
+                $this->connectionBridge->setReadTimeout($timeout);
+            } catch (TransportConfigurationFailedException) {
+                return false;
+            }
+        }
 
         return true;
     }

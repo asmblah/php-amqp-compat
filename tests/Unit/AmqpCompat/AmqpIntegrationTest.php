@@ -19,8 +19,9 @@ use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\DefaultConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
-use Asmblah\PhpAmqpCompat\Connection\ConnectorInterface;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transport\Transport;
+use Asmblah\PhpAmqpCompat\Driver\Common\Transport\TransportConnectorInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSenderInterface;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
@@ -41,13 +42,14 @@ class AmqpIntegrationTest extends AbstractTestCase
     private MockInterface&AmqplibConnection $amqplibConnection;
     private MockInterface&ConnectionConfigInterface $connectionConfig;
     private MockInterface&ConfigurationInterface $configuration;
-    private MockInterface&ConnectorInterface $connector;
     private MockInterface&DefaultConnectionConfigInterface $defaultConnectionConfig;
     private MockInterface&EnvelopeTransformerInterface $envelopeTransformer;
     private MockInterface&ErrorReporterInterface $errorReporter;
     private MockInterface&HeartbeatSenderInterface $heartbeatSender;
     private MockInterface&LoggerInterface $logger;
     private MockInterface&MessageTransformerInterface $messageTransformer;
+    private MockInterface&Transport $transport;
+    private MockInterface&TransportConnectorInterface $transportConnector;
 
     public function setUp(): void
     {
@@ -75,15 +77,18 @@ class AmqpIntegrationTest extends AbstractTestCase
             'getLogger' => $this->logger,
         ]);
         $this->connectionConfig = mock(ConnectionConfigInterface::class);
-        $this->connector = mock(ConnectorInterface::class, [
-            'connect' => $this->amqplibConnection,
+        $this->transport = mock(Transport::class, [
+            'getAmqplibConnection' => $this->amqplibConnection,
+        ]);
+        $this->transportConnector = mock(TransportConnectorInterface::class, [
+            'connect' => $this->transport,
         ]);
         $this->heartbeatSender = mock(HeartbeatSenderInterface::class, [
             'register' => null,
         ]);
 
         $this->amqpIntegration = new AmqpIntegration(
-            $this->connector,
+            $this->transportConnector,
             $this->heartbeatSender,
             $this->configuration,
             $this->defaultConnectionConfig,
@@ -92,11 +97,12 @@ class AmqpIntegrationTest extends AbstractTestCase
         );
     }
 
-    public function testConnectConnectsViaTheConnector(): void
+    public function testConnectConnectsViaTheTransportConnector(): void
     {
-        $this->connector->expects()
+        $this->transportConnector->expects()
             ->connect($this->connectionConfig)
-            ->once();
+            ->once()
+            ->andReturn($this->transport);
 
         $this->amqpIntegration->connect($this->connectionConfig);
     }

@@ -16,6 +16,7 @@ namespace Asmblah\PhpAmqpCompat\Bridge\Connection;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridgeResourceInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Exception\TransportConfigurationFailedException;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 
 /**
@@ -52,6 +53,14 @@ interface AmqpConnectionBridgeInterface extends AmqpBridgeResourceInterface
      * Fetches the number of channels currently in use on this connection.
      */
     public function getUsedChannels(): int;
+
+    /**
+     * Updates the read timeout for the connection.
+     * Will reconfigure the open connection if one is already established.
+     *
+     * @throws TransportConfigurationFailedException If the read timeout change fails.
+     */
+    public function setReadTimeout(float $seconds): void;
 
     /**
      * Unregisters the given AmqpChannelBridge.

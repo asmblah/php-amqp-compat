@@ -28,6 +28,7 @@ use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Exception\ExceptionHandler;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Processor\ValueProcessor;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformer;
+use Asmblah\PhpAmqpCompat\Driver\Common\Transport\TransportInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
@@ -59,6 +60,7 @@ class PublishThenConsumeTest extends AbstractTestCase
     private MockInterface&ConnectionConfigInterface $connectionConfig;
     private MockInterface&ErrorReporterInterface $errorReporter;
     private MockInterface&LoggerInterface $logger;
+    private MockInterface&TransportInterface $transport;
 
     public function setUp(): void
     {
@@ -99,6 +101,7 @@ class PublishThenConsumeTest extends AbstractTestCase
             'checkHeartBeat' => null,
             'isConnected' => true,
         ]);
+        $this->transport = mock(TransportInterface::class);
 
         $this->amqplibChannel->allows()
             ->getConnection()
@@ -107,6 +110,7 @@ class PublishThenConsumeTest extends AbstractTestCase
         $valueProcessor = new ValueProcessor();
         $this->amqpConnectionBridge = new AmqpConnectionBridge(
             $this->amqplibConnection,
+            $this->transport,
             $this->connectionConfig,
             new EnvelopeTransformer($valueProcessor),
             new MessageTransformer($valueProcessor),

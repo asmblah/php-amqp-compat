@@ -22,6 +22,7 @@ use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
+use Asmblah\PhpAmqpCompat\Exception\TransportConfigurationFailedException;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
@@ -71,6 +72,8 @@ class AMQPConnectionTest extends AbstractTestCase
             'getUser' => 'myuser',
             'getVirtualHost' => '/my/vhost',
             'getWriteTimeout' => 9.1,
+            'setReadTimeout' => null,
+            'setWriteTimeout' => null,
             'toLoggableArray' => ['my' => 'loggable connection config'],
         ]);
         $this->errorReporter = mock(ErrorReporterInterface::class, [
@@ -485,6 +488,84 @@ class AMQPConnectionTest extends AbstractTestCase
             ->once();
 
         $this->amqpConnection->setConnectionName('my-new-connection-name');
+    }
+
+    public function testSetReadTimeoutHandlesNegativeTimeoutWhenConnected(): void
+    {
+        $this->amqpConnection->connect();
+
+        $this->connectionConfig->expects('setReadTimeout')
+            ->never();
+        $this->connectionBridge->expects('setReadTimeout')
+            ->never();
+        $this->expectException(AMQPConnectionException::class);
+        $this->expectExceptionMessage('Parameter \'read_timeout\' must be greater than or equal to zero.');
+
+        $this->amqpConnection->setReadTimeout(-4);
+    }
+
+    public function testSetReadTimeoutHandlesNegativeTimeoutWhenNotConnected(): void
+    {
+        $this->connectionConfig->expects('setReadTimeout')
+            ->never();
+        $this->expectException(AMQPConnectionException::class);
+        $this->expectExceptionMessage('Parameter \'read_timeout\' must be greater than or equal to zero.');
+
+        $this->amqpConnection->setReadTimeout(-4);
+    }
+
+    public function testSetReadTimeoutSetsTimeoutCorrectlyWhenConnected(): void
+    {
+        $this->amqpConnection->connect();
+
+        $this->connectionConfig->expects()
+            ->setReadTimeout(18.05)
+            ->once();
+        $this->connectionBridge->expects()
+            ->setReadTimeout(18.05)
+            ->once();
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $timeout of method AMQPConnection::setReadTimeout() expects int, float given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        static::assertTrue($this->amqpConnection->setReadTimeout(18.05));
+    }
+
+    public function testSetReadTimeoutReturnsFalseWhenTimeoutModificationFails(): void
+    {
+        $this->connectionBridge->allows()
+            ->setReadTimeout(18.05)
+            ->andThrow(new TransportConfigurationFailedException());
+        $this->amqpConnection->connect();
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $timeout of method AMQPConnection::setReadTimeout() expects int, float given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        static::assertFalse($this->amqpConnection->setReadTimeout(18.05));
+    }
+
+    public function testSetReadTimeoutSetsTimeoutCorrectlyWhenNotConnected(): void
+    {
+        $this->connectionConfig->expects()
+            ->setReadTimeout(18.05)
+            ->once();
+
+        /*
+         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
+         *
+         * "phpstan: Parameter #1 $timeout of method AMQPConnection::setReadTimeout() expects int, float given."
+         *
+         * @phpstan-ignore-next-line
+         */
+        static::assertTrue($this->amqpConnection->setReadTimeout(18.05));
     }
 
     public function testSetTimeoutSetsTheNameOnConfig(): void

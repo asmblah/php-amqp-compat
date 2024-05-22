@@ -20,6 +20,7 @@ use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Transport\TransportInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use InvalidArgumentException;
@@ -42,6 +43,7 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
 
     public function __construct(
         private readonly AmqplibConnection $amqplibConnection,
+        private readonly TransportInterface $transport,
         private readonly ConnectionConfigInterface $connectionConfig,
         private readonly EnvelopeTransformerInterface $envelopeTransformer,
         private readonly MessageTransformerInterface $messageTransformer,
@@ -138,6 +140,14 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
     public function getUsedChannels(): int
     {
         return count($this->channelBridges);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setReadTimeout(float $seconds): void
+    {
+        $this->transport->setReadTimeout($seconds);
     }
 
     /**

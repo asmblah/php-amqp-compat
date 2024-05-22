@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "06ba5627cdbbd1af9c0f62bffd35e997",
+    "content-hash": "a97db5a1fd7260b07073d517aeae9844",
     "packages": [
         {
             "name": "nytris/nytris",
@@ -2847,7 +2847,8 @@
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
-        "php": ">=8.1"
+        "php": ">=8.1",
+        "ext-sockets": "*"
     },
     "platform-dev": [],
     "platform-overrides": {

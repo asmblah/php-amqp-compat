@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Integration;
 
-use Asmblah\PhpAmqpCompat\Bridge\Channel\Consumer;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
@@ -22,10 +21,11 @@ use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfig;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\DefaultConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
-use Asmblah\PhpAmqpCompat\Connection\ConnectorInterface;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Exception\ExceptionHandler;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transport\Transport;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Transport\TransportConnectorInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSenderInterface;
 use Asmblah\PhpAmqpCompat\Logger\Logger;
@@ -45,7 +45,7 @@ class AmqpIntegration implements AmqpIntegrationInterface
     private readonly LoggerInterface $logger;
 
     public function __construct(
-        private readonly ConnectorInterface $connector,
+        private readonly TransportConnectorInterface $connector,
         private readonly HeartbeatSenderInterface $heartbeatSender,
         private readonly ConfigurationInterface $configuration,
         private readonly DefaultConnectionConfigInterface $defaultConnectionConfig,
@@ -64,12 +64,14 @@ class AmqpIntegration implements AmqpIntegrationInterface
      */
     public function connect(ConnectionConfigInterface $config): AmqpConnectionBridgeInterface
     {
-        // Open the underlying connection to the AMQP broker via php-amqplib.
-        $amqplibConnection = $this->connector->connect($config);
+        // TODO: Remove leakage of php-amqplib connection from Transport abstraction here.
+        /** @var Transport $transport */
+        $transport = $this->connector->connect($config);
 
         // Internal representation of the AMQP connection that this compatibility layer uses.
         $connectionBridge = new AmqpConnectionBridge(
-            $amqplibConnection,
+            $transport->getAmqplibConnection(),
+            $transport,
             $config,
             $this->envelopeTransformer,
             $this->messageTransformer,

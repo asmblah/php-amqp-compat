@@ -22,11 +22,13 @@ use Asmblah\PhpAmqpCompat\Connection\Connector;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Heartbeat\HeartbeatTransmitter;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Processor\ValueProcessor;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformer;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transport\TransportConnector;
 use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSender;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
 use Asmblah\PhpAmqpCompat\Misc\Clock;
 use Asmblah\PhpAmqpCompat\Misc\Ini;
+use Asmblah\PhpAmqpCompat\Socket\SocketSubsystem;
 
 /**
  * Class AmqpManager.
@@ -55,9 +57,12 @@ class AmqpManager
             $heartbeatScheduler = $configuration->getSchedulerFactory()->createScheduler($heartbeatTransmitter);
 
             self::$amqpIntegration = new AmqpIntegration(
-                new Connector(
-                    new ConnectionFactory(),
-                    $configuration->getUnlimitedTimeout()
+                new TransportConnector(
+                    new Connector(
+                        new ConnectionFactory(),
+                        $configuration->getUnlimitedTimeout()
+                    ),
+                    new SocketSubsystem()
                 ),
                 new HeartbeatSender($heartbeatScheduler),
                 $configuration,

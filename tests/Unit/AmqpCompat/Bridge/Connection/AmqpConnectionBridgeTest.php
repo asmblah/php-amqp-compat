@@ -19,6 +19,7 @@ use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Transport\TransportInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
@@ -41,6 +42,7 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
     private MockInterface&ExceptionHandlerInterface $exceptionHandler;
     private MockInterface&LoggerInterface $logger;
     private MockInterface&MessageTransformerInterface $messageTransformer;
+    private MockInterface&TransportInterface $transport;
 
     public function setUp(): void
     {
@@ -51,9 +53,11 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
         $this->exceptionHandler = mock(ExceptionHandlerInterface::class);
         $this->logger = mock(LoggerInterface::class);
         $this->messageTransformer = mock(MessageTransformerInterface::class);
+        $this->transport = mock(TransportInterface::class);
 
         $this->connectionBridge = new AmqpConnectionBridge(
             $this->amqplibConnection,
+            $this->transport,
             $this->connectionConfig,
             $this->envelopeTransformer,
             $this->messageTransformer,
@@ -141,6 +145,15 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
         $this->connectionBridge->createChannelBridge();
 
         static::assertSame(1, $this->connectionBridge->getUsedChannels());
+    }
+
+    public function testSetReadTimeoutSetsViaTheTransport(): void
+    {
+        $this->transport->expects()
+            ->setReadTimeout(21.05)
+            ->once();
+
+        $this->connectionBridge->setReadTimeout(21.05);
     }
 
     public function testUnregisterChannelBridgeUnregisters(): void

@@ -13,15 +13,15 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Exception;
 
-use Throwable;
+use Exception;
 
 /**
- * Interface ExceptionInterface.
+ * Class TransportConfigurationFailedException.
  *
- * Implemented by all PHP AMQP-Compat exceptions.
+ * Raised when configuration of a Transport fails.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-interface ExceptionInterface extends Throwable
+class TransportConfigurationFailedException extends Exception implements ExceptionInterface
 {
 }
