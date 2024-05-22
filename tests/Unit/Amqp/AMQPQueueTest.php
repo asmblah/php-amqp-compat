@@ -23,6 +23,7 @@ use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
+use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Closure;
@@ -77,6 +78,7 @@ class AMQPQueueTest extends AbstractTestCase
             'getExceptionHandler' => $this->exceptionHandler,
             'getLogger' => $this->logger,
             'isConsumerSubscribed' => true,
+            'setConsumptionCallback' => null,
             'subscribeConsumer' => null,
         ]);
         AmqpBridge::bridgeChannel($this->amqpChannel, $this->channelBridge);
@@ -222,7 +224,7 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqpQueue->ack(123);
     }
 
-    public function testConsumeSubscribesConsumerWhenNoCallbackGiven(): void
+    public function testConsumeWithNoFlagsSubscribesConsumerWhenNoCallbackGiven(): void
     {
         $this->amqpQueue->setName('my_queue');
         $this->amqplibChannel->allows()
@@ -246,7 +248,29 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqpQueue->consume(null, AMQP_NOPARAM, 'my_input_consumer_tag');
     }
 
-    public function testConsumeProvidesCallbackThatConsumesViaChannelBridge(): void
+    // This scenario is possible, but pointless as nothing will happen.
+    public function testConsumeWithJustConsumeFlagDoesNotRequireCallback(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+
+        $this->channelBridge->expects('subscribeConsumer')
+            ->never();
+
+        $this->amqpQueue->consume(null, AMQP_JUST_CONSUME);
+    }
+
+    public function testConsumeWithJustConsumeFlagDoesNotSubscribeConsumerWhenNoCallbackGiven(): void
+    {
+        $consumerCallback = null;
+        $this->amqpQueue->setName('my_queue');
+
+        $this->channelBridge->expects('subscribeConsumer')
+            ->never();
+
+        $this->amqpQueue->consume($consumerCallback, AMQP_JUST_CONSUME);
+    }
+
+    public function testConsumeWithNoFlagsProvidesCallbackThatConsumesViaChannelBridge(): void
     {
         $consumerCallback = null;
         $this->amqpQueue->setName('my_queue');
@@ -289,6 +313,33 @@ class AMQPQueueTest extends AbstractTestCase
 
         $this->amqpQueue->consume(null, AMQP_NOPARAM, 'my_input_consumer_tag');
         $consumerCallback($amqplibMessage);
+    }
+
+    public function testConsumeWithJustConsumeFlagProvidesCallbackToChannelBridge(): void
+    {
+        $consumerCallback = function () {};
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows('wait')
+            ->andThrow(new StopConsumptionException());
+
+        $this->channelBridge->expects()
+            ->setConsumptionCallback($consumerCallback)
+            ->once();
+
+        $this->amqpQueue->consume($consumerCallback, AMQP_JUST_CONSUME);
+    }
+
+    public function testConsumeWithJustConsumeFlagDoesNotSubscribeConsumer(): void
+    {
+        $consumerCallback = function () {};
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows('wait')
+            ->andThrow(new StopConsumptionException());
+
+        $this->amqplibChannel->expects('basic_consume')
+            ->never();
+
+        $this->amqpQueue->consume($consumerCallback, AMQP_JUST_CONSUME);
     }
 
     public function testConsumeProvidesCallbackThatRaisesAmqpEnvelopeExceptionIfConsumerTagIsUnknown(): void
@@ -859,6 +910,83 @@ class AMQPQueueTest extends AbstractTestCase
          * @phpstan-ignore-next-line
          */
         $this->amqpQueue->nack(123);
+    }
+
+    public function testPurgeLogsAttemptAsDebug(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->queue_purge('my_queue', false);
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::purge(): Queue messages purge attempt', [
+                'queue' => 'my_queue',
+            ])
+            ->once();
+
+        $this->amqpQueue->purge();
+    }
+
+    public function testPurgePurgesQueueViaAmqplibWithDefaultFlagsSetOnQueue(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+
+        $this->amqplibChannel->expects()
+            ->queue_purge('my_queue', false)
+            ->once();
+
+        $this->amqpQueue->purge();
+    }
+
+    public function testPurgePurgesQueueViaAmqplibWithNoWaitFlagSetOnQueue(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $this->amqpQueue->setFlags(AMQP_NOWAIT);
+
+        $this->amqplibChannel->expects()
+            ->queue_purge('my_queue', true)
+            ->once();
+
+        $this->amqpQueue->purge();
+    }
+
+    public function testPurgeHandlesAmqplibExceptionCorrectly(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $exception = new AMQPIOException('Bang!', 123);
+        $this->amqplibChannel->allows()
+            ->queue_purge('my_queue', false)
+            ->andThrow($exception);
+
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPQueue::purge() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPIOException> -> AMQPQueueException :: ' .
+            'message(Bang!)'
+        );
+
+        $this->amqpQueue->purge();
+    }
+
+    public function testPurgeReturnsTrue(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->queue_purge('my_queue', false);
+
+        static::assertTrue($this->amqpQueue->purge());
+    }
+
+    public function testPurgeLogsSuccessAsDebug(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows()
+            ->queue_purge('my_queue', false);
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::purge(): Queue messages purged')
+            ->once();
+
+        $this->amqpQueue->purge();
     }
 
     public function testSetArgumentThrowsWhenGivenInvalidValue(): void

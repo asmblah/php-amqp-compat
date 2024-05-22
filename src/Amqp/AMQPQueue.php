@@ -245,47 +245,44 @@ class AMQPQueue
     ): void {
         $amqplibChannel = $this->checkChannelOrThrow('Could not get channel.');
 
-        if ($flags & AMQP_JUST_CONSUME) {
-            throw new BadMethodCallException(
-                __METHOD__ . ' $flags & AMQP_JUST_CONSUME, not yet implemented'
-            );
+        // AMQP_JUST_CONSUME means "don't subscribe a consumer, just start consuming".
+        if (!($flags & AMQP_JUST_CONSUME)) {
+            try {
+                $consumerTag = $amqplibChannel->basic_consume(
+                    $this->queueName,
+                    $consumerTag,
+                    (bool)($flags & AMQP_NOLOCAL),
+                    (bool)($flags & AMQP_AUTOACK), // A.K.A "no_ack".
+                    $this->exclusive,
+                    false, // FIXME.
+                    function (AmqplibMessage $message) {
+                        $amqpEnvelope = $this->envelopeTransformer->transformMessage($message);
+
+                        if (!$this->channelBridge->isConsumerSubscribed($message->getConsumerTag())) {
+                            // We received an envelope for a consumer tag that isn't subscribed.
+                            $exception = new AMQPEnvelopeException('Orphaned envelope');
+
+                            // The reference API defines this as a public property and is assigned at the call site.
+                            $exception->envelope = $amqpEnvelope;
+
+                            throw $exception;
+                        }
+
+                        $this->channelBridge->consumeEnvelope($amqpEnvelope);
+                    },
+                    null,
+                    [] // FIXME.
+                );
+            } catch (AMQPExceptionInterface $exception) {
+                // TODO: Handle errors identically to php-amqp.
+                throw new AMQPQueueException(__METHOD__ . ' failed: ' . $exception->getMessage());
+            }
+
+            // Record the most recent consumer tag as it may be fetched by ->getConsumerTag().
+            $this->lastConsumerTag = $consumerTag;
+
+            $this->channelBridge->subscribeConsumer($consumerTag, $this);
         }
-
-        try {
-            $consumerTag = $amqplibChannel->basic_consume(
-                $this->queueName,
-                $consumerTag,
-                (bool) ($flags & AMQP_NOLOCAL),
-                (bool) ($flags & AMQP_AUTOACK), // A.K.A "no_ack".
-                $this->exclusive,
-                false, // FIXME.
-                function (AmqplibMessage $message) {
-                    $amqpEnvelope = $this->envelopeTransformer->transformMessage($message);
-
-                    if (!$this->channelBridge->isConsumerSubscribed($message->getConsumerTag())) {
-                        // We received an envelope for a consumer tag that isn't subscribed.
-                        $exception = new AMQPEnvelopeException('Orphaned envelope');
-
-                        // The reference API defines this as a public property and is assigned at the call site.
-                        $exception->envelope = $amqpEnvelope;
-
-                        throw $exception;
-                    }
-
-                    $this->channelBridge->consumeEnvelope($amqpEnvelope);
-                },
-                null,
-                [] // FIXME.
-            );
-        } catch (AMQPExceptionInterface $exception) {
-            // TODO: Handle errors identically to php-amqp.
-            throw new AMQPQueueException(__METHOD__ . ' failed: ' . $exception->getMessage());
-        }
-
-        // Record the most recent consumer tag as it may be fetched by ->getConsumerTag().
-        $this->lastConsumerTag = $consumerTag;
-
-        $this->channelBridge->subscribeConsumer($consumerTag, $this);
 
         if ($callback === null) {
             // Queue was only being subscribed to the list for consumption; do not start processing yet.
@@ -609,14 +606,29 @@ class AMQPQueue
     /**
      * Purges the contents of a queue.
      *
-     * @return boolean
+     * @return bool
      *
-     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPChannelException If the channel is not open.
      * @throws AMQPConnectionException If the connection to the broker was lost.
      */
     public function purge(): bool
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not purge queue.');
+
+        $this->logger->debug(__METHOD__ . '(): Queue messages purge attempt', [
+            'queue' => $this->queueName,
+        ]);
+
+        try {
+            $amqplibChannel->queue_purge($this->queueName, $this->noWait);
+        } catch (AMQPExceptionInterface $exception) {
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, AMQPQueueException::class, __METHOD__);
+        }
+
+        $this->logger->debug(__METHOD__ . '(): Queue messages purged');
+
+        return true;
     }
 
     /**

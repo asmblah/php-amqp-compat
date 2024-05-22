@@ -55,12 +55,10 @@ class ReferenceImplementationTest extends AbstractFunctionalTestCase
         'amqpexchange_publish_with_null.phpt',
         'amqpexchange_publish_with_properties_ignore_num_header.phpt',
         'amqpexchange_publish_with_properties_ignore_unsupported_header_values.phpt',
-        'amqpqueue-cancel-no-consumers.phpt',
         'amqpqueue_bind_basic_headers_arguments.phpt',
         'amqpqueue_cancel.phpt',
         'amqpqueue_consume_basic.phpt',
         'amqpqueue_consume_multiple.phpt',
-        'amqpqueue_consume_multiple_no_doubles.phpt',
         'amqpqueue_consume_nonexistent.phpt',
         'amqpqueue_consume_timeout.phpt',
         'amqpqueue_get_empty_body.phpt',
@@ -69,7 +67,6 @@ class ReferenceImplementationTest extends AbstractFunctionalTestCase
         'amqpqueue_unbind_basic_empty_routing_key.phpt',
         'amqpqueue_unbind_basic_headers_arguments.phpt',
         'bug_62354.phpt',
-        'bug_gh155_direct_reply_to.phpt',
         'package-version.phpt',
     ];
     /**
