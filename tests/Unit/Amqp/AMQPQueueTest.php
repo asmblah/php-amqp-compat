@@ -393,6 +393,34 @@ class AMQPQueueTest extends AbstractTestCase
         }
     }
 
+    public function testConsumeHandlesAmqplibExceptionCorrectly(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+        $consumerCallback = function () {};
+        $exception = new AMQPIOException('Bang!', 123);
+        $this->amqplibChannel->allows()
+            ->basic_consume(
+                'my_queue',
+                'my_input_consumer_tag',
+                false,
+                false,
+                false,
+                false,
+                Mockery::type(Closure::class),
+                null,
+                []
+            )
+            ->andThrow($exception);
+
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPQueue::consume() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPIOException> -> AMQPQueueException :: ' .
+            'message(Bang!)'
+        );
+
+        $this->amqpQueue->consume($consumerCallback, AMQP_NOPARAM, 'my_input_consumer_tag');
+    }
+
     public function testDeclareQueueDeclaresViaAmqplib(): void
     {
         $this->amqpQueue->setName('my_queue');

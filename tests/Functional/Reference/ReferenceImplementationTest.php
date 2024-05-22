@@ -59,10 +59,8 @@ class ReferenceImplementationTest extends AbstractFunctionalTestCase
         'amqpqueue_cancel.phpt',
         'amqpqueue_consume_basic.phpt',
         'amqpqueue_consume_multiple.phpt',
-        'amqpqueue_consume_nonexistent.phpt',
         'amqpqueue_consume_timeout.phpt',
         'amqpqueue_get_empty_body.phpt',
-        'amqpqueue_get_nonexistent.phpt',
         'amqpqueue_headers_with_float.phpt', // TODO: Floats are being stored as strings by Amqplib.
         'amqpqueue_unbind_basic_empty_routing_key.phpt',
         'amqpqueue_unbind_basic_headers_arguments.phpt',

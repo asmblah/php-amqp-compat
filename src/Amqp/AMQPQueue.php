@@ -274,8 +274,8 @@ class AMQPQueue
                     [] // FIXME.
                 );
             } catch (AMQPExceptionInterface $exception) {
-                // TODO: Handle errors identically to php-amqp.
-                throw new AMQPQueueException(__METHOD__ . ' failed: ' . $exception->getMessage());
+                /** @var AMQPExceptionInterface&Exception $exception */
+                $this->exceptionHandler->handleException($exception, AMQPQueueException::class, __METHOD__);
             }
 
             // Record the most recent consumer tag as it may be fetched by ->getConsumerTag().
