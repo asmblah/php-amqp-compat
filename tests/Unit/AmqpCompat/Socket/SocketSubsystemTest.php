@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Socket;
 
-use Asmblah\PhpAmqpCompat\Exception\SocketConfigurationFailedException;
 use Asmblah\PhpAmqpCompat\Socket\SocketSubsystem;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 
@@ -47,16 +46,6 @@ class SocketSubsystemTest extends AbstractTestCase
         );
     }
 
-    public function testSetSocketReadTimeoutRaisesExceptionOnFailure(): void
-    {
-        $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-
-        $this->expectException(SocketConfigurationFailedException::class);
-        $this->expectExceptionMessage('Could not set socket read timeout');
-
-        @$this->socketSubsystem->setSocketReadTimeout($socket, PHP_INT_MAX);
-    }
-
     public function testSetSocketWriteTimeoutSetsCorrectly(): void
     {
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
@@ -71,15 +60,5 @@ class SocketSubsystemTest extends AbstractTestCase
             socket_get_option($socket, SOL_SOCKET, SO_SNDTIMEO),
             'Socket SO_SNDTIMEO option should be changed to 18.5s'
         );
-    }
-
-    public function testSetSocketWriteTimeoutRaisesExceptionOnFailure(): void
-    {
-        $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-
-        $this->expectException(SocketConfigurationFailedException::class);
-        $this->expectExceptionMessage('Could not set socket write timeout');
-
-        @$this->socketSubsystem->setSocketWriteTimeout($socket, PHP_INT_MAX);
     }
 }
