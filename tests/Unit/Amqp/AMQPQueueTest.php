@@ -234,7 +234,7 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqpQueue->ack(123);
     }
 
-    public function testConsumeLogsStartAttemptAsDebugWhenNoCallbackGiven(): void
+    public function testConsumeLogsStartAttemptAsDebugWhenNoFlagsNorCallbackGiven(): void
     {
         $this->amqpQueue->setName('my_queue');
 
@@ -253,7 +253,29 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqpQueue->consume(null, AMQP_NOPARAM, 'my_input_consumer_tag');
     }
 
-    public function testConsumeLogsSubscriptionAttemptAsDebugWhenCallbackGiven(): void
+    public function testConsumeLogsStartAttemptAsDebugWhenJustConsumeFlagAndCallbackGiven(): void
+    {
+        $consumerCallback = function () {};
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows('wait')
+            ->andThrow(new StopConsumptionException());
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Consumer start attempt', [
+                'consumer_tag' => null,
+                'flags' => AMQP_JUST_CONSUME,
+                'queue' => 'my_queue',
+                'subscribed_consumers' => [
+                    'consumer-tag-1' => 'my_queue_1',
+                    'consumer-tag-2' => 'my_queue_2',
+                ],
+            ])
+            ->once();
+
+        $this->amqpQueue->consume($consumerCallback, AMQP_JUST_CONSUME);
+    }
+
+    public function testConsumeLogsSubscriptionAttemptAsDebugWhenCallbackGivenButNoFlags(): void
     {
         $consumerCallback = function () {};
         $this->amqpQueue->setName('my_queue');

@@ -245,8 +245,11 @@ class AMQPQueue
     ): void {
         $amqplibChannel = $this->checkChannelOrThrow('Could not get channel.');
 
+        $justConsume = $flags & AMQP_JUST_CONSUME;
+        $isSubscription = $callback !== null && !$justConsume;
+
         $this->logger->debug(
-            __METHOD__ . '(): Consumer ' . (($callback !== null) ? 'subscription' : 'start') . ' attempt',
+            __METHOD__ . '(): Consumer ' . ($isSubscription ? 'subscription' : 'start') . ' attempt',
             [
                 'consumer_tag' => $consumerTag,
                 'flags' => $flags,
@@ -259,7 +262,7 @@ class AMQPQueue
         );
 
         // AMQP_JUST_CONSUME means "don't subscribe a consumer, just start consuming".
-        if (!($flags & AMQP_JUST_CONSUME)) {
+        if (!$justConsume) {
             try {
                 $consumerTag = $amqplibChannel->basic_consume(
                     $this->queueName,
