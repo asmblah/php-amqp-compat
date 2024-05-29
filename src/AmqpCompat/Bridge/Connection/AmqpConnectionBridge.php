@@ -22,6 +22,7 @@ use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Transport\TransportInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
+use Asmblah\PhpAmqpCompat\Exception\TooManyChannelsOnConnectionException;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use InvalidArgumentException;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
@@ -62,6 +63,15 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
         $amqplibChannel = $this->amqplibConnection->channel();
 
         $channelBridge = new AmqpChannelBridge($this, $amqplibChannel, new Consumer());
+
+        if (count($this->channelBridges) === PHP_AMQP_MAX_CHANNELS) {
+            throw new TooManyChannelsOnConnectionException(
+                sprintf(
+                    'Connection already has %d channels open',
+                    count($this->channelBridges)
+                )
+            );
+        }
 
         $this->channelBridges->attach($channelBridge);
 

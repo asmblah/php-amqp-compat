@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Bridge\Connection;
 
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridge;
+use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
@@ -21,6 +22,7 @@ use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Transport\TransportInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
+use Asmblah\PhpAmqpCompat\Exception\TooManyChannelsOnConnectionException;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery\MockInterface;
@@ -85,6 +87,39 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
             ->andReturn(mock(AmqplibChannel::class));
 
         static::assertInstanceOf(AmqpChannelBridge::class, $this->connectionBridge->createChannelBridge());
+    }
+
+    public function testCreateChannelBridgeDoesNotRaiseTooManyChannelsOnConnectionExceptionWhenAtLimit(): void
+    {
+        $this->amqplibConnection->allows()
+            ->channel()
+            ->andReturn(mock(AmqplibChannel::class));
+        /** @var AmqpChannelBridgeInterface[] $channelBridges */
+        $channelBridges = [];
+
+        for ($i = 0; $i < PHP_AMQP_MAX_CHANNELS; $i++) {
+            $channelBridges[] = $this->connectionBridge->createChannelBridge();
+        }
+
+        static::assertCount(PHP_AMQP_MAX_CHANNELS, $channelBridges);
+    }
+
+    public function testCreateChannelBridgeRaisesTooManyChannelsOnConnectionExceptionWhenAlreadyAtLimit(): void
+    {
+        $this->amqplibConnection->allows()
+            ->channel()
+            ->andReturn(mock(AmqplibChannel::class));
+        /** @var AmqpChannelBridgeInterface[] $channelBridges */
+        /** @noinspection PhpArrayUsedOnlyForWriteInspection */
+        $channelBridges = [];
+
+        $this->expectException(TooManyChannelsOnConnectionException::class);
+        $this->expectExceptionMessage('Connection already has 256 channels open');
+
+        for ($i = 0; $i < PHP_AMQP_MAX_CHANNELS + 1; $i++) {
+            // Keep a reference to each object to avoid them being freed too early.
+            $channelBridges[] = $this->connectionBridge->createChannelBridge();
+        }
     }
 
     public function testGetAmqplibConnectionReturnsTheUnderlyingConnection(): void

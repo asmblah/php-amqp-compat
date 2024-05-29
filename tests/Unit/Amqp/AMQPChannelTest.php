@@ -22,6 +22,7 @@ use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
+use Asmblah\PhpAmqpCompat\Exception\TooManyChannelsOnConnectionException;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Exception;
@@ -163,6 +164,17 @@ class AMQPChannelTest extends AbstractTestCase
         $this->amqplibChannel->expects('basic_qos')
             ->never()
             ->globally()->ordered(); // Global must be configured last.
+
+        new AMQPChannel($this->amqpConnection);
+    }
+
+    public function testConstructorRaisesAmqpChannelExceptionOnTooManyChannelsOnConnectionException(): void
+    {
+        $this->connectionBridge->allows('createChannelBridge')
+            ->andThrow(new TooManyChannelsOnConnectionException());
+
+        $this->expectException(AMQPChannelException::class);
+        $this->expectExceptionMessage('Could not create channel. Connection has no open channel slots remaining.');
 
         new AMQPChannel($this->amqpConnection);
     }

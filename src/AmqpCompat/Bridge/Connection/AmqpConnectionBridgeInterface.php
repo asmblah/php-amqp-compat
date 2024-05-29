@@ -16,6 +16,7 @@ namespace Asmblah\PhpAmqpCompat\Bridge\Connection;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridgeResourceInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Exception\TooManyChannelsOnConnectionException;
 use Asmblah\PhpAmqpCompat\Exception\TransportConfigurationFailedException;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 
@@ -30,6 +31,8 @@ interface AmqpConnectionBridgeInterface extends AmqpBridgeResourceInterface
 {
     /**
      * Creates an AmqpChannelBridge for the given connection.
+     *
+     * @throws TooManyChannelsOnConnectionException When PHP_AMQP_MAX_CHANNELS would be exceeded.
      */
     public function createChannelBridge(): AmqpChannelBridgeInterface;
 

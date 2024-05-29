@@ -14,6 +14,7 @@ declare(strict_types=1);
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
+use Asmblah\PhpAmqpCompat\Exception\TooManyChannelsOnConnectionException;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Exception\AMQPExceptionInterface;
@@ -67,6 +68,7 @@ class AMQPChannel
      *
      * @throws AMQPConnectionException If the connection to the broker
      *                                 was lost.
+     * @throws AMQPChannelException If PHP_AMQP_MAX_CHANNELS would be exceeded.
      */
     public function __construct(private readonly AMQPConnection $amqpConnection)
     {
@@ -74,7 +76,14 @@ class AMQPChannel
         $this->exceptionHandler = $connectionBridge->getExceptionHandler();
         $this->logger = $connectionBridge->getLogger();
 
-        $this->channelBridge = $connectionBridge->createChannelBridge();
+        try {
+            $this->channelBridge = $connectionBridge->createChannelBridge();
+        } catch (TooManyChannelsOnConnectionException) {
+            throw new AMQPChannelException(
+                'Could not create channel. Connection has no open channel slots remaining.'
+            );
+        }
+
         AmqpBridge::bridgeChannel($this, $this->channelBridge);
 
         // Always set here in the constructor, however the API allows for the class to be extended

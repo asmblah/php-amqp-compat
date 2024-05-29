@@ -39,7 +39,6 @@ class ReferenceImplementationTest extends AbstractFunctionalTestCase
         'amqpconnection_persistent_reusable.phpt',
         'amqpconnection_setSaslMethod.phpt',
         'amqpconnection_setSaslMethod_invalid.phpt',
-        'amqpconnection_toomanychannels.phpt',
         'amqpexchange_publish_confirms.phpt',
         'amqpexchange_publish_confirms_consume.phpt',
         'amqpexchange_publish_mandatory.phpt',
