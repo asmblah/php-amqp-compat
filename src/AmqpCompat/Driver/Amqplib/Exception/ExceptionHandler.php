@@ -21,6 +21,7 @@ use Exception;
 use InvalidArgumentException;
 use PhpAmqpLib\Exception\AMQPExceptionInterface;
 use PhpAmqpLib\Exception\AMQPProtocolException;
+use PhpAmqpLib\Exception\AMQPTimeoutException;
 
 /**
  * Class ExceptionHandler.
@@ -68,6 +69,15 @@ class ExceptionHandler implements ExceptionHandlerInterface
                     $libraryException->getCode(),
                     $libraryException->getMessage()
                 ),
+                $libraryException->getCode(),
+                $libraryException
+            );
+        }
+
+        if ($libraryException instanceof AMQPTimeoutException) {
+            throw new $exceptionClass(
+                // This message is as per the reference implementation.
+                'Consumer timeout exceed',
                 $libraryException->getCode(),
                 $libraryException
             );

@@ -34,6 +34,7 @@ use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 use PhpAmqpLib\Exception\AMQPIOException;
 use PhpAmqpLib\Exception\AMQPProtocolChannelException;
+use PhpAmqpLib\Exception\AMQPTimeoutException;
 use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
 use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;
 use stdClass;
@@ -77,6 +78,15 @@ class AMQPQueueTest extends AbstractTestCase
             'getEnvelopeTransformer' => $this->envelopeTransformer,
             'getExceptionHandler' => $this->exceptionHandler,
             'getLogger' => $this->logger,
+            'getReadTimeout' => 12,
+            'getSubscribedConsumers' => [
+                'consumer-tag-1' => mock(AMQPQueue::class, [
+                    'getName' => 'my_queue_1',
+                ]),
+                'consumer-tag-2' => mock(AMQPQueue::class, [
+                    'getName' => 'my_queue_2',
+                ]),
+            ],
             'isConsumerSubscribed' => true,
             'setConsumptionCallback' => null,
             'subscribeConsumer' => null,
@@ -224,6 +234,47 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqpQueue->ack(123);
     }
 
+    public function testConsumeLogsStartAttemptAsDebugWhenNoCallbackGiven(): void
+    {
+        $this->amqpQueue->setName('my_queue');
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Consumer start attempt', [
+                'consumer_tag' => 'my_input_consumer_tag',
+                'flags' => AMQP_NOPARAM,
+                'queue' => 'my_queue',
+                'subscribed_consumers' => [
+                    'consumer-tag-1' => 'my_queue_1',
+                    'consumer-tag-2' => 'my_queue_2',
+                ],
+            ])
+            ->once();
+
+        $this->amqpQueue->consume(null, AMQP_NOPARAM, 'my_input_consumer_tag');
+    }
+
+    public function testConsumeLogsSubscriptionAttemptAsDebugWhenCallbackGiven(): void
+    {
+        $consumerCallback = function () {};
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows('wait')
+            ->andThrow(new StopConsumptionException());
+
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Consumer subscription attempt', [
+                'consumer_tag' => 'my_input_consumer_tag',
+                'flags' => AMQP_NOPARAM,
+                'queue' => 'my_queue',
+                'subscribed_consumers' => [
+                    'consumer-tag-1' => 'my_queue_1',
+                    'consumer-tag-2' => 'my_queue_2',
+                ],
+            ])
+            ->once();
+
+        $this->amqpQueue->consume($consumerCallback, AMQP_NOPARAM, 'my_input_consumer_tag');
+    }
+
     public function testConsumeWithNoFlagsSubscribesConsumerWhenNoCallbackGiven(): void
     {
         $this->amqpQueue->setName('my_queue');
@@ -244,27 +295,67 @@ class AMQPQueueTest extends AbstractTestCase
         $this->channelBridge->expects()
             ->subscribeConsumer('my_output_consumer_tag', $this->amqpQueue)
             ->once();
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Consumer subscribed')
+            ->once();
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Just consuming - not subscribing')
+            ->never();
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Consumer not yet starting')
+            ->once();
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Consumer stopped')
+            ->never();
 
         $this->amqpQueue->consume(null, AMQP_NOPARAM, 'my_input_consumer_tag');
     }
 
-    // This scenario is possible, but pointless as nothing will happen.
-    public function testConsumeWithJustConsumeFlagDoesNotRequireCallback(): void
+    public function testConsumeWithNoFlagsSubscribesConsumerWhenCallbackGiven(): void
     {
+        $consumerCallback = function () {};
         $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows('wait')
+            ->andThrow(new StopConsumptionException());
 
-        $this->channelBridge->expects('subscribeConsumer')
+        $this->channelBridge->expects()
+            ->subscribeConsumer('my_consumer_tag', $this->amqpQueue)
+            ->once();
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Consumer subscribed')
+            ->once();
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Just consuming - not subscribing')
             ->never();
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Consumer not yet starting')
+            ->never();
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Consumer stopped')
+            ->once();
 
-        $this->amqpQueue->consume(null, AMQP_JUST_CONSUME);
+        $this->amqpQueue->consume($consumerCallback);
     }
 
+    // This scenario is possible, but pointless as nothing will happen.
     public function testConsumeWithJustConsumeFlagDoesNotSubscribeConsumerWhenNoCallbackGiven(): void
     {
         $consumerCallback = null;
         $this->amqpQueue->setName('my_queue');
 
         $this->channelBridge->expects('subscribeConsumer')
+            ->never();
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Consumer subscribed')
+            ->never();
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Just consuming - not subscribing')
+            ->once();
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Consumer not yet starting')
+            ->once();
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Consumer stopped')
             ->never();
 
         $this->amqpQueue->consume($consumerCallback, AMQP_JUST_CONSUME);
@@ -338,6 +429,18 @@ class AMQPQueueTest extends AbstractTestCase
 
         $this->amqplibChannel->expects('basic_consume')
             ->never();
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Consumer subscribed')
+            ->never();
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Just consuming - not subscribing')
+            ->once();
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Consumer not yet starting')
+            ->never();
+        $this->logger->expects()
+            ->debug('AMQPQueue::consume(): Consumer stopped')
+            ->once();
 
         $this->amqpQueue->consume($consumerCallback, AMQP_JUST_CONSUME);
     }
@@ -419,6 +522,35 @@ class AMQPQueueTest extends AbstractTestCase
         );
 
         $this->amqpQueue->consume($consumerCallback, AMQP_NOPARAM, 'my_input_consumer_tag');
+    }
+
+    public function testConsumeWaitsUpToConfiguredReadTimeout(): void
+    {
+        $consumerCallback = function () {};
+        $this->amqpQueue->setName('my_queue');
+
+        $this->amqplibChannel->expects()
+            ->wait(null, false, 12)
+            ->once()
+            ->andThrow(new StopConsumptionException());
+
+        $this->amqpQueue->consume($consumerCallback);
+    }
+
+    public function testConsumeHandlesExceptionsDuringWaitViaExceptionHandler(): void
+    {
+        $consumerCallback = function () {};
+        $this->amqpQueue->setName('my_queue');
+        $this->amqplibChannel->allows('wait')
+            ->andThrow(new AMQPTimeoutException('Bang!'));
+
+        $this->expectExceptionMessage(
+            'handleException() :: AMQPQueue::consume() :: ' .
+            'Library Exception<PhpAmqpLib\Exception\AMQPTimeoutException> -> AMQPQueueException :: ' .
+            'message(Bang!)'
+        );
+
+        $this->amqpQueue->consume($consumerCallback);
     }
 
     public function testDeclareQueueDeclaresViaAmqplib(): void

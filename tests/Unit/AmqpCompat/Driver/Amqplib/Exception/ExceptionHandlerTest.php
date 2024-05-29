@@ -15,6 +15,7 @@ namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Driver\Amqplib\Exception;
 
 use AMQPConnectionException;
 use AMQPExchangeException;
+use AMQPQueueException;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Exception\ExceptionHandler;
 use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
@@ -23,6 +24,7 @@ use Mockery\MockInterface;
 use PhpAmqpLib\Exception\AMQPIOException;
 use PhpAmqpLib\Exception\AMQPLogicException;
 use PhpAmqpLib\Exception\AMQPProtocolException;
+use PhpAmqpLib\Exception\AMQPTimeoutException;
 use RuntimeException;
 
 /**
@@ -95,6 +97,17 @@ class ExceptionHandlerTest extends AbstractTestCase
         $this->expectExceptionMessage('Server channel error: 21, message: my reply text');
 
         $this->handler->handleException($exception, AMQPExchangeException::class, 'myMethod');
+    }
+
+    public function testHandleExceptionRaisesQueueExceptionOnAmqpTimeoutException(): void
+    {
+        $exception = new AMQPTimeoutException('AMQP timeout from php-amqplib');
+
+        $this->expectException(AMQPQueueException::class);
+        // This message matches the reference implementation.
+        $this->expectExceptionMessageMatches('/^Consumer timeout exceed$/');
+
+        $this->handler->handleException($exception, AMQPQueueException::class, 'myMethod');
     }
 
     public function testHandleExceptionRaisesTrimmedConnectionExceptionOnOtherAmqpException(): void

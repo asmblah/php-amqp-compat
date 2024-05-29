@@ -130,6 +130,22 @@ class AmqpChannelBridge implements AmqpChannelBridgeInterface
     /**
      * @inheritDoc
      */
+    public function getReadTimeout(): float
+    {
+        return $this->connectionBridge->getConnectionConfig()->getReadTimeout();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getSubscribedConsumers(): array
+    {
+        return $this->consumerTagToQueueMap;
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function isConsumerSubscribed(string $consumerTag): bool
     {
         return array_key_exists($consumerTag, $this->consumerTagToQueueMap);

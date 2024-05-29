@@ -11,12 +11,14 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Tests\Functional\Memory;
+namespace Asmblah\PhpAmqpCompat\Tests\Functional\Amqp;
 
 use AMQPChannel;
 use AMQPConnection;
+use AMQPEnvelope;
 use AMQPExchange;
 use AMQPQueue;
+use AMQPQueueException;
 use Asmblah\PhpAmqpCompat\AmqpManager;
 use Asmblah\PhpAmqpCompat\Configuration\Configuration;
 use Asmblah\PhpAmqpCompat\Tests\Functional\AbstractFunctionalTestCase;
@@ -24,16 +26,16 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
 /**
- * Class PublishingMemoryConsumptionTest.
+ * Class ConsumerTest.
  *
- * Ensures that the publishing mechanism introduces no memory leaks.
+ * Checks consumption against a real AMQP broker server.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-class PublishingMemoryConsumptionTest extends AbstractFunctionalTestCase
+class ConsumerTest extends AbstractFunctionalTestCase
 {
-    private AMQPConnection $amqpConnection;
     private AMQPChannel $amqpChannel;
+    private AMQPConnection $amqpConnection;
     private AMQPExchange $amqpExchange;
     private AMQPQueue $amqpQueue;
     private LoggerInterface $logger;
@@ -73,22 +75,44 @@ class PublishingMemoryConsumptionTest extends AbstractFunctionalTestCase
         $this->resetAmqpManager();
     }
 
-    public function testNoMemoryIsLeakedDuringPublishing(): void
+    public function testMessageCanBePublishedAndConsumed(): void
     {
-        gc_collect_cycles();
-        $consumptionInBytesBefore = memory_get_usage(true);
+        /** @var AMQPEnvelope|null $consumedEnvelope */
+        $consumedEnvelope = null;
+        /** @var AMQPQueue|null $consumedEnvelopeQueue */
+        $consumedEnvelopeQueue = null;
 
-        for ($i = 0; $i < 10000; $i++) {
-            $this->amqpExchange->publish('my message body');
-        }
+        // First publish...
+        $this->amqpExchange->publish('my message body');
 
-        gc_collect_cycles();
-        $consumptionInBytesAfter = memory_get_usage(true);
+        // Then immediately consume.
+        $this->amqpQueue->consume(
+            function (AMQPEnvelope $envelope, AMQPQueue $queue) use (&$consumedEnvelope, &$consumedEnvelopeQueue) {
+                $consumedEnvelope = $envelope;
+                $consumedEnvelopeQueue = $queue;
 
-        static::assertLessThan(
-            1024 * 1024,
-            $consumptionInBytesAfter - $consumptionInBytesBefore,
-            'Consumption should not increase by more than 1 MiB'
+                return false; // Stop consumer.
+            }
+        );
+
+        static::assertInstanceOf(AMQPEnvelope::class, $consumedEnvelope);
+        static::assertSame('my message body', $consumedEnvelope->getBody());
+        static::assertSame($this->amqpQueue, $consumedEnvelopeQueue);
+    }
+
+    public function testConsumptionStopsWhenNoMessageIsReceivedBeforeReadTimeout(): void
+    {
+        // Note the `->consume()` call below is expected to hang for ~2 seconds.
+        $this->amqpConnection->setReadTimeout(2);
+
+        $this->expectException(AMQPQueueException::class);
+        // This message matches the reference implementation.
+        $this->expectExceptionMessageMatches('/^Consumer timeout exceed$/');
+
+        $this->amqpQueue->consume(
+            function () {
+                $this->fail('Consumer should not be invoked');
+            }
         );
     }
 }

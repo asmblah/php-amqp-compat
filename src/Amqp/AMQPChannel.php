@@ -271,7 +271,7 @@ class AMQPChannel
      */
     public function getConsumers(): array
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        return $this->channelBridge->getSubscribedConsumers();
     }
 
     /**

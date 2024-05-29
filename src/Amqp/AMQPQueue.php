@@ -245,6 +245,19 @@ class AMQPQueue
     ): void {
         $amqplibChannel = $this->checkChannelOrThrow('Could not get channel.');
 
+        $this->logger->debug(
+            __METHOD__ . '(): Consumer ' . (($callback !== null) ? 'subscription' : 'start') . ' attempt',
+            [
+                'consumer_tag' => $consumerTag,
+                'flags' => $flags,
+                'queue' => $this->queueName,
+                'subscribed_consumers' => array_map(
+                    static fn (AMQPQueue $amqpQueue) => $amqpQueue->getName(),
+                    $this->channelBridge->getSubscribedConsumers()
+                )
+            ]
+        );
+
         // AMQP_JUST_CONSUME means "don't subscribe a consumer, just start consuming".
         if (!($flags & AMQP_JUST_CONSUME)) {
             try {
@@ -282,10 +295,17 @@ class AMQPQueue
             $this->lastConsumerTag = $consumerTag;
 
             $this->channelBridge->subscribeConsumer($consumerTag, $this);
+
+            $this->logger->debug(__METHOD__ . '(): Consumer subscribed');
+        } else {
+            $this->logger->debug(__METHOD__ . '(): Just consuming - not subscribing');
         }
 
         if ($callback === null) {
             // Queue was only being subscribed to the list for consumption; do not start processing yet.
+
+            $this->logger->debug(__METHOD__ . '(): Consumer not yet starting');
+
             return;
         }
 
@@ -293,7 +313,7 @@ class AMQPQueue
 
         $consuming = true;
 
-        while ($consuming) { // @phpstan-ignore-line
+        while ($consuming) {
             try {
                 /*
                  * Wait for a message to be delivered to the callback attached above via ->basic_consume(...).
@@ -301,15 +321,19 @@ class AMQPQueue
                  * Amqplib's internal wait loop will allow async signals or tocks to still be fired,
                  * so that heartbeats can still be handled in between messages.
                  */
-                $amqplibChannel->wait();
-            } catch (StopConsumptionException $exception) { // @phpstan-ignore-line
+                $amqplibChannel->wait(
+                    timeout: $this->channelBridge->getReadTimeout()
+                );
+            } catch (StopConsumptionException $exception) {
                 // Consumer returned false, so we return control to the caller.
                 $consuming = false;
             } catch (AMQPExceptionInterface $exception) {
-                // TODO: Handle errors identically to php-amqp.
-                throw new AMQPQueueException(__METHOD__ . ' failed: ' . $exception->getMessage());
+                /** @var AMQPExceptionInterface&Exception $exception */
+                $this->exceptionHandler->handleException($exception, AMQPQueueException::class, __METHOD__);
             }
         }
+
+        $this->logger->debug(__METHOD__ . '(): Consumer stopped');
     }
 
     /**

@@ -19,6 +19,7 @@ use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\ConsumerInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
+use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
@@ -54,6 +55,9 @@ class AmqpChannelBridgeTest extends AbstractTestCase
         $this->logger = mock(LoggerInterface::class);
         $this->messageTransformer = mock(MessageTransformerInterface::class);
         $this->connectionBridge = mock(AmqpConnectionBridgeInterface::class, [
+            'getConnectionConfig' => mock(ConnectionConfigInterface::class, [
+                'getReadTimeout' => 123.45,
+            ]),
             'getEnvelopeTransformer' => $this->envelopeTransformer,
             'getErrorReporter' => $this->errorReporter,
             'getExceptionHandler' => $this->exceptionHandler,
@@ -134,6 +138,25 @@ class AmqpChannelBridgeTest extends AbstractTestCase
         static::assertSame($this->messageTransformer, $this->channelBridge->getMessageTransformer());
     }
 
+    public function testGetReadTimeoutReturnsTheTimeout(): void
+    {
+        static::assertSame(123.45, $this->channelBridge->getReadTimeout());
+    }
+
+    public function testGetSubscribedConsumersFetchesMapFromConsumerTagToQueue(): void
+    {
+        $amqpQueue1 = mock(AMQPQueue::class);
+        $this->channelBridge->subscribeConsumer('my-first-consumer', $amqpQueue1);
+        $amqpQueue2 = mock(AMQPQueue::class);
+        $this->channelBridge->subscribeConsumer('my-second-consumer', $amqpQueue2);
+
+        $consumers = $this->channelBridge->getSubscribedConsumers();
+
+        static::assertCount(2, $consumers);
+        static::assertSame($amqpQueue1, $consumers['my-first-consumer']);
+        static::assertSame($amqpQueue2, $consumers['my-second-consumer']);
+    }
+
     public function testIsConsumerSubscribedReturnsTrueWhenSubscribed(): void
     {
         $amqpQueue = mock(AMQPQueue::class);
@@ -158,11 +181,14 @@ class AmqpChannelBridgeTest extends AbstractTestCase
 
     public function testUnsubscribeConsumerUnsubscribesTheConsumer(): void
     {
-        $amqpQueue = mock(AMQPQueue::class);
-        $this->channelBridge->subscribeConsumer('my_consumer_tag', $amqpQueue);
+        $amqpQueue1 = mock(AMQPQueue::class);
+        $this->channelBridge->subscribeConsumer('my_first_consumer_tag', $amqpQueue1);
+        $amqpQueue2 = mock(AMQPQueue::class);
+        $this->channelBridge->subscribeConsumer('my_second_consumer_tag', $amqpQueue2);
 
-        $this->channelBridge->unsubscribeConsumer('my_consumer_tag');
+        $this->channelBridge->unsubscribeConsumer('my_first_consumer_tag');
 
-        static::assertFalse($this->channelBridge->isConsumerSubscribed('my_consumer_tag'));
+        static::assertFalse($this->channelBridge->isConsumerSubscribed('my_first_consumer_tag'));
+        static::assertTrue($this->channelBridge->isConsumerSubscribed('my_second_consumer_tag'));
     }
 }

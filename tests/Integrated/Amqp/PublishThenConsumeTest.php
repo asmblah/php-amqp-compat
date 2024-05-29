@@ -74,6 +74,7 @@ class PublishThenConsumeTest extends AbstractTestCase
             'getGlobalPrefetchSize' => 512,
             'getPrefetchCount' => 4,
             'getPrefetchSize' => 128,
+            'getReadTimeout' => 60,
             'toLoggableArray' => ['my' => 'loggable connection config'],
         ]);
         $this->logger = mock(LoggerInterface::class, [
@@ -164,7 +165,7 @@ class PublishThenConsumeTest extends AbstractTestCase
                 return 'my-consumer-tag';
             });
         $this->amqplibChannel->expects()
-            ->wait()
+            ->wait(null, false, 60)
             ->andReturnUsing(function () use ($amqplibMessage, &$consumerCallback) {
                 $consumerCallback($amqplibMessage);
 

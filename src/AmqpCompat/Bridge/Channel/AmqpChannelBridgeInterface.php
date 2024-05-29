@@ -53,6 +53,18 @@ interface AmqpChannelBridgeInterface extends AmqpBridgeResourceInterface
     public function getConsumptionCallback(): callable;
 
     /**
+     * Fetches the configured read timeout for the connection.
+     */
+    public function getReadTimeout(): float;
+
+    /**
+     * Fetches all subscribed consumers as a map from consumer tag to AMQPQueue.
+     *
+     * @return array<string, AMQPQueue>
+     */
+    public function getSubscribedConsumers(): array;
+
+    /**
      * Determines whether a consumer with the given tag is subscribed.
      */
     public function isConsumerSubscribed(string $consumerTag): bool;

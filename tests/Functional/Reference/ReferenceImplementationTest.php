@@ -27,10 +27,8 @@ use Generator;
 class ReferenceImplementationTest extends AbstractFunctionalTestCase
 {
     public const UNSUPPORTED_TESTS = [
-        '003-channel-consumers.phpt',
         '004-queue-consume-nested.phpt',
         '004-queue-consume-orphaned.phpt',
-        'amqpchannel_basicRecover.phpt',
         'amqpchannel_confirmSelect.phpt',
         'amqpchannel_getChannelId.phpt',
         'amqpconnection_heartbeat.phpt',
@@ -41,11 +39,6 @@ class ReferenceImplementationTest extends AbstractFunctionalTestCase
         'amqpconnection_persistent_reusable.phpt',
         'amqpconnection_setSaslMethod.phpt',
         'amqpconnection_setSaslMethod_invalid.phpt',
-        'amqpconnection_setTimeout_deprecated.phpt',
-        'amqpconnection_setTimeout_float.phpt',
-        'amqpconnection_setTimeout_int.phpt',
-        'amqpconnection_setTimeout_out_of_range.phpt',
-        'amqpconnection_setTimeout_string.phpt',
         'amqpconnection_toomanychannels.phpt',
         'amqpexchange_publish_confirms.phpt',
         'amqpexchange_publish_confirms_consume.phpt',
@@ -56,11 +49,7 @@ class ReferenceImplementationTest extends AbstractFunctionalTestCase
         'amqpexchange_publish_with_properties_ignore_num_header.phpt',
         'amqpexchange_publish_with_properties_ignore_unsupported_header_values.phpt',
         'amqpqueue_bind_basic_headers_arguments.phpt',
-        'amqpqueue_cancel.phpt',
-        'amqpqueue_consume_basic.phpt',
         'amqpqueue_consume_multiple.phpt',
-        'amqpqueue_consume_timeout.phpt',
-        'amqpqueue_get_empty_body.phpt',
         'amqpqueue_headers_with_float.phpt', // TODO: Floats are being stored as strings by Amqplib.
         'amqpqueue_unbind_basic_empty_routing_key.phpt',
         'amqpqueue_unbind_basic_headers_arguments.phpt',

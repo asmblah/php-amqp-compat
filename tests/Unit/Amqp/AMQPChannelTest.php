@@ -16,6 +16,7 @@ namespace Asmblah\PhpAmqpCompat\Tests\Unit\Amqp;
 use AMQPChannel;
 use AMQPChannelException;
 use AMQPConnection;
+use AMQPQueue;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
@@ -62,6 +63,14 @@ class AMQPChannelTest extends AbstractTestCase
         $this->amqplibConnection = mock(AmqplibConnection::class);
         $this->channelBridge = mock(AmqpChannelBridgeInterface::class, [
             'getAmqplibChannel' => $this->amqplibChannel,
+            'getSubscribedConsumers' => [
+                'consumer-tag-1' => mock(AMQPQueue::class, [
+                    'getName' => 'my_queue_1',
+                ]),
+                'consumer-tag-2' => mock(AMQPQueue::class, [
+                    'getName' => 'my_queue_2',
+                ]),
+            ],
             'unregisterChannel' => null,
         ]);
         $this->connectionConfig = mock(ConnectionConfigInterface::class, [
@@ -390,6 +399,17 @@ class AMQPChannelTest extends AbstractTestCase
             ->once();
 
         $this->amqpChannel->commitTransaction();
+    }
+
+    public function testGetConsumersFetchesSubscribedConsumers(): void
+    {
+        $consumers = $this->amqpChannel->getConsumers();
+
+        static::assertCount(2, $consumers);
+        static::assertInstanceOf(AMQPQueue::class, $consumers['consumer-tag-1']);
+        static::assertSame('my_queue_1', $consumers['consumer-tag-1']->getName());
+        static::assertInstanceOf(AMQPQueue::class, $consumers['consumer-tag-2']);
+        static::assertSame('my_queue_2', $consumers['consumer-tag-2']->getName());
     }
 
     /**
