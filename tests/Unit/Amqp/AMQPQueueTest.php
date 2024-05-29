@@ -94,13 +94,19 @@ class AMQPQueueTest extends AbstractTestCase
         AmqpBridge::bridgeChannel($this->amqpChannel, $this->channelBridge);
 
         $this->exceptionHandler->allows('handleException')
-            ->andReturnUsing(function (Exception $libraryException, string $exceptionClass, string $methodName) {
+            ->andReturnUsing(function (
+                Exception $libraryException,
+                string $exceptionClass,
+                string $methodName,
+                bool $isConsumption = false
+            ) {
                 throw new Exception(sprintf(
-                    'handleException() :: %s() :: Library Exception<%s> -> %s :: message(%s)',
+                    'handleException() :: %s() :: Library Exception<%s> -> %s :: message(%s) isConsumption(%s)',
                     $methodName,
                     $libraryException::class,
                     $exceptionClass,
-                    $libraryException->getMessage()
+                    $libraryException->getMessage(),
+                    $isConsumption ? 'yes' : 'no'
                 ));
             })
             ->byDefault();
@@ -189,7 +195,7 @@ class AMQPQueueTest extends AbstractTestCase
         $this->expectExceptionMessage(
             'handleException() :: AMQPQueue::ack() :: ' .
             'Library Exception<PhpAmqpLib\Exception\AMQPIOException> -> AMQPQueueException :: ' .
-            'message(Bang!)'
+            'message(Bang!) isConsumption(no)'
         );
 
         /*
@@ -540,7 +546,7 @@ class AMQPQueueTest extends AbstractTestCase
         $this->expectExceptionMessage(
             'handleException() :: AMQPQueue::consume() :: ' .
             'Library Exception<PhpAmqpLib\Exception\AMQPIOException> -> AMQPQueueException :: ' .
-            'message(Bang!)'
+            'message(Bang!) isConsumption(no)'
         );
 
         $this->amqpQueue->consume($consumerCallback, AMQP_NOPARAM, 'my_input_consumer_tag');
@@ -569,7 +575,7 @@ class AMQPQueueTest extends AbstractTestCase
         $this->expectExceptionMessage(
             'handleException() :: AMQPQueue::consume() :: ' .
             'Library Exception<PhpAmqpLib\Exception\AMQPTimeoutException> -> AMQPQueueException :: ' .
-            'message(Bang!)'
+            'message(Bang!) isConsumption(yes)'
         );
 
         $this->amqpQueue->consume($consumerCallback);
@@ -667,7 +673,7 @@ class AMQPQueueTest extends AbstractTestCase
         $this->expectExceptionMessage(
             'handleException() :: AMQPQueue::declareQueue() :: ' .
             'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPQueueException :: ' .
-            'message(my text)'
+            'message(my text) isConsumption(no)'
         );
 
         $this->amqpQueue->declareQueue();
@@ -792,7 +798,7 @@ class AMQPQueueTest extends AbstractTestCase
         $this->expectExceptionMessage(
             'handleException() :: AMQPQueue::delete() :: ' .
             'Library Exception<PhpAmqpLib\Exception\AMQPIOException> -> AMQPQueueException :: ' .
-            'message(Bang!)'
+            'message(Bang!) isConsumption(no)'
         );
 
         $this->amqpQueue->delete();
@@ -877,7 +883,7 @@ class AMQPQueueTest extends AbstractTestCase
         $this->expectExceptionMessage(
             'handleException() :: AMQPQueue::get() :: ' .
             'Library Exception<PhpAmqpLib\Exception\AMQPIOException> -> AMQPQueueException :: ' .
-            'message(Bang!)'
+            'message(Bang!) isConsumption(no)'
         );
 
         $this->amqpQueue->get();
@@ -1049,7 +1055,7 @@ class AMQPQueueTest extends AbstractTestCase
         $this->expectExceptionMessage(
             'handleException() :: AMQPQueue::nack() :: ' .
             'Library Exception<PhpAmqpLib\Exception\AMQPIOException> -> AMQPQueueException :: ' .
-            'message(Bang!)'
+            'message(Bang!) isConsumption(no)'
         );
 
         /*
@@ -1143,7 +1149,7 @@ class AMQPQueueTest extends AbstractTestCase
         $this->expectExceptionMessage(
             'handleException() :: AMQPQueue::purge() :: ' .
             'Library Exception<PhpAmqpLib\Exception\AMQPIOException> -> AMQPQueueException :: ' .
-            'message(Bang!)'
+            'message(Bang!) isConsumption(no)'
         );
 
         $this->amqpQueue->purge();

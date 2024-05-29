@@ -40,8 +40,12 @@ class ExceptionHandler implements ExceptionHandlerInterface
     /**
      * @inheritDoc
      */
-    public function handleException(Exception $libraryException, string $exceptionClass, string $methodName): never
-    {
+    public function handleException(
+        Exception $libraryException,
+        string $exceptionClass,
+        string $methodName,
+        bool $isConsumption = false
+    ): never {
         if (!$libraryException instanceof AMQPExceptionInterface) {
             throw new InvalidArgumentException(sprintf(
                 'Expected an instance of "%s" but got "%s"',
@@ -58,9 +62,18 @@ class ExceptionHandler implements ExceptionHandlerInterface
             ));
         }
 
-        // Log details of the internal php-amqplib exception,
-        // that cannot be included in the php-amqp/ext-amqp -compatible exception.
-        $this->logger->logAmqplibException($methodName, $libraryException);
+        $isTimeout = $libraryException instanceof AMQPTimeoutException;
+
+        if (!$isTimeout || !$isConsumption) {
+            /*
+             * Log details of the internal php-amqplib exception,
+             * that cannot be included in the php-amqp/ext-amqp -compatible exception.
+             *
+             * Note that we don't log timeouts during consumption as this can be an expected behaviour,
+             * when used to ensure consumption does not hang indefinitely.
+             */
+            $this->logger->logAmqplibException($methodName, $libraryException);
+        }
 
         if ($libraryException instanceof AMQPProtocolException) {
             throw new $exceptionClass(
@@ -74,7 +87,7 @@ class ExceptionHandler implements ExceptionHandlerInterface
             );
         }
 
-        if ($libraryException instanceof AMQPTimeoutException) {
+        if ($isTimeout) {
             throw new $exceptionClass(
                 // This message is as per the reference implementation.
                 'Consumer timeout exceed',

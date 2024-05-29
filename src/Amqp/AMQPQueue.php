@@ -332,7 +332,12 @@ class AMQPQueue
                 $consuming = false;
             } catch (AMQPExceptionInterface $exception) {
                 /** @var AMQPExceptionInterface&Exception $exception */
-                $this->exceptionHandler->handleException($exception, AMQPQueueException::class, __METHOD__);
+                $this->exceptionHandler->handleException(
+                    $exception,
+                    AMQPQueueException::class,
+                    __METHOD__,
+                    isConsumption: true
+                );
             }
         }
 

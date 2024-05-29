@@ -110,6 +110,44 @@ class ExceptionHandlerTest extends AbstractTestCase
         $this->handler->handleException($exception, AMQPQueueException::class, 'myMethod');
     }
 
+    public function testHandleExceptionLogsAmqpTimeoutExceptionViaLoggerWhenNotDuringConsumption(): void
+    {
+        $exception = new AMQPTimeoutException('AMQP timeout from php-amqplib');
+
+        $this->logger->expects()
+            ->logAmqplibException('myMethod', $exception)
+            ->once();
+
+        try {
+            $this->handler->handleException($exception, AMQPQueueException::class, 'myMethod');
+        } catch (AMQPQueueException) {}
+    }
+
+    public function testHandleExceptionDoesNotLogAmqpTimeoutExceptionViaLoggerWhenDuringConsumption(): void
+    {
+        $exception = new AMQPTimeoutException('AMQP timeout from php-amqplib');
+
+        $this->logger->expects('logAmqplibException')
+            ->never();
+
+        try {
+            $this->handler->handleException($exception, AMQPQueueException::class, 'myMethod', isConsumption: true);
+        } catch (AMQPQueueException) {}
+    }
+
+    public function testHandleExceptionLogsNonTimeoutAmqpExceptionViaLoggerWhenDuringConsumption(): void
+    {
+        $exception = new AMQPProtocolException(21, 'my reply text', [21, 23]);
+
+        $this->logger->expects()
+            ->logAmqplibException('myMethod', $exception)
+            ->once();
+
+        try {
+            $this->handler->handleException($exception, AMQPQueueException::class, 'myMethod', isConsumption: true);
+        } catch (AMQPQueueException) {}
+    }
+
     public function testHandleExceptionRaisesTrimmedConnectionExceptionOnOtherAmqpException(): void
     {
         $exception = new AMQPIOException('my message that ends in extra data(21, 45)');

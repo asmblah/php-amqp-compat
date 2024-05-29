@@ -29,6 +29,12 @@ interface ExceptionHandlerInterface
      * Handles the given exception for an AMQP operation, usually by raising a different exception.
      *
      * @param class-string<AMQPException> $exceptionClass
+     * @throws AMQPException
      */
-    public function handleException(Exception $libraryException, string $exceptionClass, string $methodName): never;
+    public function handleException(
+        Exception $libraryException,
+        string $exceptionClass,
+        string $methodName,
+        bool $isConsumption = false
+    ): never;
 }
