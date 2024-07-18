@@ -11,7 +11,7 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Tests\Functional\Amqp;
+namespace Asmblah\PhpAmqpCompat\Tests\Functional\Amqp\Amqp;
 
 use AMQPChannel;
 use AMQPConnection;
@@ -26,19 +26,20 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
 /**
- * Class ConsumerTest.
+ * Class AMQPQueueTest.
  *
- * Checks consumption against a real AMQP broker server.
+ * Tests AMQPQueue against a real AMQP broker server.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-class ConsumerTest extends AbstractFunctionalTestCase
+class AMQPQueueTest extends AbstractFunctionalTestCase
 {
     private AMQPChannel $amqpChannel;
     private AMQPConnection $amqpConnection;
     private AMQPExchange $amqpExchange;
     private AMQPQueue $amqpQueue;
     private LoggerInterface $logger;
+    private float $uniqueTestIdentifier;
 
     public function setUp(): void
     {
@@ -49,20 +50,8 @@ class ConsumerTest extends AbstractFunctionalTestCase
         $this->resetAmqpManager();
         AmqpManager::setConfiguration(new Configuration($this->logger));
 
-        $this->amqpConnection = new AMQPConnection();
-        $this->amqpConnection->connect();
-        $this->amqpChannel = new AMQPChannel($this->amqpConnection);
-
-        $this->amqpExchange = new AMQPExchange($this->amqpChannel);
-        $this->amqpExchange->setName('exchange-' . microtime(true));
-        $this->amqpExchange->setType(AMQP_EX_TYPE_FANOUT);
-        $this->amqpExchange->declareExchange();
-
-        $this->amqpQueue = new AMQPQueue($this->amqpChannel);
-        $this->amqpQueue->setName('queue-' . microtime(true));
-        $this->amqpQueue->setFlags(AMQP_NOPARAM);
-        $this->amqpQueue->declareQueue();
-        $this->amqpQueue->bind($this->amqpExchange->getName());
+        $this->uniqueTestIdentifier = microtime(true);
+        $this->connect();
     }
 
     public function tearDown(): void
@@ -75,7 +64,7 @@ class ConsumerTest extends AbstractFunctionalTestCase
         $this->resetAmqpManager();
     }
 
-    public function testMessageCanBePublishedAndConsumed(): void
+    public function testConsumeCanConsumeAPublishedMessage(): void
     {
         /** @var AMQPEnvelope|null $consumedEnvelope */
         $consumedEnvelope = null;
@@ -100,7 +89,7 @@ class ConsumerTest extends AbstractFunctionalTestCase
         static::assertSame($this->amqpQueue, $consumedEnvelopeQueue);
     }
 
-    public function testConsumptionStopsWhenNoMessageIsReceivedBeforeReadTimeout(): void
+    public function testConsumeConsumptionStopsWhenNoMessageIsReceivedBeforeReadTimeout(): void
     {
         // Note the `->consume()` call below is expected to hang for ~2 seconds.
         $this->amqpConnection->setReadTimeout(2);
@@ -114,5 +103,44 @@ class ConsumerTest extends AbstractFunctionalTestCase
                 $this->fail('Consumer should not be invoked');
             }
         );
+    }
+
+    public function testRejectNegativelyAcknowledgesTheMessage(): void
+    {
+        // First publish...
+        $this->amqpExchange->publish('my message body');
+
+        // Then immediately fetch.
+        $fetchedEnvelope = $this->amqpQueue->get();
+
+        static::assertInstanceOf(AMQPEnvelope::class, $fetchedEnvelope);
+        // Note that `basic.reject` is asynchronous and so in theory this test may have a race condition.
+        static::assertTrue($this->amqpQueue->reject($fetchedEnvelope->getDeliveryTag()));
+        $this->reconnect();
+        static::assertFalse($this->amqpQueue->get());
+    }
+
+    private function connect(): void
+    {
+        $this->amqpConnection = new AMQPConnection();
+        $this->amqpConnection->connect();
+        $this->amqpChannel = new AMQPChannel($this->amqpConnection);
+
+        $this->amqpExchange = new AMQPExchange($this->amqpChannel);
+        $this->amqpExchange->setName('exchange-' . $this->uniqueTestIdentifier);
+        $this->amqpExchange->setType(AMQP_EX_TYPE_FANOUT);
+        $this->amqpExchange->declareExchange();
+
+        $this->amqpQueue = new AMQPQueue($this->amqpChannel);
+        $this->amqpQueue->setName('queue-' . $this->uniqueTestIdentifier);
+        $this->amqpQueue->setFlags(AMQP_NOPARAM);
+        $this->amqpQueue->declareQueue();
+        $this->amqpQueue->bind($this->amqpExchange->getName());
+    }
+
+    private function reconnect(): void
+    {
+        $this->amqpConnection->disconnect();
+        $this->connect();
     }
 }

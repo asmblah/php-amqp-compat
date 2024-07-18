@@ -673,16 +673,38 @@ class AMQPQueue
      * flag are not eligible.
      *
      * @param integer $deliveryTag Delivery tag of the message to reject.
-     * @param integer $flags        AMQP_REQUEUE to requeue the message(s).
+     * @param integer $flags AMQP_REQUEUE to requeue the message(s).
      *
-     * @return boolean
+     * @return bool
      *
      * @throws AMQPConnectionException If the connection to the broker was lost.
-     * @throws AMQPChannelException    If the channel is not open.
+     * @throws AMQPChannelException If the channel is not open.
      */
     public function reject(int $deliveryTag, int $flags = AMQP_NOPARAM): bool
     {
-        throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
+        $amqplibChannel = $this->checkChannelOrThrow('Could not reject message.');
+
+        $this->logger->debug(__METHOD__ . '(): Message rejection attempt', [
+            'delivery_tag' => $deliveryTag,
+            'flags' => $flags,
+            'queue' => $this->queueName,
+        ]);
+
+        try {
+            // Note from reference implementation: `basic.reject` is asynchronous,
+            // and thus will not indicate failure if something goes wrong on the broker.
+            $amqplibChannel->basic_reject(
+                $deliveryTag,
+                (bool) ($flags & AMQP_REQUEUE)
+            );
+        } catch (AMQPExceptionInterface $exception) {
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, AMQPQueueException::class, __METHOD__);
+        }
+
+        $this->logger->debug(__METHOD__ . '(): Message rejected');
+
+        return true;
     }
 
     /**
