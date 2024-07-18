@@ -12,7 +12,8 @@ jobs:
 
     services:
       rabbitmq:
-        image: rabbitmq:3.5.7
+        image: rabbitmq:3.6.16-alpine
+
         ports:
           - 5671:5671
           - 5672:5672
