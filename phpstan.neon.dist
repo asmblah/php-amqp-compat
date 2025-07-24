@@ -1,5 +1,6 @@
 includes:
     - vendor/phpstan/phpstan-mockery/extension.neon
+    - phpstan-baseline.neon.dist
 
 parameters:
     level: 6

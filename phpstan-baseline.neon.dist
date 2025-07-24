@@ -1,0 +1,156 @@
+parameters:
+	ignoreErrors:
+		-
+			message: "#^Result of method AMQPQueue\\:\\:reject\\(\\) \\(void\\) is used\\.$#"
+			count: 1
+			path: tests/Functional/Amqp/Amqp/AMQPQueueTest.php
+
+		-
+			message: "#^Parameter \\#1 \\$timeout of method AMQPConnection\\:\\:setReadTimeout\\(\\) expects int, float given\\.$#"
+			count: 1
+			path: tests/Functional/Amqp/ConnectionTimeoutTuningTest.php
+
+		-
+			message: "#^Strict comparison using \\=\\=\\= between int\\<1, max\\> and 0 will always evaluate to false\\.$#"
+			count: 1
+			path: tests/Functional/Reference/Util/bootstrap.php
+
+		-
+			message: "#^Result of method AMQPChannel\\:\\:basicRecover\\(\\) \\(void\\) is used\\.$#"
+			count: 1
+			path: tests/Unit/Amqp/AMQPChannelTest.php
+
+		-
+			message: "#^Result of method AMQPChannel\\:\\:commitTransaction\\(\\) \\(void\\) is used\\.$#"
+			count: 1
+			path: tests/Unit/Amqp/AMQPChannelTest.php
+
+		-
+			message: "#^Result of method AMQPChannel\\:\\:qos\\(\\) \\(void\\) is used\\.$#"
+			count: 2
+			path: tests/Unit/Amqp/AMQPChannelTest.php
+
+		-
+			message: "#^Result of method AMQPChannel\\:\\:rollbackTransaction\\(\\) \\(void\\) is used\\.$#"
+			count: 1
+			path: tests/Unit/Amqp/AMQPChannelTest.php
+
+		-
+			message: "#^Result of method AMQPChannel\\:\\:setPrefetchCount\\(\\) \\(void\\) is used\\.$#"
+			count: 1
+			path: tests/Unit/Amqp/AMQPChannelTest.php
+
+		-
+			message: "#^Result of method AMQPChannel\\:\\:setPrefetchSize\\(\\) \\(void\\) is used\\.$#"
+			count: 1
+			path: tests/Unit/Amqp/AMQPChannelTest.php
+
+		-
+			message: "#^Result of method AMQPChannel\\:\\:startTransaction\\(\\) \\(void\\) is used\\.$#"
+			count: 1
+			path: tests/Unit/Amqp/AMQPChannelTest.php
+
+		-
+			message: "#^Parameter \\#1 \\$timeout of method AMQPConnection\\:\\:setReadTimeout\\(\\) expects int, float given\\.$#"
+			count: 3
+			path: tests/Unit/Amqp/AMQPConnectionTest.php
+
+		-
+			message: "#^Parameter \\#1 \\$timeout of method AMQPConnection\\:\\:setTimeout\\(\\) expects int, float given\\.$#"
+			count: 2
+			path: tests/Unit/Amqp/AMQPConnectionTest.php
+
+		-
+			message: "#^Result of method AMQPConnection\\:\\:connect\\(\\) \\(void\\) is used\\.$#"
+			count: 1
+			path: tests/Unit/Amqp/AMQPConnectionTest.php
+
+		-
+			message: "#^Result of method AMQPConnection\\:\\:disconnect\\(\\) \\(void\\) is used\\.$#"
+			count: 1
+			path: tests/Unit/Amqp/AMQPConnectionTest.php
+
+		-
+			message: "#^Result of method AMQPConnection\\:\\:setReadTimeout\\(\\) \\(void\\) is used\\.$#"
+			count: 3
+			path: tests/Unit/Amqp/AMQPConnectionTest.php
+
+		-
+			message: "#^Parameter \\#1 \\$exchangeName of method AMQPExchange\\:\\:delete\\(\\) expects string, null given\\.$#"
+			count: 1
+			path: tests/Unit/Amqp/AMQPExchangeTest.php
+
+		-
+			message: "#^Parameter \\#2 \\$value of method AMQPExchange\\:\\:setArgument\\(\\) expects bool\\|float\\|int\\|string\\|null, stdClass given\\.$#"
+			count: 1
+			path: tests/Unit/Amqp/AMQPExchangeTest.php
+
+		-
+			message: "#^Result of method AMQPExchange\\:\\:bind\\(\\) \\(void\\) is used\\.$#"
+			count: 1
+			path: tests/Unit/Amqp/AMQPExchangeTest.php
+
+		-
+			message: "#^Result of method AMQPExchange\\:\\:unbind\\(\\) \\(void\\) is used\\.$#"
+			count: 1
+			path: tests/Unit/Amqp/AMQPExchangeTest.php
+
+		-
+			message: "#^Parameter \\#2 \\$value of method AMQPQueue\\:\\:setArgument\\(\\) expects AMQPDecimal\\|AMQPTimestamp\\|AMQPValue\\|array\\|bool\\|float\\|int\\|string\\|null, stdClass given\\.$#"
+			count: 1
+			path: tests/Unit/Amqp/AMQPQueueTest.php
+
+		-
+			message: "#^Result of method AMQPQueue\\:\\:ack\\(\\) \\(void\\) is used\\.$#"
+			count: 1
+			path: tests/Unit/Amqp/AMQPQueueTest.php
+
+		-
+			message: "#^Result of method AMQPQueue\\:\\:nack\\(\\) \\(void\\) is used\\.$#"
+			count: 1
+			path: tests/Unit/Amqp/AMQPQueueTest.php
+
+		-
+			message: "#^Parameter \\#1 \\$timestamp of class AMQPTimestamp constructor expects float\\|int, true given\\.$#"
+			count: 1
+			path: tests/Unit/Amqp/AMQPTimestampTest.php
+
+		-
+			message: "#^Parameter \\#2 \\$exceptionClass of method Asmblah\\\\PhpAmqpCompat\\\\Driver\\\\Amqplib\\\\Exception\\\\ExceptionHandler\\:\\:handleException\\(\\) expects class\\-string\\<AMQPException\\>, string given\\.$#"
+			count: 1
+			path: tests/Unit/AmqpCompat/Driver/Amqplib/Exception/ExceptionHandlerTest.php
+
+		-
+			message: "#^Parameter \\#2 \\$attributes of method Asmblah\\\\PhpAmqpCompat\\\\Driver\\\\Amqplib\\\\Transformer\\\\MessageTransformer\\:\\:transformEnvelope\\(\\) expects array\\{app_id\\?\\: string, content_encoding\\?\\: string, content_type\\?\\: string, delivery_mode\\?\\: string, expiration\\?\\: string, headers\\?\\: array, message_id\\?\\: string, priority\\?\\: string, \\.\\.\\.\\}, array\\{app_id\\: 1234\\} given\\.$#"
+			count: 1
+			path: tests/Unit/AmqpCompat/Driver/Amqplib/Transformer/MessageTransformerTest.php
+
+		-
+			message: "#^Parameter \\#2 \\$attributes of method Asmblah\\\\PhpAmqpCompat\\\\Driver\\\\Amqplib\\\\Transformer\\\\MessageTransformer\\:\\:transformEnvelope\\(\\) expects array\\{app_id\\?\\: string, content_encoding\\?\\: string, content_type\\?\\: string, delivery_mode\\?\\: string, expiration\\?\\: string, headers\\?\\: array, message_id\\?\\: string, priority\\?\\: string, \\.\\.\\.\\}, array\\{content_encoding\\: 1234\\} given\\.$#"
+			count: 1
+			path: tests/Unit/AmqpCompat/Driver/Amqplib/Transformer/MessageTransformerTest.php
+
+		-
+			message: "#^Parameter \\#2 \\$attributes of method Asmblah\\\\PhpAmqpCompat\\\\Driver\\\\Amqplib\\\\Transformer\\\\MessageTransformer\\:\\:transformEnvelope\\(\\) expects array\\{app_id\\?\\: string, content_encoding\\?\\: string, content_type\\?\\: string, delivery_mode\\?\\: string, expiration\\?\\: string, headers\\?\\: array, message_id\\?\\: string, priority\\?\\: string, \\.\\.\\.\\}, array\\{content_type\\: 123\\} given\\.$#"
+			count: 1
+			path: tests/Unit/AmqpCompat/Driver/Amqplib/Transformer/MessageTransformerTest.php
+
+		-
+			message: "#^Parameter \\#2 \\$attributes of method Asmblah\\\\PhpAmqpCompat\\\\Driver\\\\Amqplib\\\\Transformer\\\\MessageTransformer\\:\\:transformEnvelope\\(\\) expects array\\{app_id\\?\\: string, content_encoding\\?\\: string, content_type\\?\\: string, delivery_mode\\?\\: string, expiration\\?\\: string, headers\\?\\: array, message_id\\?\\: string, priority\\?\\: string, \\.\\.\\.\\}, array\\{message_id\\: 543\\} given\\.$#"
+			count: 1
+			path: tests/Unit/AmqpCompat/Driver/Amqplib/Transformer/MessageTransformerTest.php
+
+		-
+			message: "#^Parameter \\#2 \\$attributes of method Asmblah\\\\PhpAmqpCompat\\\\Driver\\\\Amqplib\\\\Transformer\\\\MessageTransformer\\:\\:transformEnvelope\\(\\) expects array\\{app_id\\?\\: string, content_encoding\\?\\: string, content_type\\?\\: string, delivery_mode\\?\\: string, expiration\\?\\: string, headers\\?\\: array, message_id\\?\\: string, priority\\?\\: string, \\.\\.\\.\\}, array\\{reply_to\\: 543\\} given\\.$#"
+			count: 1
+			path: tests/Unit/AmqpCompat/Driver/Amqplib/Transformer/MessageTransformerTest.php
+
+		-
+			message: "#^Parameter \\#2 \\$attributes of method Asmblah\\\\PhpAmqpCompat\\\\Driver\\\\Amqplib\\\\Transformer\\\\MessageTransformer\\:\\:transformEnvelope\\(\\) expects array\\{app_id\\?\\: string, content_encoding\\?\\: string, content_type\\?\\: string, delivery_mode\\?\\: string, expiration\\?\\: string, headers\\?\\: array, message_id\\?\\: string, priority\\?\\: string, \\.\\.\\.\\}, array\\{type\\: 654\\} given\\.$#"
+			count: 1
+			path: tests/Unit/AmqpCompat/Driver/Amqplib/Transformer/MessageTransformerTest.php
+
+		-
+			message: "#^Property class@anonymous/tests/Unit/Tests/Functional/Reference/Util/ClassEmulator/DelegatingClassEmulatorTest\\.php\\:237\\:\\:\\$myPrivateProp is never read, only written\\.$#"
+			count: 1
+			path: tests/Unit/Tests/Functional/Reference/Util/ClassEmulator/DelegatingClassEmulatorTest.php

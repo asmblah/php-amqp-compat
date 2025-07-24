@@ -130,16 +130,17 @@ class ReferenceImplementationTest extends AbstractFunctionalTestCase
         exec($command, $stdoutLines, $exitCode);
         $stdout = implode("\n", $stdoutLines);
 
-        if (preg_match('/^Tests skipped   :    1 \(100\.0%\)/m', $stdout)) {
+        if (preg_match('/^Tests skipped\s*:\s*1\s*\(100\.0%\)/m', $stdout)) {
             // run-tests.php reported a skipped test.
             $this->markTestSkipped('Test skipped, stdout was: ' . $stdout);
         }
 
-        if (!preg_match('/^Tests passed    :    1 \(100\.0%\)/m', $stdout)) {
-            // run-tests.php reported a failed test.
-            $this->fail('Test failed or warned, stdout was: ' . $stdout);
-        }
-
+        // Ensure run-tests.php did not report a failed test.
+        static::assertMatchesRegularExpression(
+            '/^Tests passed\s*:\s*1\s*\(100\.0%\)/m',
+            $stdout,
+            'Test failed or warned, stdout was: ' . $stdout
+        );
         static::assertSame(0, $exitCode, 'Expected exit code 0, stdout was: ' . $stdout);
     }
 

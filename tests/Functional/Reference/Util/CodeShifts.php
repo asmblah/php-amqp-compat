@@ -69,8 +69,8 @@ class CodeShifts
                 }
             ),
             new MultipleFilter([
-                new FileFilter('*.php'),
-                new FileFilter('*.php.inc'),
+                new FileFilter('**/*.php'),
+                new FileFilter('**/*.php.inc'),
             ])
         );
 
@@ -104,8 +104,8 @@ class CodeShifts
                 }
             ),
             new MultipleFilter([
-                new FileFilter('*.php'),
-                new FileFilter('*.php.inc'),
+                new FileFilter('**/*.php'),
+                new FileFilter('**/*.php.inc'),
             ])
         );
 
@@ -123,8 +123,8 @@ class CodeShifts
                 }
             ),
             new MultipleFilter([
-                new FileFilter('*.php'),
-                new FileFilter('*.php.inc'),
+                new FileFilter('**/*.php'),
+                new FileFilter('**/*.php.inc'),
             ])
         );
     }

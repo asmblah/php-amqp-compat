@@ -67,11 +67,6 @@ class AMQPTimestampTest extends AbstractTestCase
             'AMQPTimestamp::__construct(): Argument #1 ($timestamp) must be of type float, boolean given'
         );
 
-        /*
-         * Ignore this type error as we are triggering it deliberately.
-         *
-         * @phpstan-ignore-next-line
-         */
         new AMQPTimestamp(true /* Boolean is invalid. */);
     }
 
