@@ -58,13 +58,6 @@ class ConnectionTimeoutTuningTest extends AbstractFunctionalTestCase
         $amqpConnection = new AMQPConnection(['read_timeout' => 10]);
         $amqpConnection->connect();
 
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $timeout of method AMQPConnection::setReadTimeout() expects int, float given."
-         *
-         * @phpstan-ignore-next-line
-         */
         $amqpConnection->setReadTimeout(18.5);
 
         static::assertTrue($amqpConnection->isConnected());

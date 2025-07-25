@@ -143,13 +143,6 @@ class AMQPQueueTest extends AbstractTestCase
             ])
             ->once();
 
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::ack() expects string, int given."
-         *
-         * @phpstan-ignore-next-line
-         */
         $this->amqpQueue->ack(123);
     }
 
@@ -159,13 +152,6 @@ class AMQPQueueTest extends AbstractTestCase
             ->basic_ack(321, false)
             ->once();
 
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::ack() expects string, int given."
-         *
-         * @phpstan-ignore-next-line
-         */
         $this->amqpQueue->ack(321);
     }
 
@@ -175,13 +161,6 @@ class AMQPQueueTest extends AbstractTestCase
             ->basic_ack(321, true)
             ->once();
 
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::ack() expects string, int given."
-         *
-         * @phpstan-ignore-next-line
-         */
         $this->amqpQueue->ack(321, AMQP_MULTIPLE);
     }
 
@@ -198,25 +177,11 @@ class AMQPQueueTest extends AbstractTestCase
             'message(Bang!) isConsumption(no)'
         );
 
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::ack() expects string, int given."
-         *
-         * @phpstan-ignore-next-line
-         */
         $this->amqpQueue->ack(123);
     }
 
     public function testAckReturnsTrue(): void
     {
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::ack() expects string, int given."
-         *
-         * @phpstan-ignore-next-line
-         */
         static::assertTrue($this->amqpQueue->ack(321));
     }
 
@@ -230,13 +195,6 @@ class AMQPQueueTest extends AbstractTestCase
             ->debug('AMQPQueue::ack(): Message acknowledged')
             ->once();
 
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::ack() expects string, int given."
-         *
-         * @phpstan-ignore-next-line
-         */
         $this->amqpQueue->ack(123);
     }
 
@@ -987,13 +945,6 @@ class AMQPQueueTest extends AbstractTestCase
             ])
             ->once();
 
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
-         *
-         * @phpstan-ignore-next-line
-         */
         $this->amqpQueue->nack(123);
     }
 
@@ -1003,13 +954,6 @@ class AMQPQueueTest extends AbstractTestCase
             ->basic_nack(321, false, false)
             ->once();
 
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
-         *
-         * @phpstan-ignore-next-line
-         */
         $this->amqpQueue->nack(321);
     }
 
@@ -1019,13 +963,6 @@ class AMQPQueueTest extends AbstractTestCase
             ->basic_nack(321, true, false)
             ->once();
 
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
-         *
-         * @phpstan-ignore-next-line
-         */
         $this->amqpQueue->nack(321, AMQP_MULTIPLE);
     }
 
@@ -1035,13 +972,6 @@ class AMQPQueueTest extends AbstractTestCase
             ->basic_nack(321, false, true)
             ->once();
 
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
-         *
-         * @phpstan-ignore-next-line
-         */
         $this->amqpQueue->nack(321, AMQP_REQUEUE);
     }
 
@@ -1058,25 +988,11 @@ class AMQPQueueTest extends AbstractTestCase
             'message(Bang!) isConsumption(no)'
         );
 
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
-         *
-         * @phpstan-ignore-next-line
-         */
         $this->amqpQueue->nack(123);
     }
 
     public function testNackReturnsTrue(): void
     {
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
-         *
-         * @phpstan-ignore-next-line
-         */
         static::assertTrue($this->amqpQueue->nack(321));
     }
 
@@ -1090,13 +1006,6 @@ class AMQPQueueTest extends AbstractTestCase
             ->debug('AMQPQueue::nack(): Message negatively acknowledged')
             ->once();
 
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $deliveryTag of method AMQPQueue::nack() expects string, int given."
-         *
-         * @phpstan-ignore-next-line
-         */
         $this->amqpQueue->nack(123);
     }
 

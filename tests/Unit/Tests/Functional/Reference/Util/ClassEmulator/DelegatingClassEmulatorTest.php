@@ -236,9 +236,6 @@ EOS;
     {
         $object = new class {
             public int $myPublicProp = 21;
-            /*
-             * @phpstan-ignore-next-line Ignore the "unused" private property, we read it with reflection.
-             */
             private string $myPrivateProp = 'my value';
         };
 

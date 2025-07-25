@@ -525,13 +525,6 @@ class AMQPConnectionTest extends AbstractTestCase
             ->setReadTimeout(18.05)
             ->once();
 
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $timeout of method AMQPConnection::setReadTimeout() expects int, float given."
-         *
-         * @phpstan-ignore-next-line
-         */
         static::assertTrue($this->amqpConnection->setReadTimeout(18.05));
     }
 
@@ -542,13 +535,6 @@ class AMQPConnectionTest extends AbstractTestCase
             ->andThrow(new TransportConfigurationFailedException());
         $this->amqpConnection->connect();
 
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $timeout of method AMQPConnection::setReadTimeout() expects int, float given."
-         *
-         * @phpstan-ignore-next-line
-         */
         static::assertFalse($this->amqpConnection->setReadTimeout(18.05));
     }
 
@@ -558,13 +544,6 @@ class AMQPConnectionTest extends AbstractTestCase
             ->setReadTimeout(18.05)
             ->once();
 
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $timeout of method AMQPConnection::setReadTimeout() expects int, float given."
-         *
-         * @phpstan-ignore-next-line
-         */
         static::assertTrue($this->amqpConnection->setReadTimeout(18.05));
     }
 
@@ -574,13 +553,6 @@ class AMQPConnectionTest extends AbstractTestCase
             ->setReadTimeout(12.34)
             ->once();
 
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $timeout of method AMQPConnection::setTimeout() expects int, float given."
-         *
-         * @phpstan-ignore-next-line
-         */
         $this->amqpConnection->setTimeout(12.34);
     }
 
@@ -596,13 +568,6 @@ class AMQPConnectionTest extends AbstractTestCase
             )
             ->once();
 
-        /*
-         * TODO: Fix whatever is causing PHPStan to wrongly raise a failure here:
-         *
-         * "phpstan: Parameter #1 $timeout of method AMQPConnection::setTimeout() expects int, float given."
-         *
-         * @phpstan-ignore-next-line
-         */
         $this->amqpConnection->setTimeout(12.34);
     }
 

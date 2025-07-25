@@ -71,7 +71,7 @@ class ExceptionHandlerTest extends AbstractTestCase
 
         $this->handler->handleException(
             $exception,
-            RuntimeException::class, // @phpstan-ignore-line Due to intentional invalid class being given.
+            RuntimeException::class,
             'myMethod'
         );
     }

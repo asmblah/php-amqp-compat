@@ -440,7 +440,6 @@ class AMQPChannelTest extends AbstractTestCase
             ])
             ->once();
 
-        // @phpstan-ignore-next-line
         $this->amqpChannel->qos($prefetchSize, $prefetchCount, $global);
     }
 
@@ -453,7 +452,6 @@ class AMQPChannelTest extends AbstractTestCase
             ->basic_qos($prefetchSize, $prefetchCount, $global)
             ->once();
 
-        // @phpstan-ignore-next-line
         static::assertTrue($this->amqpChannel->qos($prefetchSize, $prefetchCount, $global));
     }
 
@@ -481,7 +479,6 @@ class AMQPChannelTest extends AbstractTestCase
             'message(my text)'
         );
 
-        // @phpstan-ignore-next-line
         $this->amqpChannel->qos($prefetchSize, $prefetchCount, $global);
     }
 

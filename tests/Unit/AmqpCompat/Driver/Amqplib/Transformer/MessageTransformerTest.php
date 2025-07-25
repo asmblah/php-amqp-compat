@@ -96,9 +96,6 @@ class MessageTransformerTest extends AbstractTestCase
 
     public function testTransformEnvelopeCastsAppIdToStringWhenSpecified(): void
     {
-        /*
-         * @phpstan-ignore-next-line Ignore the deliberate type error.
-         */
         $amqplibMessage = $this->transformer->transformEnvelope('my message body', [
             'app_id' => 1234,
         ]);
@@ -108,9 +105,6 @@ class MessageTransformerTest extends AbstractTestCase
 
     public function testTransformEnvelopeCastsContentEncodingToStringWhenSpecified(): void
     {
-        /*
-         * @phpstan-ignore-next-line Ignore the deliberate type error.
-         */
         $amqplibMessage = $this->transformer->transformEnvelope('my message body', [
             'content_encoding' => 1234,
         ]);
@@ -138,9 +132,6 @@ class MessageTransformerTest extends AbstractTestCase
 
     public function testTransformEnvelopeCastsMessageIdToStringWhenSpecified(): void
     {
-        /*
-         * @phpstan-ignore-next-line Ignore the deliberate type error.
-         */
         $amqplibMessage = $this->transformer->transformEnvelope('my message body', [
             'message_id' => 543,
         ]);
@@ -159,9 +150,6 @@ class MessageTransformerTest extends AbstractTestCase
 
     public function testTransformEnvelopeCastsReplyToToStringWhenSpecified(): void
     {
-        /*
-         * @phpstan-ignore-next-line Ignore the deliberate type error.
-         */
         $amqplibMessage = $this->transformer->transformEnvelope('my message body', [
             'reply_to' => 543,
         ]);
@@ -180,9 +168,6 @@ class MessageTransformerTest extends AbstractTestCase
 
     public function testTransformEnvelopeCastsTypeToStringWhenSpecified(): void
     {
-        /*
-         * @phpstan-ignore-next-line Ignore the deliberate type error.
-         */
         $amqplibMessage = $this->transformer->transformEnvelope('my message body', [
             'type' => 654,
         ]);
@@ -199,9 +184,6 @@ class MessageTransformerTest extends AbstractTestCase
 
     public function testTransformEnvelopeCastsContentTypeToStringWhenSpecified(): void
     {
-        /*
-         * @phpstan-ignore-next-line Ignore the deliberate type error.
-         */
         $amqplibMessage = $this->transformer->transformEnvelope('my message body', [
             'content_type' => 123,
         ]);
