@@ -98,13 +98,16 @@ class ReferenceImplementationTest extends AbstractFunctionalTestCase
             '--show-diff',
 
             // Don't output ANSI colour escapes.
-            '--no-color'
+            '--no-color',
+
+            // Allow extra time for connection/channel opening tests.
+            '--set-timeout 120'
         ];
 
         $runTestsPath = realpath(__DIR__ . '/../../../var') . '/run-tests.php';
 
         if (!file_exists($runTestsPath)) {
-            $phpBasePath = dirname(dirname(PHP_BINARY));
+            $phpBasePath = dirname(PHP_BINARY, 2);
             $runTestsPaths = glob($phpBasePath . '/lib/php{,/**}/build/run-tests.php', GLOB_BRACE);
 
             if (empty($runTestsPaths)) {

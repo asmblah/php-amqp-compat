@@ -74,7 +74,7 @@ class ConnectionFailureTest extends AbstractFunctionalTestCase
                         'stream_socket_client(): Unable to connect to tcp://my.invalid.host:5672 ' .
                         '(php_network_getaddresses: getaddrinfo for my.invalid.host failed'
                     ),
-                    'code' => 0,
+                    'code' => 2,
                 ])
             )
             ->once();
