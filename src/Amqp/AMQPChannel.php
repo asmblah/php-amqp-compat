@@ -613,7 +613,7 @@ class AMQPChannel
      * and should return boolean false when wait loop should be canceled.
      *
      */
-    public function setReturnCallback(callable $returnCallback = null): void
+    public function setReturnCallback(?callable $returnCallback = null): void
     {
         throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
     }
