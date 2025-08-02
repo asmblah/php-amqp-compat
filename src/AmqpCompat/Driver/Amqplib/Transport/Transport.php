@@ -73,6 +73,8 @@ class Transport implements TransportInterface
             );
         }
 
+        // Work around the fact that, unfortunately, there is no public API
+        // for dynamically modifying the read timeout.
         Closure::bind(function () use ($seconds) {
             $this->read_timeout = $seconds;
         }, $io, StreamIO::class)();

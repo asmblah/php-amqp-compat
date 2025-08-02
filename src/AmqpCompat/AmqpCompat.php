@@ -14,7 +14,6 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat;
 
 use Asmblah\PhpAmqpCompat\Configuration\DefaultConfiguration;
-use Asmblah\PhpCodeShift\ShiftPackageInterface;
 use InvalidArgumentException;
 use Nytris\Core\Package\PackageContextInterface;
 use Nytris\Core\Package\PackageInterface;
