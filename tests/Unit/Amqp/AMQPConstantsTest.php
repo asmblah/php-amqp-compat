@@ -64,7 +64,7 @@ class AMQPConstantsTest extends AbstractTestCase
      */
     public function testAllConstantsAreDefinedMatchingReferenceImplementation(string $constantName): void
     {
-        $referenceImplementationConstants = self::extractConstantsFromCImplementation();
+        $referenceImplementationConstants = $this->extractConstantsFromReferenceImplementation();
 
         static::assertArrayHasKey(
             $constantName,
@@ -120,7 +120,7 @@ class AMQPConstantsTest extends AbstractTestCase
      *
      * @return array<string, mixed>
      */
-    private static function extractConstantsFromCImplementation(): array
+    private function extractConstantsFromReferenceImplementation(): array
     {
         $constants = [];
         $stubsFile = dirname(__DIR__, 3) . '/var/ext/php-amqp/stubs/AMQP.php';
