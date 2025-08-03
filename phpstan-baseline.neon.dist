@@ -1,14 +1,14 @@
 parameters:
 	ignoreErrors:
 		-
+			message: "#^Parameter \\#1 \\$timeout of method AMQPConnection\\:\\:setReadTimeout\\(\\) expects int, float given\\.$#"
+			count: 2
+			path: tests/Functional/Amqp/Amqp/AMQPConnectionTest.php
+
+		-
 			message: "#^Result of method AMQPQueue\\:\\:reject\\(\\) \\(void\\) is used\\.$#"
 			count: 1
 			path: tests/Functional/Amqp/Amqp/AMQPQueueTest.php
-
-		-
-			message: "#^Parameter \\#1 \\$timeout of method AMQPConnection\\:\\:setReadTimeout\\(\\) expects int, float given\\.$#"
-			count: 1
-			path: tests/Functional/Amqp/ConnectionTimeoutTuningTest.php
 
 		-
 			message: "#^Strict comparison using \\=\\=\\= between int\\<1, max\\> and 0 will always evaluate to false\\.$#"

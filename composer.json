@@ -20,7 +20,7 @@
         "php": ">=8.1",
         "ext-sockets": "*",
         "nytris/nytris": "^0.1",
-        "php-amqplib/php-amqplib": "v3.5.4",
+        "php-amqplib/php-amqplib": "v3.7.3",
         "psr/log": "^1|^2|^3"
     },
     "require-dev": {

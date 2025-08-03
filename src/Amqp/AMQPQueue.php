@@ -239,7 +239,7 @@ class AMQPQueue
      * @throws AMQPQueueException       If timeout occurs or queue does not exist.
      */
     public function consume(
-        callable $callback = null,
+        ?callable $callback = null,
         int $flags = AMQP_NOPARAM,
         ?string $consumerTag = null
     ): void {
@@ -784,7 +784,7 @@ class AMQPQueue
      * @throws AMQPChannelException If the channel is not open.
      * @throws AMQPConnectionException If the connection to the broker was lost.
      */
-    public function unbind(string $exchangeName, string $routingKey = null, array $arguments = []): bool
+    public function unbind(string $exchangeName, ?string $routingKey = null, array $arguments = []): bool
     {
         throw new BadMethodCallException(__METHOD__ . ' not yet implemented');
     }
