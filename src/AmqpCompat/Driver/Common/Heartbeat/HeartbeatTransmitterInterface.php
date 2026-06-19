@@ -13,13 +13,14 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Driver\Common\Heartbeat;
 
+use AMQPException;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Scheduler\Heartbeat\HeartbeatSchedulerInterface;
 
 /**
  * Interface HeartbeatTransmitterInterface.
  *
- * Defines the way in which heartbeats are transmitted.
+ * Defines the way in which heartbeats are transmitted periodically.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
@@ -27,6 +28,8 @@ interface HeartbeatTransmitterInterface
 {
     /**
      * Transmits a heartbeat.
+     *
+     * @throws AMQPException
      */
     public function transmit(
         HeartbeatSchedulerInterface $heartbeatScheduler,

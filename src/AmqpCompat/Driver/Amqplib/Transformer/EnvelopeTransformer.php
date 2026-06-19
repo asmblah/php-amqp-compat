@@ -11,10 +11,10 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Bridge\Channel;
+namespace Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer;
 
 use AMQPEnvelope;
-use Asmblah\PhpAmqpCompat\Driver\Common\Processor\ValueProcessorInterface;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Processor\ValueProcessorInterface;
 use LogicException;
 use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
 use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;

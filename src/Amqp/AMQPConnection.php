@@ -16,13 +16,10 @@ use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
+use Asmblah\PhpAmqpCompat\Driver\Common\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Exception\TransportConfigurationFailedException;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
-use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
-use PhpAmqpLib\Connection\AbstractConnection;
-use PhpAmqpLib\Exception\AMQPExceptionInterface;
-use PhpAmqpLib\Exception\AMQPIOException;
 
 /**
  * Class AMQPConnection.
@@ -34,7 +31,6 @@ use PhpAmqpLib\Exception\AMQPIOException;
 class AMQPConnection
 {
     private readonly AmqpIntegrationInterface $amqpIntegration;
-    private ?AbstractConnection $amqplibConnection = null;
     private ?AmqpConnectionBridgeInterface $connectionBridge = null;
     private readonly ConnectionConfigInterface $connectionConfig;
     private readonly ErrorReporterInterface $errorReporter;
@@ -59,7 +55,7 @@ class AMQPConnection
      *      'channel_max' => Specifies the highest channel number that the server permits. 0 means standard extension limit
      *                       (see PHP_AMQP_MAX_CHANNELS constant).
      *      'frame_max'   => The largest frame size that the server proposes for the connection, including frame header
-     *                       and end-byte. 0 means standard extension limit (depends on librabbitmq def.ault frame size limit)
+     *                       and end-byte. 0 means standard extension limit (depends on librabbitmq default frame size limit)
      *      'heartbeat'   => The delay, in seconds, of the connection heartbeat that the server wants.
      *                       0 means the server does not want a heartbeat.
      *
@@ -125,13 +121,12 @@ class AMQPConnection
     }
 
     /**
-     * Checks whether the internal php-amqplib connection is still valid,
+     * Checks whether the internal AMQP driver connection is still valid,
      * clearing the internal connection reference if not.
      */
     private function checkConnection(): void
     {
-        if ($this->amqplibConnection && !$this->amqplibConnection->isConnected()) {
-            $this->amqplibConnection = null;
+        if ($this->connectionBridge && !$this->connectionBridge->isConnected()) {
             $this->connectionBridge = null;
         }
     }
@@ -144,7 +139,7 @@ class AMQPConnection
      */
     public function connect(): bool
     {
-        if ($this->amqplibConnection !== null) {
+        if ($this->connectionBridge !== null) {
             return true; // Already connected.
         }
 
@@ -152,26 +147,9 @@ class AMQPConnection
             'config' => $this->connectionConfig->toLoggableArray(),
         ]);
 
-        try {
-            $this->connectionBridge = $this->amqpIntegration->connect($this->connectionConfig);
-        } catch (AMQPExceptionInterface $exception) {
-            // TODO: Handle errors identically to php-amqp.
-
-            // Log details of the internal php-amqplib exception,
-            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
-            $this->logger->logAmqplibException(__METHOD__, $exception);
-
-            if ($exception instanceof AMQPIOException) {
-                $message = 'Socket error: could not connect to host.';
-            } else {
-                $message = 'Library error: connection closed unexpectedly - Potential login failure.';
-            }
-
-            throw new AMQPConnectionException($message);
-        }
+        $this->connectionBridge = $this->amqpIntegration->connect($this->connectionConfig, __METHOD__);
 
         AmqpBridge::bridgeConnection($this, $this->connectionBridge);
-        $this->amqplibConnection = $this->connectionBridge->getAmqplibConnection();
 
         $this->logger->debug(__METHOD__ . '(): Connected');
 
@@ -188,7 +166,7 @@ class AMQPConnection
     {
         $this->checkConnection();
 
-        if ($this->amqplibConnection === null) {
+        if ($this->connectionBridge === null) {
             $this->logger->debug(__METHOD__ . '(): Cannot disconnect; not connected');
 
             return true; // Nothing to do; not connected anyway.
@@ -198,18 +176,8 @@ class AMQPConnection
 
         // NB: No persistent connection support.
 
-        try {
-            $this->amqplibConnection->close();
-        } catch (AMQPExceptionInterface $exception) {
-            // Log details of the internal php-amqplib exception,
-            // that cannot be included in the php-amqp/ext-amqp -compatible exception.
-            $this->logger->logAmqplibException(__METHOD__, $exception);
+        $this->connectionBridge->disconnect(AMQPConnectionException::class, __METHOD__);
 
-            // TODO: Handle errors identically to php-amqp.
-            throw new AMQPConnectionException(__METHOD__ . '(): Amqplib failure: ' . $exception->getMessage());
-        }
-
-        $this->amqplibConnection = null;
         $this->connectionBridge = null;
 
         return true;
@@ -432,7 +400,7 @@ class AMQPConnection
      */
     public function isConnected(): bool
     {
-        return $this->amqplibConnection !== null && $this->amqplibConnection->isConnected();
+        return $this->connectionBridge !== null && $this->connectionBridge->isConnected();
     }
 
     /**
@@ -662,9 +630,10 @@ class AMQPConnection
             );
         }
 
-        if ($this->amqplibConnection !== null && $this->amqplibConnection->isConnected()) {
+        if ($this->connectionBridge !== null && $this->connectionBridge->isConnected()) {
             // Close the connection if already open.
-            $this->amqplibConnection->close();
+            $this->connectionBridge->disconnect(AMQPConnectionException::class, __METHOD__);
+            $this->connectionBridge = null;
 
             return false;
         }
@@ -707,9 +676,10 @@ class AMQPConnection
             throw new AMQPConnectionException('Parameter \'timeout\' must be greater than or equal to zero.');
         }
 
-        if ($this->amqplibConnection !== null && $this->amqplibConnection->isConnected()) {
+        if ($this->connectionBridge !== null && $this->connectionBridge->isConnected()) {
             // Close the connection if already open.
-            $this->amqplibConnection->close();
+            $this->connectionBridge->disconnect(AMQPConnectionException::class, __METHOD__);
+            $this->connectionBridge = null;
 
             return false;
         }
@@ -767,9 +737,10 @@ class AMQPConnection
             );
         }
 
-        if ($this->amqplibConnection !== null && $this->amqplibConnection->isConnected()) {
+        if ($this->connectionBridge !== null && $this->connectionBridge->isConnected()) {
             // Close the connection if already open.
-            $this->amqplibConnection->close();
+            $this->connectionBridge->disconnect(AMQPConnectionException::class, __METHOD__);
+            $this->connectionBridge = null;
 
             return false;
         }

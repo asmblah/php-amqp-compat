@@ -13,11 +13,9 @@ declare(strict_types=1);
 
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
-use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Channel\ChannelInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Exception\TooManyChannelsOnConnectionException;
-use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
-use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
-use PhpAmqpLib\Exception\AMQPExceptionInterface;
 
 /**
  * Class AMQPChannel.
@@ -28,13 +26,12 @@ use PhpAmqpLib\Exception\AMQPExceptionInterface;
  */
 class AMQPChannel
 {
+    private readonly AmqpChannelBridgeInterface $channelBridge;
     /**
-     * Nullable because the implementation allows for extension,
+     * The implementation allows for extension,
      * where the parent constructor may not be called.
      */
-    private ?AmqplibChannel $amqplibChannel = null;
-    private readonly AmqpChannelBridgeInterface $channelBridge;
-    private readonly ExceptionHandlerInterface $exceptionHandler;
+    private bool $constructorCalled = false;
     /**
      * Number of messages to prefetch in total across all consumers on the channel.
      *
@@ -69,15 +66,18 @@ class AMQPChannel
      * @throws AMQPConnectionException If the connection to the broker
      *                                 was lost.
      * @throws AMQPChannelException If PHP_AMQP_MAX_CHANNELS would be exceeded.
+     * @throws AMQPException
      */
     public function __construct(private readonly AMQPConnection $amqpConnection)
     {
         $connectionBridge = AmqpBridge::getBridgeConnection($amqpConnection);
-        $this->exceptionHandler = $connectionBridge->getExceptionHandler();
         $this->logger = $connectionBridge->getLogger();
 
         try {
-            $this->channelBridge = $connectionBridge->createChannelBridge();
+            $this->channelBridge = $connectionBridge->createChannelBridge(
+                AMQPChannelException::class,
+                __METHOD__
+            );
         } catch (TooManyChannelsOnConnectionException) {
             throw new AMQPChannelException(
                 'Could not create channel. Connection has no open channel slots remaining.'
@@ -86,9 +86,9 @@ class AMQPChannel
 
         AmqpBridge::bridgeChannel($this, $this->channelBridge);
 
-        // Always set here in the constructor, however the API allows for the class to be extended
+        // Always set here in the constructor - however, the API allows for the class to be extended
         // and so this parent constructor may not be called. See reference implementation tests.
-        $this->amqplibChannel = $this->channelBridge->getAmqplibChannel();
+        $this->constructorCalled = true;
 
         $connectionConfig = $connectionBridge->getConnectionConfig();
 
@@ -98,36 +98,37 @@ class AMQPChannel
         $this->prefetchCount = $connectionConfig->getPrefetchCount();
         $this->prefetchSize = $connectionConfig->getPrefetchSize();
 
+        $channel = $this->channelBridge->acquireChannel('Could not initialise channel.');
+
         // Set initial Quality-Of-Service/prefetch settings for the channel.
-        try {
-            $this->amqplibChannel->basic_qos($this->prefetchSize, $this->prefetchCount, false);
-        } catch (AMQPExceptionInterface $exception) {
-            /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleException($exception, AMQPChannelException::class, __METHOD__);
-        }
+        $channel->basicQos(
+            $this->prefetchSize,
+            $this->prefetchCount,
+            global: false,
+            exceptionClass: AMQPChannelException::class,
+            methodName: __METHOD__
+        );
 
         if ($this->globalPrefetchCount !== 0 || $this->globalPrefetchSize !== 0) {
             // Writing consumer prefetch settings will override global ones - so they must be re-written if set.
-            try {
-                $this->amqplibChannel->basic_qos($this->globalPrefetchSize, $this->globalPrefetchCount, true);
-            } catch (AMQPExceptionInterface $exception) {
-                /** @var AMQPExceptionInterface&Exception $exception */
-                $this->exceptionHandler->handleException($exception, AMQPChannelException::class, __METHOD__);
-            }
+            $channel->basicQos(
+                $this->globalPrefetchSize,
+                $this->globalPrefetchCount,
+                global: true,
+                exceptionClass: AMQPChannelException::class,
+                methodName: __METHOD__
+            );
         }
     }
 
     public function __destruct()
     {
-        if ($this->amqplibChannel === null) {
+        if (!$this->constructorCalled) {
             // See notes on property and in constructor.
             return;
         }
 
-        // Match the behaviour of php-amqp/ext-amqp: on destruction, close the channel.
-        if ($this->amqplibChannel->is_open()) {
-            $this->amqplibChannel->close();
-        }
+        $this->channelBridge->closeQuietly();
 
         // Ensure we unregister the channel so that e.g. AMQPConnection->getUsedChannels() returns the correct value.
         $this->channelBridge->unregisterChannel();
@@ -138,21 +139,17 @@ class AMQPChannel
      *
      * @throws AMQPChannelException
      * @throws AMQPConnectionException
+     * @throws AMQPException
      */
     public function basicRecover(bool $requeue = true): bool
     {
-        $amqplibChannel = $this->checkChannelOrThrow('Could not redeliver unacknowledged messages.');
+        $channel = $this->checkChannelOrThrow('Could not redeliver unacknowledged messages.');
 
         $this->logger->debug(__METHOD__ . '(): Recovery attempt', [
             'requeue' => $requeue,
         ]);
 
-        try {
-            $amqplibChannel->basic_recover($requeue);
-        } catch (AMQPExceptionInterface $exception) {
-            /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleException($exception, AMQPChannelException::class, __METHOD__);
-        }
+        $channel->basicRecover($requeue, AMQPChannelException::class, __METHOD__);
 
         $this->logger->debug(__METHOD__ . '(): Recovered');
 
@@ -164,26 +161,15 @@ class AMQPChannel
      *
      * @throws AMQPChannelException
      * @throws AMQPConnectionException
+     * @throws AMQPException
      */
-    private function checkChannelOrThrow(string $error): AmqplibChannel
+    private function checkChannelOrThrow(string $error): ChannelInterface
     {
-        if ($this->amqplibChannel === null) {
+        if (!$this->constructorCalled) {
             throw new AMQPChannelException($error . ' Stale reference to the channel object.');
         }
 
-        if (!$this->amqplibChannel->is_open()) {
-            throw new AMQPChannelException($error . ' No channel available.');
-        }
-
-        if ($this->amqplibChannel->getConnection() === null) {
-            throw new AMQPChannelException($error . ' Stale reference to the connection object.');
-        }
-
-        if (!$this->amqplibChannel->getConnection()->isConnected()) {
-            throw new AMQPConnectionException($error . 'No connection available.');
-        }
-
-        return $this->amqplibChannel;
+        return $this->channelBridge->acquireChannel($error);
     }
 
     /**
@@ -191,7 +177,7 @@ class AMQPChannel
      */
     public function close(): void
     {
-        if ($this->amqplibChannel === null) {
+        if (!$this->constructorCalled) {
             // We cannot log this separately as without the constructor being called,
             // there will be no logger available.
             throw new LogicException(__METHOD__ . '(): Invalid channel; constructor was never called');
@@ -199,23 +185,22 @@ class AMQPChannel
 
         $this->logger->debug(__METHOD__ . '(): Channel close attempt');
 
-        if (!$this->amqplibChannel->is_open()) {
+        if (!$this->channelBridge->isOpen()) {
             $this->logger->debug(__METHOD__ . '(): Channel already closed');
 
             return;
         }
 
+        if (!$this->channelBridge->isConnected()) {
+            $this->logger->warning(__METHOD__ . '(): Underlying connection has already been closed');
+        }
+
         // Now that we have ensured that it is open, we can log the channel ID.
         $this->logger->debug(__METHOD__ . '(): Closing channel', [
-            'id' => $this->amqplibChannel->getChannelId(),
+            'id' => $this->channelBridge->getChannelId(),
         ]);
 
-        try {
-            $this->amqplibChannel->close();
-        } catch (AMQPExceptionInterface $exception) {
-            /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleException($exception, AMQPChannelException::class, __METHOD__);
-        }
+        $this->channelBridge->closeQuietly();
 
         $this->logger->debug(__METHOD__ . '(): Channel closed');
     }
@@ -226,21 +211,17 @@ class AMQPChannel
      * @throws AMQPChannelException    If no transaction was started prior to
      *                                 calling this method.
      * @throws AMQPConnectionException If the connection to the broker was lost.
+     * @throws AMQPException
      *
      * @return bool TRUE on success or FALSE on failure.
      */
     public function commitTransaction(): bool
     {
-        $amqplibChannel = $this->checkChannelOrThrow('Could not commit the transaction.');
+        $channel = $this->checkChannelOrThrow('Could not commit the transaction.');
 
         $this->logger->debug(__METHOD__ . '(): Transaction commit attempt');
 
-        try {
-            $amqplibChannel->tx_commit();
-        } catch (AMQPExceptionInterface $exception) {
-            /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleException($exception, AMQPChannelException::class, __METHOD__);
-        }
+        $channel->commitTransaction(AMQPChannelException::class, __METHOD__);
 
         $this->logger->debug(__METHOD__ . '(): Transaction committed');
 
@@ -261,7 +242,7 @@ class AMQPChannel
      */
     public function getChannelId(): ?int
     {
-        return $this->amqplibChannel->getChannelId();
+        return $this->channelBridge->getChannelId();
     }
 
     /**
@@ -324,9 +305,7 @@ class AMQPChannel
      */
     public function isConnected(): bool
     {
-        $amqplibConnection = $this->amqplibChannel->getConnection();
-
-        return $amqplibConnection !== null && $amqplibConnection->isConnected();
+        return $this->channelBridge->isConnected();
     }
 
     /**
@@ -344,16 +323,17 @@ class AMQPChannel
      * flag set, the client will not do any prefetching of data, regardless of
      * the QOS settings.
      *
-     * @param integer $size The window size, in octets, to prefetch.
-     * @param integer $count The number of messages to prefetch.
+     * @param int $size The window size, in octets, to prefetch.
+     * @param int $count The number of messages to prefetch.
      * @param bool $global True to change the settings globally,
      *                     false (default) to only change them for the current consumer.
      *
      * @throws AMQPChannelException If the connection to the broker was lost.
+     * @throws AMQPException
      */
     public function qos(int $size, int $count, bool $global = false): bool
     {
-        $amqplibChannel = $this->checkChannelOrThrow('Could not set qos parameters.');
+        $channel = $this->checkChannelOrThrow('Could not set qos parameters.');
 
         $this->logger->debug(__METHOD__ . '(): QOS setting change attempt', [
             'count' => $count,
@@ -361,12 +341,7 @@ class AMQPChannel
             'size' => $size,
         ]);
 
-        try {
-            $amqplibChannel->basic_qos($size, $count, $global);
-        } catch (AMQPExceptionInterface $exception) {
-            /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleException($exception, AMQPChannelException::class, __METHOD__);
-        }
+        $channel->basicQos($size, $count, $global, AMQPChannelException::class, __METHOD__);
 
         $this->logger->debug(__METHOD__ . '(): QOS settings changed');
 
@@ -378,24 +353,20 @@ class AMQPChannel
      *
      * ::startTransaction() must be called prior to this.
      *
-     * @throws AMQPChannelException    If no transaction was started prior to
-     *                                 calling this method.
+     * @throws AMQPChannelException If no transaction was started prior to
+     *                              calling this method.
      * @throws AMQPConnectionException If the connection to the broker was lost.
+     * @throws AMQPException
      *
      * @return bool TRUE on success or FALSE on failure.
      */
     public function rollbackTransaction(): bool
     {
-        $amqplibChannel = $this->checkChannelOrThrow('Could not rollback the transaction.');
+        $channel = $this->checkChannelOrThrow('Could not rollback the transaction.');
 
         $this->logger->debug(__METHOD__ . '(): Transaction rollback attempt');
 
-        try {
-            $amqplibChannel->tx_rollback();
-        } catch (AMQPExceptionInterface $exception) {
-            /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleException($exception, AMQPChannelException::class, __METHOD__);
-        }
+        $channel->rollbackTransaction(AMQPChannelException::class, __METHOD__);
 
         $this->logger->debug(__METHOD__ . '(): Transaction rolled back');
 
@@ -433,24 +404,26 @@ class AMQPChannel
      * @param integer $count The number of messages to prefetch.
      *
      * @throws AMQPConnectionException If the connection to the broker was lost.
+     * @throws AMQPException
      *
      * @return boolean TRUE on success or FALSE on failure.
      */
     public function setGlobalPrefetchCount(int $count): bool
     {
-        $amqplibChannel = $this->checkChannelOrThrow('Could not set global prefetch count.');
+        $channel = $this->checkChannelOrThrow('Could not set global prefetch count.');
 
         $this->logger->debug(__METHOD__ . '(): Global prefetch count change attempt', [
             'count' => $count,
         ]);
 
-        try {
-            // Size limit is implicitly disabled.
-            $amqplibChannel->basic_qos(0, $count, true);
-        } catch (AMQPExceptionInterface $exception) {
-            /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleException($exception, AMQPChannelException::class, __METHOD__);
-        }
+        // Size limit is implicitly disabled.
+        $channel->basicQos(
+            size: 0,
+            count: $count,
+            global: true,
+            exceptionClass: AMQPChannelException::class,
+            methodName: __METHOD__
+        );
 
         $this->globalPrefetchCount = $count;
         $this->globalPrefetchSize = 0; // Size limit is implicitly disabled.
@@ -473,24 +446,26 @@ class AMQPChannel
      * @param integer $size The window size, in octets, to prefetch.
      *
      * @throws AMQPConnectionException If the connection to the broker was lost.
+     * @throws AMQPException
      *
      * @return bool TRUE on success or FALSE on failure.
      */
     public function setGlobalPrefetchSize(int $size): bool
     {
-        $amqplibChannel = $this->checkChannelOrThrow('Could not set global prefetch size.');
+        $channel = $this->checkChannelOrThrow('Could not set global prefetch size.');
 
         $this->logger->debug(__METHOD__ . '(): Global prefetch size change attempt', [
             'size' => $size,
         ]);
 
-        try {
-            // Count limit is implicitly disabled.
-            $amqplibChannel->basic_qos($size, 0, true);
-        } catch (AMQPExceptionInterface $exception) {
-            /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleException($exception, AMQPChannelException::class, __METHOD__);
-        }
+        // Count limit is implicitly disabled.
+        $channel->basicQos(
+            size: $size,
+            count: 0,
+            global: true,
+            exceptionClass: AMQPChannelException::class,
+            methodName: __METHOD__
+        );
 
         $this->globalPrefetchSize = $size;
         $this->globalPrefetchCount = 0; // Count limit is implicitly disabled.
@@ -509,33 +484,36 @@ class AMQPChannel
      * @param integer $count The number of messages to prefetch.
      *
      * @throws AMQPConnectionException If the connection to the broker was lost.
+     * @throws AMQPException
      *
      * @return boolean TRUE on success or FALSE on failure.
      */
     public function setPrefetchCount(int $count): bool
     {
-        $amqplibChannel = $this->checkChannelOrThrow('Could not set prefetch count.');
+        $channel = $this->checkChannelOrThrow('Could not set prefetch count.');
 
         $this->logger->debug(__METHOD__ . '(): Non-global prefetch count change attempt', [
             'count' => $count,
         ]);
 
-        try {
-            // Size limit is implicitly disabled when setting count alone.
-            $amqplibChannel->basic_qos(0, $count, false);
-        } catch (AMQPExceptionInterface $exception) {
-            /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleException($exception, AMQPChannelException::class, __METHOD__);
-        }
+        // Size limit is implicitly disabled when setting count alone.
+        $channel->basicQos(
+            size: 0,
+            count: $count,
+            global: false,
+            exceptionClass: AMQPChannelException::class,
+            methodName: __METHOD__
+        );
 
         if ($this->globalPrefetchCount !== 0 || $this->globalPrefetchSize !== 0) {
             // Writing consumer prefetch settings will override global ones - so they must be re-written if set.
-            try {
-                $amqplibChannel->basic_qos($this->globalPrefetchSize, $this->globalPrefetchCount, true);
-            } catch (AMQPExceptionInterface $exception) {
-                /** @var AMQPExceptionInterface&Exception $exception */
-                $this->exceptionHandler->handleException($exception, AMQPChannelException::class, __METHOD__);
-            }
+            $channel->basicQos(
+                size: $this->globalPrefetchSize,
+                count: $this->globalPrefetchCount,
+                global: true,
+                exceptionClass: AMQPChannelException::class,
+                methodName: __METHOD__
+            );
         }
 
         $this->prefetchCount = $count;
@@ -559,33 +537,36 @@ class AMQPChannel
      * @param integer $size The window size, in octets, to prefetch.
      *
      * @throws AMQPConnectionException If the connection to the broker was lost.
+     * @throws AMQPException
      *
      * @return bool TRUE on success or FALSE on failure.
      */
     public function setPrefetchSize(int $size): bool
     {
-        $amqplibChannel = $this->checkChannelOrThrow('Could not set prefetch size.');
+        $channel = $this->checkChannelOrThrow('Could not set prefetch size.');
 
         $this->logger->debug(__METHOD__ . '(): Non-global prefetch size change attempt', [
             'size' => $size,
         ]);
 
-        try {
-            // Count limit is implicitly disabled when setting size alone.
-            $amqplibChannel->basic_qos($size, 0, false);
-        } catch (AMQPExceptionInterface $exception) {
-            /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleException($exception, AMQPChannelException::class, __METHOD__);
-        }
+        // Count limit is implicitly disabled when setting size alone.
+        $channel->basicQos(
+            size: $size,
+            count: 0,
+            global: false,
+            exceptionClass: AMQPChannelException::class,
+            methodName: __METHOD__
+        );
 
         if ($this->globalPrefetchCount !== 0 || $this->globalPrefetchSize !== 0) {
             // Writing consumer prefetch settings will override global ones - so they must be re-written if set.
-            try {
-                $amqplibChannel->basic_qos($this->globalPrefetchSize, $this->globalPrefetchCount, true);
-            } catch (AMQPExceptionInterface $exception) {
-                /** @var AMQPExceptionInterface&Exception $exception */
-                $this->exceptionHandler->handleException($exception, AMQPChannelException::class, __METHOD__);
-            }
+            $channel->basicQos(
+                size: $this->globalPrefetchSize,
+                count: $this->globalPrefetchCount,
+                global: true,
+                exceptionClass: AMQPChannelException::class,
+                methodName: __METHOD__
+            );
         }
 
         $this->prefetchSize = $size;
@@ -627,19 +608,15 @@ class AMQPChannel
      * @return bool TRUE on success or FALSE on failure.
      * @throws AMQPChannelException
      * @throws AMQPConnectionException If the connection to the broker was lost.
+     * @throws AMQPException
      */
     public function startTransaction(): bool
     {
-        $amqplibChannel = $this->checkChannelOrThrow('Could not start the transaction.');
+        $channel = $this->checkChannelOrThrow('Could not start the transaction.');
 
         $this->logger->debug(__METHOD__ . '(): Transaction start attempt');
 
-        try {
-            $amqplibChannel->tx_select();
-        } catch (AMQPExceptionInterface $exception) {
-            /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleException($exception, AMQPChannelException::class, __METHOD__);
-        }
+        $channel->startTransaction(AMQPChannelException::class, __METHOD__);
 
         $this->logger->debug(__METHOD__ . '(): Transaction started');
 

@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat;
 
+use Asmblah\PhpAmqpCompat\Driver\DriverInterface;
 use Asmblah\PhpAmqpCompat\Scheduler\Factory\SchedulerFactoryInterface;
 use Nytris\Core\Package\PackageInterface;
 
@@ -25,6 +26,11 @@ use Nytris\Core\Package\PackageInterface;
  */
 interface AmqpCompatPackageInterface extends PackageInterface
 {
+    /**
+     * Fetches the AMQP driver layer to use.
+     */
+    public function getDriver(): DriverInterface;
+
     /**
      * Fetches the scheduler factory to use.
      *

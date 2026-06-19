@@ -11,7 +11,7 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Logger;
+namespace Asmblah\PhpAmqpCompat\Driver\Amqplib\Logger;
 
 use PhpAmqpLib\Exception\AMQPExceptionInterface;
 use Psr\Log\AbstractLogger as PsrAbstractLogger;

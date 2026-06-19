@@ -11,7 +11,7 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Driver\Common\Processor;
+namespace Asmblah\PhpAmqpCompat\Driver\Amqplib\Processor;
 
 /**
  * Interface ValueProcessorInterface.

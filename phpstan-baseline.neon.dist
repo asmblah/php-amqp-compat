@@ -1,79 +1,16 @@
 parameters:
 	ignoreErrors:
+		# Needed because although the PHPStan typehint class-string<AMQPException> would make the check redundant,
+		# it would still be possible for any arbitrary string to be passed in at runtime.
 		-
-			message: "#^Parameter \\#1 \\$timeout of method AMQPConnection\\:\\:setReadTimeout\\(\\) expects int, float given\\.$#"
-			count: 2
-			path: tests/Functional/Amqp/Amqp/AMQPConnectionTest.php
-
-		-
-			message: "#^Result of method AMQPQueue\\:\\:reject\\(\\) \\(void\\) is used\\.$#"
+			message: "#^Result of && is always false\\.$#"
 			count: 1
-			path: tests/Functional/Amqp/Amqp/AMQPQueueTest.php
+			path: src/AmqpCompat/Driver/Amqplib/Exception/ExceptionHandler.php
 
 		-
 			message: "#^Strict comparison using \\=\\=\\= between int\\<1, max\\> and 0 will always evaluate to false\\.$#"
 			count: 1
 			path: tests/Functional/Reference/Util/bootstrap.php
-
-		-
-			message: "#^Result of method AMQPChannel\\:\\:basicRecover\\(\\) \\(void\\) is used\\.$#"
-			count: 1
-			path: tests/Unit/Amqp/AMQPChannelTest.php
-
-		-
-			message: "#^Result of method AMQPChannel\\:\\:commitTransaction\\(\\) \\(void\\) is used\\.$#"
-			count: 1
-			path: tests/Unit/Amqp/AMQPChannelTest.php
-
-		-
-			message: "#^Result of method AMQPChannel\\:\\:qos\\(\\) \\(void\\) is used\\.$#"
-			count: 2
-			path: tests/Unit/Amqp/AMQPChannelTest.php
-
-		-
-			message: "#^Result of method AMQPChannel\\:\\:rollbackTransaction\\(\\) \\(void\\) is used\\.$#"
-			count: 1
-			path: tests/Unit/Amqp/AMQPChannelTest.php
-
-		-
-			message: "#^Result of method AMQPChannel\\:\\:setPrefetchCount\\(\\) \\(void\\) is used\\.$#"
-			count: 1
-			path: tests/Unit/Amqp/AMQPChannelTest.php
-
-		-
-			message: "#^Result of method AMQPChannel\\:\\:setPrefetchSize\\(\\) \\(void\\) is used\\.$#"
-			count: 1
-			path: tests/Unit/Amqp/AMQPChannelTest.php
-
-		-
-			message: "#^Result of method AMQPChannel\\:\\:startTransaction\\(\\) \\(void\\) is used\\.$#"
-			count: 1
-			path: tests/Unit/Amqp/AMQPChannelTest.php
-
-		-
-			message: "#^Parameter \\#1 \\$timeout of method AMQPConnection\\:\\:setReadTimeout\\(\\) expects int, float given\\.$#"
-			count: 3
-			path: tests/Unit/Amqp/AMQPConnectionTest.php
-
-		-
-			message: "#^Parameter \\#1 \\$timeout of method AMQPConnection\\:\\:setTimeout\\(\\) expects int, float given\\.$#"
-			count: 2
-			path: tests/Unit/Amqp/AMQPConnectionTest.php
-
-		-
-			message: "#^Result of method AMQPConnection\\:\\:connect\\(\\) \\(void\\) is used\\.$#"
-			count: 1
-			path: tests/Unit/Amqp/AMQPConnectionTest.php
-
-		-
-			message: "#^Result of method AMQPConnection\\:\\:disconnect\\(\\) \\(void\\) is used\\.$#"
-			count: 1
-			path: tests/Unit/Amqp/AMQPConnectionTest.php
-
-		-
-			message: "#^Result of method AMQPConnection\\:\\:setReadTimeout\\(\\) \\(void\\) is used\\.$#"
-			count: 3
-			path: tests/Unit/Amqp/AMQPConnectionTest.php
 
 		-
 			message: "#^Parameter \\#1 \\$exchangeName of method AMQPExchange\\:\\:delete\\(\\) expects string, null given\\.$#"
@@ -85,28 +22,14 @@ parameters:
 			count: 1
 			path: tests/Unit/Amqp/AMQPExchangeTest.php
 
+		# Needed because when classes are defined in multiple places, PHPStan loses named argument mapping.
 		-
-			message: "#^Result of method AMQPExchange\\:\\:bind\\(\\) \\(void\\) is used\\.$#"
-			count: 1
-			path: tests/Unit/Amqp/AMQPExchangeTest.php
-
-		-
-			message: "#^Result of method AMQPExchange\\:\\:unbind\\(\\) \\(void\\) is used\\.$#"
+			message: "#^Unknown parameter \\$headers in call to method AMQPExchange::publish\\(\\)\\.$#"
 			count: 1
 			path: tests/Unit/Amqp/AMQPExchangeTest.php
 
 		-
 			message: "#^Parameter \\#2 \\$value of method AMQPQueue\\:\\:setArgument\\(\\) expects AMQPDecimal\\|AMQPTimestamp\\|AMQPValue\\|array\\|bool\\|float\\|int\\|string\\|null, stdClass given\\.$#"
-			count: 1
-			path: tests/Unit/Amqp/AMQPQueueTest.php
-
-		-
-			message: "#^Result of method AMQPQueue\\:\\:ack\\(\\) \\(void\\) is used\\.$#"
-			count: 1
-			path: tests/Unit/Amqp/AMQPQueueTest.php
-
-		-
-			message: "#^Result of method AMQPQueue\\:\\:nack\\(\\) \\(void\\) is used\\.$#"
 			count: 1
 			path: tests/Unit/Amqp/AMQPQueueTest.php
 

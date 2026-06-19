@@ -15,7 +15,6 @@ namespace Asmblah\PhpAmqpCompat\Driver\Amqplib\Processor;
 
 use AMQPDecimal;
 use AMQPTimestamp;
-use Asmblah\PhpAmqpCompat\Driver\Common\Processor\ValueProcessorInterface;
 use DateTime;
 use DateTimeInterface;
 use PhpAmqpLib\Wire\AMQPDecimal as AmqplibDecimal;

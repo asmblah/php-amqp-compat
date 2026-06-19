@@ -13,14 +13,24 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Driver\Amqplib\Transport;
 
+use AMQPConnectionException;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\EnvelopeTransformerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transport\Transport;
+use Asmblah\PhpAmqpCompat\Driver\Common\Channel\ChannelInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
+use Asmblah\PhpAmqpCompat\Exception\HeartbeatMissedException;
 use Asmblah\PhpAmqpCompat\Exception\SocketConfigurationFailedException;
 use Asmblah\PhpAmqpCompat\Exception\TransportConfigurationFailedException;
+use Asmblah\PhpAmqpCompat\Misc\ClockInterface;
 use Asmblah\PhpAmqpCompat\Socket\SocketSubsystemInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery;
 use Mockery\MockInterface;
+use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
+use PhpAmqpLib\Exception\AMQPHeartbeatMissedException;
+use PhpAmqpLib\Exception\AMQPLogicException;
 use PhpAmqpLib\Wire\IO\AbstractIO;
 use PhpAmqpLib\Wire\IO\StreamIO;
 use ReflectionClass;
@@ -39,6 +49,10 @@ class TransportTest extends AbstractTestCase
      * @var resource|null
      */
     private $clientSocketStream;
+    private MockInterface&ClockInterface $clock;
+    private MockInterface&EnvelopeTransformerInterface $envelopeTransformer;
+    private MockInterface&ExceptionHandlerInterface $exceptionHandler;
+    private MockInterface&MessageTransformerInterface $messageTransformer;
     /**
      * @var resource|null
      */
@@ -68,6 +82,10 @@ class TransportTest extends AbstractTestCase
             $this->fail("Failed to create client socket: $errorMessage ($errorCode)");
         }
 
+        $this->clock = mock(ClockInterface::class);
+        $this->envelopeTransformer = mock(EnvelopeTransformerInterface::class);
+        $this->exceptionHandler = mock(ExceptionHandlerInterface::class);
+        $this->messageTransformer = mock(MessageTransformerInterface::class);
         $this->socketSubsystem = mock(SocketSubsystemInterface::class);
 
         $this->streamIO = mock(StreamIO::class, [
@@ -77,7 +95,14 @@ class TransportTest extends AbstractTestCase
             'getIO' => $this->streamIO,
         ]);
 
-        $this->transport = new Transport($this->amqplibConnection, $this->socketSubsystem);
+        $this->transport = new Transport(
+            $this->amqplibConnection,
+            $this->socketSubsystem,
+            $this->clock,
+            $this->exceptionHandler,
+            $this->envelopeTransformer,
+            $this->messageTransformer
+        );
     }
 
     public function tearDown(): void
@@ -91,9 +116,138 @@ class TransportTest extends AbstractTestCase
         }
     }
 
+    public function testCheckHeartbeatDoesNothingWhenWithinInterval(): void
+    {
+        $this->amqplibConnection->allows('getLastActivity')->andReturn(1000);
+        $this->amqplibConnection->allows('getHeartbeat')->andReturn(60);
+        $this->clock->allows('getUnixTimestamp')->andReturn(1010); // Within 30-second interval.
+
+        $this->amqplibConnection->expects('checkHeartBeat')
+            ->never();
+
+        $this->transport->checkHeartbeat();
+    }
+
+    public function testCheckHeartbeatChecksHeartbeatWhenIntervalExceeded(): void
+    {
+        $this->amqplibConnection->allows('getLastActivity')->andReturn(1000);
+        $this->amqplibConnection->allows('getHeartbeat')->andReturn(60);
+        $this->clock->allows('getUnixTimestamp')->andReturn(1100); // Past 30-second interval.
+
+        $this->amqplibConnection->expects('checkHeartBeat')
+            ->once();
+
+        $this->transport->checkHeartbeat();
+    }
+
+    public function testCheckHeartbeatThrowsHeartbeatMissedExceptionWhenAmqplibThrows(): void
+    {
+        $this->amqplibConnection->allows('getLastActivity')->andReturn(1000);
+        $this->amqplibConnection->allows('getHeartbeat')->andReturn(60);
+        $this->clock->allows('getUnixTimestamp')->andReturn(1100);
+        $this->amqplibConnection->allows('checkHeartBeat')
+            ->andThrow(new AMQPHeartbeatMissedException('Heartbeat missed!'));
+
+        $this->expectException(HeartbeatMissedException::class);
+        $this->expectExceptionMessage('Heartbeat missed: Heartbeat missed!');
+
+        $this->transport->checkHeartbeat();
+    }
+
+    public function testDisconnectClosesAmqplibConnection(): void
+    {
+        $this->amqplibConnection->expects('close')
+            ->once();
+
+        $this->transport->disconnect(AMQPConnectionException::class, 'AMQPConnection::disconnect');
+    }
+
+    public function testDisconnectPassesExceptionToHandlerOnAmqplibFailure(): void
+    {
+        $exception = new AMQPLogicException('Bang!');
+        $this->amqplibConnection->allows('close')->andThrow($exception);
+
+        $this->exceptionHandler->expects()
+            ->handleException($exception, AMQPConnectionException::class, 'AMQPConnection::disconnect')
+            ->once()
+            ->andThrow(new AMQPConnectionException('Bang!'));
+
+        $this->expectException(AMQPConnectionException::class);
+        $this->expectExceptionMessage('Bang!');
+
+        $this->transport->disconnect(AMQPConnectionException::class, 'AMQPConnection::disconnect');
+    }
+
     public function testGetAmqplibConnectionFetchesAmqplibConnection(): void
     {
         static::assertSame($this->amqplibConnection, $this->transport->getAmqplibConnection());
+    }
+
+    public function testGetHeartbeatIntervalReturnsHalfTheHeartbeatTimeout(): void
+    {
+        $this->amqplibConnection->allows('getHeartbeat')
+            ->andReturn(60);
+
+        static::assertSame(30, $this->transport->getHeartbeatInterval());
+    }
+
+    public function testGetHeartbeatIntervalRoundsUpWhenNeeded(): void
+    {
+        $this->amqplibConnection->allows('getHeartbeat')
+            ->andReturn(11);
+
+        static::assertSame(6, $this->transport->getHeartbeatInterval());
+    }
+
+    /**
+     * @dataProvider booleanDataProvider
+     */
+    public function testIsBusyDelegatesToAmqplibConnection(bool $writing): void
+    {
+        $this->amqplibConnection->allows('isWriting')
+            ->andReturn($writing);
+
+        static::assertSame($writing, $this->transport->isBusy());
+    }
+
+    /**
+     * @dataProvider booleanDataProvider
+     */
+    public function testIsConnectedDelegatesToAmqplibConnection(bool $connected): void
+    {
+        $this->amqplibConnection->allows('isConnected')
+            ->andReturn($connected);
+
+        static::assertSame($connected, $this->transport->isConnected());
+    }
+
+    public function testOpenChannelOpensAmqplibChannelAndReturnsChannelWrapper(): void
+    {
+        $amqplibChannel = mock(AmqplibChannel::class);
+
+        $this->amqplibConnection->expects('channel')
+            ->once()
+            ->andReturn($amqplibChannel);
+
+        $result = $this->transport->openChannel(AMQPConnectionException::class, 'AMQPConnection::__construct');
+
+        static::assertInstanceOf(ChannelInterface::class, $result);
+    }
+
+    public function testOpenChannelPassesExceptionToHandlerOnAmqplibFailure(): void
+    {
+        $exception = new AMQPLogicException('Bang!');
+        $this->amqplibConnection->allows('channel')->andThrow($exception);
+
+        $this->exceptionHandler->expects()
+            ->handleException($exception, AMQPConnectionException::class, 'AMQPChannel::__construct')
+            ->once()
+            ->andThrow(new AMQPConnectionException('Bang!'));
+
+        $this->expectException(AMQPConnectionException::class);
+        $this->expectExceptionMessage('Bang!');
+
+        $this->transport->openChannel(AMQPConnectionException::class, 'AMQPChannel::__construct');
     }
 
     public function testSetReadTimeoutCallsSocketSubsystemWhenStreamIOIsValid(): void
@@ -189,5 +343,16 @@ class TransportTest extends AbstractTestCase
         $this->transport->setReadTimeout($timeout);
         // Verify the bound closure correctly set the protected property.
         static::assertSame($timeout, $readTimeoutProperty->getValue($this->streamIO));
+    }
+
+    /**
+     * @return array<string, array{bool}>
+     */
+    public static function booleanDataProvider(): array
+    {
+        return [
+            'true' => [true],
+            'false' => [false],
+        ];
     }
 }

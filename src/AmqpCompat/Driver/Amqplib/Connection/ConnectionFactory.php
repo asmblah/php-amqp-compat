@@ -11,7 +11,7 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Connection\Amqplib;
+namespace Asmblah\PhpAmqpCompat\Driver\Amqplib\Connection;
 
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 use PhpAmqpLib\Connection\AMQPStreamConnection;

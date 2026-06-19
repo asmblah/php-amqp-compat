@@ -15,22 +15,15 @@ namespace Asmblah\PhpAmqpCompat\Tests\Unit\Amqp;
 
 use AMQPChannel;
 use AMQPChannelException;
+use AMQPConnection;
 use AMQPExchange;
 use AMQPExchangeException;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
-use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
-use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
-use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Channel\ChannelInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
-use Exception;
-use Mockery;
 use Mockery\MockInterface;
-use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
-use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
-use PhpAmqpLib\Exception\AMQPProtocolChannelException;
-use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
-use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;
 use stdClass;
 
 /**
@@ -42,47 +35,22 @@ class AMQPExchangeTest extends AbstractTestCase
 {
     private MockInterface&AMQPChannel $amqpChannel;
     private AMQPExchange $amqpExchange;
-    private MockInterface&AmqplibChannel $amqplibChannel;
-    private MockInterface&AmqplibConnection $amqplibConnection;
+    private MockInterface&ChannelInterface $channel;
     private MockInterface&AmqpChannelBridgeInterface $channelBridge;
-    private MockInterface&ExceptionHandlerInterface $exceptionHandler;
     private MockInterface&LoggerInterface $logger;
-    private MockInterface&MessageTransformerInterface $messageTransformer;
 
     public function setUp(): void
     {
         $this->amqpChannel = mock(AMQPChannel::class);
-        $this->amqplibConnection = mock(AmqplibConnection::class, [
-            'isConnected' => true,
-        ]);
-        $this->amqplibChannel = mock(AmqplibChannel::class, [
-            'getConnection' => $this->amqplibConnection,
-            'is_open' => true,
-        ]);
-        $this->exceptionHandler = mock(ExceptionHandlerInterface::class);
+        $this->channel = mock(ChannelInterface::class);
         $this->logger = mock(LoggerInterface::class, [
             'debug' => null,
         ]);
-        $this->messageTransformer = mock(MessageTransformerInterface::class);
         $this->channelBridge = mock(AmqpChannelBridgeInterface::class, [
-            'getAmqplibChannel' => $this->amqplibChannel,
-            'getExceptionHandler' => $this->exceptionHandler,
+            'acquireChannel' => $this->channel,
             'getLogger' => $this->logger,
-            'getMessageTransformer' => $this->messageTransformer,
         ]);
         AmqpBridge::bridgeChannel($this->amqpChannel, $this->channelBridge);
-
-        $this->exceptionHandler->allows('handleException')
-            ->andReturnUsing(function (Exception $libraryException, string $exceptionClass, string $methodName) {
-                throw new Exception(sprintf(
-                    'handleException() :: %s() :: Library Exception<%s> -> %s :: message(%s)',
-                    $methodName,
-                    $libraryException::class,
-                    $exceptionClass,
-                    $libraryException->getMessage()
-                ));
-            })
-            ->byDefault();
 
         $this->amqpExchange = new AMQPExchange($this->amqpChannel);
     }
@@ -115,14 +83,7 @@ class AMQPExchangeTest extends AbstractTestCase
     ): void {
         $this->amqpExchange->setFlags($flags);
         $this->amqpExchange->setName($exchangeName);
-        $this->amqplibChannel->allows()
-            ->exchange_bind(
-                $exchangeName,
-                $sourceExchangeName,
-                $routingKey,
-                $flags & AMQP_NOWAIT,
-                Mockery::type(AmqplibTable::class)
-            );
+        $this->channel->allows('bindExchange');
 
         $this->logger->expects()
             ->debug('AMQPExchange::bind(): Exchange bind attempt', [
@@ -141,14 +102,7 @@ class AMQPExchangeTest extends AbstractTestCase
     {
         $this->amqpExchange->setFlags(AMQP_NOPARAM);
         $this->amqpExchange->setName('my_exchange');
-        $this->amqplibChannel->allows()
-            ->exchange_bind(
-                'my_exchange',
-                'your_exchange',
-                'my_routing_key',
-                false,
-                Mockery::type(AmqplibTable::class)
-            );
+        $this->channel->allows('bindExchange');
 
         $this->logger->expects()
             ->debug('AMQPExchange::bind(): Exchange bound')
@@ -161,7 +115,7 @@ class AMQPExchangeTest extends AbstractTestCase
      * @param array<string, scalar> $arguments
      * @dataProvider bindDataProvider
      */
-    public function testBindGoesViaAmqplib(
+    public function testBindGoesViaChannel(
         string $exchangeName,
         string $sourceExchangeName,
         string $routingKey,
@@ -171,18 +125,17 @@ class AMQPExchangeTest extends AbstractTestCase
         $this->amqpExchange->setFlags($flags);
         $this->amqpExchange->setName($exchangeName);
 
-        $this->amqplibChannel->expects()
-            ->exchange_bind(
+        $this->channel->expects()
+            ->bindExchange(
                 $exchangeName,
                 $sourceExchangeName,
                 $routingKey,
-                $flags & AMQP_NOWAIT,
-                Mockery::type(AmqplibTable::class)
+                (bool) ($flags & AMQP_NOWAIT),
+                $arguments,
+                AMQPExchangeException::class,
+                'AMQPExchange::bind'
             )
-            ->once()
-            ->andReturnUsing(function ($_1, $_2, $_3, $_4, AmqplibTable $table) use ($arguments) {
-                static::assertEquals($arguments, $table->getNativeData());
-            });
+            ->once();
 
         static::assertTrue($this->amqpExchange->bind($sourceExchangeName, $routingKey, $arguments));
     }
@@ -191,7 +144,7 @@ class AMQPExchangeTest extends AbstractTestCase
      * @param array<string, scalar> $arguments
      * @dataProvider bindDataProvider
      */
-    public function testBindHandlesAmqplibExceptionCorrectly(
+    public function testBindHandlesExceptionCorrectly(
         string $exchangeName,
         string $sourceExchangeName,
         string $routingKey,
@@ -200,22 +153,11 @@ class AMQPExchangeTest extends AbstractTestCase
     ): void {
         $this->amqpExchange->setFlags($flags);
         $this->amqpExchange->setName($exchangeName);
-        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
-        $this->amqplibChannel->allows()
-            ->exchange_bind(
-                $exchangeName,
-                $sourceExchangeName,
-                $routingKey,
-                $flags & AMQP_NOWAIT,
-                Mockery::type(AmqplibTable::class)
-            )
-            ->andThrow($exception);
+        $this->channel->allows('bindExchange')
+            ->andThrow(new AMQPExchangeException('my text'));
 
-        $this->expectExceptionMessage(
-            'handleException() :: AMQPExchange::bind() :: ' .
-            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPExchangeException :: ' .
-            'message(my text)'
-        );
+        $this->expectException(AMQPExchangeException::class);
+        $this->expectExceptionMessage('my text');
 
         $this->amqpExchange->bind($sourceExchangeName, $routingKey, $arguments);
     }
@@ -257,17 +199,7 @@ class AMQPExchangeTest extends AbstractTestCase
         $this->amqpExchange->setFlags($flags);
         $this->amqpExchange->setName($exchangeName);
         $this->amqpExchange->setType($exchangeType);
-        $this->amqplibChannel->allows()
-            ->exchange_declare(
-                $exchangeName,
-                $exchangeType,
-                $flags & AMQP_PASSIVE,
-                $flags & AMQP_DURABLE,
-                $flags & AMQP_AUTODELETE,
-                $flags & AMQP_INTERNAL,
-                $flags & AMQP_NOWAIT,
-                Mockery::type(AmqplibTable::class)
-            );
+        $this->channel->allows('declareExchange');
 
         $this->logger->expects()
             ->debug('AMQPExchange::declareExchange(): Exchange declaration attempt', [
@@ -285,17 +217,7 @@ class AMQPExchangeTest extends AbstractTestCase
     {
         $this->amqpExchange->setName('my_exchange');
         $this->amqpExchange->setType(AMQP_EX_TYPE_FANOUT);
-        $this->amqplibChannel->allows()
-            ->exchange_declare(
-                'my_exchange',
-                AMQP_EX_TYPE_FANOUT,
-                false,
-                false,
-                false,
-                false,
-                false,
-                Mockery::type(AmqplibTable::class)
-            );
+        $this->channel->allows('declareExchange');
 
         $this->logger->expects()
             ->debug('AMQPExchange::declareExchange(): Exchange declared')
@@ -308,7 +230,7 @@ class AMQPExchangeTest extends AbstractTestCase
      * @param array<string, scalar> $arguments
      * @dataProvider declareExchangeDataProvider
      */
-    public function testDeclareExchangeDeclaresViaAmqplib(
+    public function testDeclareExchangeDeclaresViaChannel(
         string $exchangeName,
         string $exchangeType,
         int $flags,
@@ -319,21 +241,20 @@ class AMQPExchangeTest extends AbstractTestCase
         $this->amqpExchange->setName($exchangeName);
         $this->amqpExchange->setType($exchangeType);
 
-        $this->amqplibChannel->expects()
-            ->exchange_declare(
+        $this->channel->expects()
+            ->declareExchange(
                 $exchangeName,
                 $exchangeType,
-                $flags & AMQP_PASSIVE,
-                $flags & AMQP_DURABLE,
-                $flags & AMQP_AUTODELETE,
-                $flags & AMQP_INTERNAL,
-                $flags & AMQP_NOWAIT,
-                Mockery::type(AmqplibTable::class)
+                (bool) ($flags & AMQP_PASSIVE),
+                (bool) ($flags & AMQP_DURABLE),
+                (bool) ($flags & AMQP_AUTODELETE),
+                (bool) ($flags & AMQP_INTERNAL),
+                (bool) ($flags & AMQP_NOWAIT),
+                $arguments,
+                AMQPExchangeException::class,
+                'AMQPExchange::declareExchange'
             )
-            ->once()
-            ->andReturnUsing(function ($_1, $_2, $_3, $_4, $_5, $_6, $_7, AmqplibTable $table) use ($arguments) {
-                static::assertEquals($arguments, $table->getNativeData());
-            });
+            ->once();
 
         $this->amqpExchange->declareExchange();
     }
@@ -342,7 +263,7 @@ class AMQPExchangeTest extends AbstractTestCase
      * @param array<string, scalar> $arguments
      * @dataProvider declareExchangeDataProvider
      */
-    public function testDeclareExchangeHandlesAmqplibExceptionCorrectly(
+    public function testDeclareExchangeHandlesExceptionCorrectly(
         string $exchangeName,
         string $exchangeType,
         int $flags,
@@ -352,26 +273,11 @@ class AMQPExchangeTest extends AbstractTestCase
         $this->amqpExchange->setFlags($flags);
         $this->amqpExchange->setName($exchangeName);
         $this->amqpExchange->setType($exchangeType);
-        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
+        $this->channel->allows('declareExchange')
+            ->andThrow(new AMQPExchangeException('my text'));
 
-        $this->amqplibChannel->allows()
-            ->exchange_declare(
-                $exchangeName,
-                $exchangeType,
-                $flags & AMQP_PASSIVE,
-                $flags & AMQP_DURABLE,
-                $flags & AMQP_AUTODELETE,
-                $flags & AMQP_INTERNAL,
-                $flags & AMQP_NOWAIT,
-                Mockery::type(AmqplibTable::class)
-            )
-            ->andThrow($exception);
-
-        $this->expectExceptionMessage(
-            'handleException() :: AMQPExchange::declareExchange() :: ' .
-            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPExchangeException :: ' .
-            'message(my text)'
-        );
+        $this->expectException(AMQPExchangeException::class);
+        $this->expectExceptionMessage('my text');
 
         $this->amqpExchange->declareExchange();
     }
@@ -404,12 +310,7 @@ class AMQPExchangeTest extends AbstractTestCase
         string $exchangeName,
         int $flags
     ): void {
-        $this->amqplibChannel->allows()
-            ->exchange_delete(
-                $exchangeName,
-                (bool) ($flags & AMQP_IFUNUSED),
-                (bool) ($flags & AMQP_NOWAIT)
-            );
+        $this->channel->allows('deleteExchange');
 
         $this->logger->expects()
             ->debug('AMQPExchange::delete(): Exchange deletion attempt', [
@@ -428,12 +329,7 @@ class AMQPExchangeTest extends AbstractTestCase
         string $exchangeName,
         int $flags
     ): void {
-        $this->amqplibChannel->allows()
-            ->exchange_delete(
-                $exchangeName,
-                (bool) ($flags & AMQP_IFUNUSED),
-                (bool) ($flags & AMQP_NOWAIT)
-            );
+        $this->channel->allows('deleteExchange');
         $this->amqpExchange->setName($exchangeName);
 
         $this->logger->expects()
@@ -453,12 +349,7 @@ class AMQPExchangeTest extends AbstractTestCase
         string $exchangeName,
         int $flags
     ): void {
-        $this->amqplibChannel->allows()
-            ->exchange_delete(
-                $exchangeName,
-                (bool) ($flags & AMQP_IFUNUSED),
-                (bool) ($flags & AMQP_NOWAIT)
-            );
+        $this->channel->allows('deleteExchange');
         $this->amqpExchange->setName($exchangeName);
 
         $this->logger->expects()
@@ -473,12 +364,7 @@ class AMQPExchangeTest extends AbstractTestCase
 
     public function testDeleteLogsSuccessAsDebug(): void
     {
-        $this->amqplibChannel->allows()
-            ->exchange_delete(
-                'my_exchange',
-                false,
-                false
-            );
+        $this->channel->allows('deleteExchange');
 
         $this->logger->expects()
             ->debug('AMQPExchange::delete(): Exchange deleted')
@@ -490,17 +376,19 @@ class AMQPExchangeTest extends AbstractTestCase
     /**
      * @dataProvider deleteExchangeDataProvider
      */
-    public function testDeleteDeletesViaAmqplib(
+    public function testDeleteDeletesViaChannel(
         string $exchangeName,
         int $flags
     ): void {
         $this->amqpExchange->setName($exchangeName);
 
-        $this->amqplibChannel->expects()
-            ->exchange_delete(
+        $this->channel->expects()
+            ->deleteExchange(
                 $exchangeName,
                 (bool) ($flags & AMQP_IFUNUSED),
-                (bool) ($flags & AMQP_NOWAIT)
+                (bool) ($flags & AMQP_NOWAIT),
+                AMQPExchangeException::class,
+                'AMQPExchange::delete'
             )
             ->once();
 
@@ -510,27 +398,17 @@ class AMQPExchangeTest extends AbstractTestCase
     /**
      * @dataProvider deleteExchangeDataProvider
      */
-    public function testDeleteHandlesAmqplibExceptionCorrectly(
+    public function testDeleteHandlesExceptionCorrectly(
         string $exchangeName,
         int $flags
     ): void {
         $this->amqpExchange->setFlags($flags);
         $this->amqpExchange->setName($exchangeName);
-        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
+        $this->channel->allows('deleteExchange')
+            ->andThrow(new AMQPExchangeException('my text'));
 
-        $this->amqplibChannel->allows()
-            ->exchange_delete(
-                $exchangeName,
-                (bool) ($flags & AMQP_IFUNUSED),
-                (bool) ($flags & AMQP_NOWAIT)
-            )
-            ->andThrow($exception);
-
-        $this->expectExceptionMessage(
-            'handleException() :: AMQPExchange::delete() :: ' .
-            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPExchangeException :: ' .
-            'message(my text)'
-        );
+        $this->expectException(AMQPExchangeException::class);
+        $this->expectExceptionMessage('my text');
 
         $this->amqpExchange->delete($exchangeName, $flags);
     }
@@ -560,6 +438,72 @@ class AMQPExchangeTest extends AbstractTestCase
         ];
     }
 
+    public function testGetArgumentReturnsFalseForMissingArgument(): void
+    {
+        static::assertFalse($this->amqpExchange->getArgument('non-existent'));
+    }
+
+    public function testGetArgumentReturnsArgumentValue(): void
+    {
+        $this->amqpExchange->setArgument('x-delayed-type', 'direct');
+
+        static::assertSame('direct', $this->amqpExchange->getArgument('x-delayed-type'));
+    }
+
+    public function testGetArgumentsReturnsAllArguments(): void
+    {
+        $this->amqpExchange->setArguments(['x-delayed-type' => 'direct', 'x-max-priority' => 10]);
+
+        static::assertEquals(
+            ['x-delayed-type' => 'direct', 'x-max-priority' => 10],
+            $this->amqpExchange->getArguments()
+        );
+    }
+
+    public function testGetChannelReturnsChannel(): void
+    {
+        static::assertSame($this->amqpChannel, $this->amqpExchange->getChannel());
+    }
+
+    public function testGetConnectionReturnsConnection(): void
+    {
+        $amqpConnection = mock(AMQPConnection::class);
+        $this->amqpChannel->allows()
+            ->getConnection()
+            ->andReturn($amqpConnection);
+
+        static::assertSame($amqpConnection, $this->amqpExchange->getConnection());
+    }
+
+    public function testGetFlagsReturnsFlags(): void
+    {
+        $this->amqpExchange->setFlags(AMQP_DURABLE);
+
+        static::assertSame(AMQP_DURABLE, $this->amqpExchange->getFlags());
+    }
+
+    public function testGetNameReturnsExchangeName(): void
+    {
+        $this->amqpExchange->setName('my-exchange');
+
+        static::assertSame('my-exchange', $this->amqpExchange->getName());
+    }
+
+    public function testGetTypeReturnsExchangeType(): void
+    {
+        $this->amqpExchange->setType(AMQP_EX_TYPE_TOPIC);
+
+        static::assertSame(AMQP_EX_TYPE_TOPIC, $this->amqpExchange->getType());
+    }
+
+    public function testHasArgumentReturnsTrueForExistingArgument(): void
+    {
+        $this->amqpExchange->setArgument('x-delayed-type', 'direct');
+
+        static::assertTrue($this->amqpExchange->hasArgument('x-delayed-type'));
+        static::assertFalse($this->amqpExchange->hasArgument('x-max-priority'));
+    }
+
     /**
      * @param array<string, mixed> $attributes
      * @dataProvider publishDataProvider
@@ -572,18 +516,7 @@ class AMQPExchangeTest extends AbstractTestCase
         array $attributes
     ): void {
         $this->amqpExchange->setName($exchangeName);
-        $amqplibMessage = mock(AmqplibMessage::class);
-        $this->messageTransformer->allows()
-            ->transformEnvelope($message, $attributes)
-            ->andReturn($amqplibMessage);
-        $this->amqplibChannel->allows()
-            ->basic_publish(
-                $amqplibMessage,
-                $exchangeName,
-                $routingKey,
-                (bool) ($flags & AMQP_MANDATORY),
-                (bool) ($flags & AMQP_IMMEDIATE)
-            );
+        $this->channel->allows('basicPublish');
 
         $this->logger->expects()
             ->debug('AMQPExchange::publish(): Message publish attempt', [
@@ -601,18 +534,7 @@ class AMQPExchangeTest extends AbstractTestCase
     public function testPublishLogsSuccessAsDebug(): void
     {
         $this->amqpExchange->setName('my_exchange');
-        $amqplibMessage = mock(AmqplibMessage::class);
-        $this->messageTransformer->allows()
-            ->transformEnvelope('my message', [])
-            ->andReturn($amqplibMessage);
-        $this->amqplibChannel->allows()
-            ->basic_publish(
-                $amqplibMessage,
-                'my_exchange',
-                null,
-                false,
-                false
-            );
+        $this->channel->allows('basicPublish');
 
         $this->logger->expects()
             ->debug('AMQPExchange::publish(): Message published')
@@ -621,53 +543,51 @@ class AMQPExchangeTest extends AbstractTestCase
         $this->amqpExchange->publish('my message');
     }
 
-    public function testPublishPublishesViaAmqplibWhenGivenMessageOnly(): void
+    public function testPublishPublishesViaChannelWhenGivenMessageOnly(): void
     {
         $this->amqpExchange->setName('my_exchange');
-        $amqplibMessage = mock(AmqplibMessage::class);
-        $this->messageTransformer->allows()
-            ->transformEnvelope('my message', [])
-            ->andReturn($amqplibMessage);
 
-        $this->amqplibChannel->expects()
-            ->basic_publish(
-                $amqplibMessage,
+        $this->channel->expects()
+            ->basicPublish(
+                'my message',
+                [],
                 'my_exchange',
-                null,
+                '',
                 false,
-                false
+                false,
+                AMQPExchangeException::class,
+                'AMQPExchange::publish'
             )
             ->once();
 
         $this->amqpExchange->publish('my message');
     }
 
-    public function testPublishTransformsViaMessageTransformer(): void
+    public function testPublishPassesRawMessageAndHeadersToChannel(): void
     {
         $this->amqpExchange->setName('my_exchange');
-        $amqplibMessage = mock(AmqplibMessage::class);
-        $this->amqplibChannel->allows()
-            ->basic_publish(
-                $amqplibMessage,
+
+        $this->channel->expects()
+            ->basicPublish(
+                'my message',
+                ['x-my-attribute' => 'my value'],
                 'my_exchange',
-                null,
+                '',
                 false,
-                false
-            );
+                false,
+                AMQPExchangeException::class,
+                'AMQPExchange::publish'
+            )
+            ->once();
 
-        $this->messageTransformer->expects()
-            ->transformEnvelope('my message', ['x-my-attribute' => 'my value'])
-            ->once()
-            ->andReturn($amqplibMessage);
-
-        $this->amqpExchange->publish('my message', attributes: ['x-my-attribute' => 'my value']);
+        $this->amqpExchange->publish('my message', headers: ['x-my-attribute' => 'my value']);
     }
 
     /**
      * @param array<string, mixed> $attributes
      * @dataProvider publishDataProvider
      */
-    public function testPublishHandlesAmqplibExceptionCorrectly(
+    public function testPublishHandlesExceptionCorrectly(
         string $exchangeName,
         int $flags,
         string $routingKey,
@@ -675,27 +595,11 @@ class AMQPExchangeTest extends AbstractTestCase
         array $attributes
     ): void {
         $this->amqpExchange->setName($exchangeName);
-        $amqplibMessage = mock(AmqplibMessage::class);
-        $this->messageTransformer->allows()
-            ->transformEnvelope($message, $attributes)
-            ->andReturn($amqplibMessage);
-        $exception = new AMQPProtocolChannelException(21, 'your text', [1, 2, 3]);
+        $this->channel->allows('basicPublish')
+            ->andThrow(new AMQPExchangeException('your text'));
 
-        $this->amqplibChannel->allows()
-            ->basic_publish(
-                $amqplibMessage,
-                $exchangeName,
-                $routingKey,
-                (bool) ($flags & AMQP_MANDATORY),
-                (bool) ($flags & AMQP_IMMEDIATE)
-            )
-            ->andThrow($exception);
-
-        $this->expectExceptionMessage(
-            'handleException() :: AMQPExchange::publish() :: ' .
-            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPExchangeException :: ' .
-            'message(your text)'
-        );
+        $this->expectException(AMQPExchangeException::class);
+        $this->expectExceptionMessage('your text');
 
         $this->amqpExchange->publish($message, $routingKey, $flags, $attributes);
     }
@@ -785,14 +689,7 @@ class AMQPExchangeTest extends AbstractTestCase
     ): void {
         $this->amqpExchange->setFlags($flags);
         $this->amqpExchange->setName($exchangeName);
-        $this->amqplibChannel->allows()
-            ->exchange_unbind(
-                $exchangeName,
-                $sourceExchangeName,
-                $routingKey,
-                $flags & AMQP_NOWAIT,
-                Mockery::type(AmqplibTable::class)
-            );
+        $this->channel->allows('unbindExchange');
 
         $this->logger->expects()
             ->debug('AMQPExchange::unbind(): Exchange unbind attempt', [
@@ -811,7 +708,7 @@ class AMQPExchangeTest extends AbstractTestCase
      * @param array<string, scalar> $arguments
      * @dataProvider unbindDataProvider
      */
-    public function testUnbindGoesViaAmqplib(
+    public function testUnbindGoesViaChannel(
         string $exchangeName,
         string $sourceExchangeName,
         string $routingKey,
@@ -821,18 +718,17 @@ class AMQPExchangeTest extends AbstractTestCase
         $this->amqpExchange->setFlags($flags);
         $this->amqpExchange->setName($exchangeName);
 
-        $this->amqplibChannel->expects()
-            ->exchange_unbind(
+        $this->channel->expects()
+            ->unbindExchange(
                 $exchangeName,
                 $sourceExchangeName,
                 $routingKey,
-                $flags & AMQP_NOWAIT,
-                Mockery::type(AmqplibTable::class)
+                (bool) ($flags & AMQP_NOWAIT),
+                $arguments,
+                AMQPExchangeException::class,
+                'AMQPExchange::unbind'
             )
-            ->once()
-            ->andReturnUsing(function ($_1, $_2, $_3, $_4, AmqplibTable $table) use ($arguments) {
-                static::assertEquals($arguments, $table->getNativeData());
-            });
+            ->once();
 
         static::assertTrue($this->amqpExchange->unbind($sourceExchangeName, $routingKey, $arguments));
     }
@@ -841,7 +737,7 @@ class AMQPExchangeTest extends AbstractTestCase
      * @param array<string, scalar> $arguments
      * @dataProvider unbindDataProvider
      */
-    public function testUnbindHandlesAmqplibExceptionCorrectly(
+    public function testUnbindHandlesExceptionCorrectly(
         string $exchangeName,
         string $sourceExchangeName,
         string $routingKey,
@@ -850,22 +746,11 @@ class AMQPExchangeTest extends AbstractTestCase
     ): void {
         $this->amqpExchange->setFlags($flags);
         $this->amqpExchange->setName($exchangeName);
-        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
-        $this->amqplibChannel->allows()
-            ->exchange_unbind(
-                $exchangeName,
-                $sourceExchangeName,
-                $routingKey,
-                $flags & AMQP_NOWAIT,
-                Mockery::type(AmqplibTable::class)
-            )
-            ->andThrow($exception);
+        $this->channel->allows('unbindExchange')
+            ->andThrow(new AMQPExchangeException('my text'));
 
-        $this->expectExceptionMessage(
-            'handleException() :: AMQPExchange::unbind() :: ' .
-            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPExchangeException :: ' .
-            'message(my text)'
-        );
+        $this->expectException(AMQPExchangeException::class);
+        $this->expectExceptionMessage('my text');
 
         $this->amqpExchange->unbind($sourceExchangeName, $routingKey, $arguments);
     }
@@ -896,14 +781,7 @@ class AMQPExchangeTest extends AbstractTestCase
     public function testUnbindLogsSuccessAsDebug(): void
     {
         $this->amqpExchange->setName('your_exchange');
-        $this->amqplibChannel->allows()
-            ->exchange_unbind(
-                'your_exchange',
-                'my_exchange',
-                'my_routing_key',
-                false,
-                Mockery::type(AmqplibTable::class)
-            );
+        $this->channel->allows('unbindExchange');
 
         $this->logger->expects()
             ->debug('AMQPExchange::unbind(): Exchange unbound')

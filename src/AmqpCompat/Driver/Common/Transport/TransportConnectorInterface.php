@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Driver\Common\Transport;
 
+use AMQPConnectionException;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 
 /**
@@ -26,6 +27,8 @@ interface TransportConnectorInterface
 {
     /**
      * Connects and returns a new Transport for the underlying driver.
+     *
+     * @throws AMQPConnectionException
      */
-    public function connect(ConnectionConfigInterface $config): TransportInterface;
+    public function connect(ConnectionConfigInterface $config, string $methodName): TransportInterface;
 }

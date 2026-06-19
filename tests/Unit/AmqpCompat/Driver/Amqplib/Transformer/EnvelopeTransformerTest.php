@@ -11,11 +11,11 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Bridge\Channel;
+namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Driver\Amqplib\Transformer;
 
 use AMQPEnvelope;
-use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformer;
-use Asmblah\PhpAmqpCompat\Driver\Common\Processor\ValueProcessorInterface;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Processor\ValueProcessorInterface;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\EnvelopeTransformer;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use LogicException;
 use Mockery\MockInterface;

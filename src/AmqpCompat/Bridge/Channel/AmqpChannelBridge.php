@@ -13,15 +13,17 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Bridge\Channel;
 
+use AMQPChannelException;
+use AMQPConnectionException;
 use AMQPEnvelope;
+use AMQPException;
 use AMQPQueue;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
-use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
-use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Channel\ChannelInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
-use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
+use Asmblah\PhpAmqpCompat\Exception\HeartbeatMissedException;
 use LogicException;
-use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 
 /**
  * Class AmqpChannelBridge.
@@ -39,9 +41,43 @@ class AmqpChannelBridge implements AmqpChannelBridgeInterface
 
     public function __construct(
         private readonly AmqpConnectionBridgeInterface $connectionBridge,
-        private readonly AmqplibChannel $amqplibChannel,
+        private readonly ChannelInterface $channel,
         private readonly ConsumerInterface $consumer
     ) {
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function acquireChannel(string $errorOnFailure): ChannelInterface
+    {
+        if (!$this->channel->isOpen()) {
+            throw new AMQPChannelException($errorOnFailure . ' No channel available.');
+        }
+
+        if (!$this->channel->hasConnection()) {
+            throw new AMQPChannelException($errorOnFailure . ' Stale reference to the connection object.');
+        }
+
+        if (!$this->channel->isConnected()) {
+            throw new AMQPConnectionException($errorOnFailure . ' No connection available.');
+        }
+
+        try {
+            $this->connectionBridge->checkHeartbeat();
+        } catch (HeartbeatMissedException $exception) {
+            throw new AMQPException($exception->getMessage(), previous: $exception);
+        }
+
+        return $this->channel;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function closeQuietly(): void
+    {
+        $this->channel->closeQuietly();
     }
 
     /**
@@ -66,9 +102,9 @@ class AmqpChannelBridge implements AmqpChannelBridgeInterface
     /**
      * @inheritDoc
      */
-    public function getAmqplibChannel(): AmqplibChannel
+    public function getChannelId(): ?int
     {
-        return $this->amqplibChannel;
+        return $this->channel->getChannelId();
     }
 
     /**
@@ -90,14 +126,6 @@ class AmqpChannelBridge implements AmqpChannelBridgeInterface
     /**
      * @inheritDoc
      */
-    public function getEnvelopeTransformer(): EnvelopeTransformerInterface
-    {
-        return $this->connectionBridge->getEnvelopeTransformer();
-    }
-
-    /**
-     * @inheritDoc
-     */
     public function getErrorReporter(): ErrorReporterInterface
     {
         return $this->connectionBridge->getErrorReporter();
@@ -106,25 +134,9 @@ class AmqpChannelBridge implements AmqpChannelBridgeInterface
     /**
      * @inheritDoc
      */
-    public function getExceptionHandler(): ExceptionHandlerInterface
-    {
-        return $this->connectionBridge->getExceptionHandler();
-    }
-
-    /**
-     * @inheritDoc
-     */
     public function getLogger(): LoggerInterface
     {
         return $this->connectionBridge->getLogger();
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getMessageTransformer(): MessageTransformerInterface
-    {
-        return $this->connectionBridge->getMessageTransformer();
     }
 
     /**
@@ -146,9 +158,25 @@ class AmqpChannelBridge implements AmqpChannelBridgeInterface
     /**
      * @inheritDoc
      */
+    public function isConnected(): bool
+    {
+        return $this->channel->hasConnection() && $this->channel->isConnected();
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function isConsumerSubscribed(string $consumerTag): bool
     {
         return array_key_exists($consumerTag, $this->consumerTagToQueueMap);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function isOpen(): bool
+    {
+        return $this->channel->isOpen();
     }
 
     /**

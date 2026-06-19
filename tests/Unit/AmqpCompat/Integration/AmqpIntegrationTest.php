@@ -13,23 +13,20 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Integration;
 
-use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\DefaultConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
-use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
-use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transport\Transport;
+use Asmblah\PhpAmqpCompat\Driver\Common\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Transport\TransportConnectorInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Transport\TransportInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSenderInterface;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
-use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery;
 use Mockery\MockInterface;
-use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 
 /**
  * Class AmqpIntegrationTest.
@@ -39,21 +36,17 @@ use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 class AmqpIntegrationTest extends AbstractTestCase
 {
     private AmqpIntegration $amqpIntegration;
-    private MockInterface&AmqplibConnection $amqplibConnection;
     private MockInterface&ConnectionConfigInterface $connectionConfig;
     private MockInterface&ConfigurationInterface $configuration;
     private MockInterface&DefaultConnectionConfigInterface $defaultConnectionConfig;
-    private MockInterface&EnvelopeTransformerInterface $envelopeTransformer;
     private MockInterface&ErrorReporterInterface $errorReporter;
     private MockInterface&HeartbeatSenderInterface $heartbeatSender;
     private MockInterface&LoggerInterface $logger;
-    private MockInterface&MessageTransformerInterface $messageTransformer;
-    private MockInterface&Transport $transport;
+    private MockInterface&TransportInterface $transport;
     private MockInterface&TransportConnectorInterface $transportConnector;
 
     public function setUp(): void
     {
-        $this->amqplibConnection = mock(AmqplibConnection::class);
         $this->defaultConnectionConfig = mock(DefaultConnectionConfigInterface::class, [
             'getConnectionTimeout' => 123.0,
             'getHeartbeatInterval' => 234,
@@ -68,18 +61,14 @@ class AmqpIntegrationTest extends AbstractTestCase
             'getVirtualHost' => '/my/default/vhost',
             'getWriteTimeout' => 678.0,
         ]);
-        $this->envelopeTransformer = mock(EnvelopeTransformerInterface::class);
         $this->logger = mock(LoggerInterface::class);
-        $this->messageTransformer = mock(MessageTransformerInterface::class);
         $this->errorReporter = mock(ErrorReporterInterface::class);
         $this->configuration = mock(ConfigurationInterface::class, [
             'getErrorReporter' => $this->errorReporter,
             'getLogger' => $this->logger,
         ]);
         $this->connectionConfig = mock(ConnectionConfigInterface::class);
-        $this->transport = mock(Transport::class, [
-            'getAmqplibConnection' => $this->amqplibConnection,
-        ]);
+        $this->transport = mock(TransportInterface::class);
         $this->transportConnector = mock(TransportConnectorInterface::class, [
             'connect' => $this->transport,
         ]);
@@ -92,33 +81,25 @@ class AmqpIntegrationTest extends AbstractTestCase
             $this->heartbeatSender,
             $this->configuration,
             $this->defaultConnectionConfig,
-            $this->envelopeTransformer,
-            $this->messageTransformer
+            $this->logger
         );
     }
 
     public function testConnectConnectsViaTheTransportConnector(): void
     {
         $this->transportConnector->expects()
-            ->connect($this->connectionConfig)
+            ->connect($this->connectionConfig, 'MyClass::myMethod')
             ->once()
             ->andReturn($this->transport);
 
-        $this->amqpIntegration->connect($this->connectionConfig);
+        $this->amqpIntegration->connect($this->connectionConfig, 'MyClass::myMethod');
     }
 
-    public function testConnectReturnsAConnectionBridgeUsingTheAmqplibConnection(): void
+    public function testConnectReturnsAConnectionBridge(): void
     {
-        $connectionBridge = $this->amqpIntegration->connect($this->connectionConfig);
+        $connectionBridge = $this->amqpIntegration->connect($this->connectionConfig, 'MyClass::myMethod');
 
-        static::assertSame($this->amqplibConnection, $connectionBridge->getAmqplibConnection());
-    }
-
-    public function testConnectReturnsAConnectionBridgeUsingTheEnvelopeTransformer(): void
-    {
-        $connectionBridge = $this->amqpIntegration->connect($this->connectionConfig);
-
-        static::assertSame($this->envelopeTransformer, $connectionBridge->getEnvelopeTransformer());
+        static::assertInstanceOf(AmqpConnectionBridgeInterface::class, $connectionBridge);
     }
 
     public function testConnectRegistersTheCreatedBridgeWithTheHeartbeatSender(): void
@@ -127,14 +108,7 @@ class AmqpIntegrationTest extends AbstractTestCase
             ->register(Mockery::type(AmqpConnectionBridgeInterface::class))
             ->once();
 
-        $this->amqpIntegration->connect($this->connectionConfig);
-    }
-
-    public function testConnectReturnsAConnectionBridgeUsingTheMessageTransformer(): void
-    {
-        $connectionBridge = $this->amqpIntegration->connect($this->connectionConfig);
-
-        static::assertSame($this->messageTransformer, $connectionBridge->getMessageTransformer());
+        $this->amqpIntegration->connect($this->connectionConfig, 'MyClass::myMethod');
     }
 
     public function testCreateConnectionConfigUsesCorrectDefaults(): void
@@ -229,6 +203,6 @@ class AmqpIntegrationTest extends AbstractTestCase
 
     public function testGetLoggerReturnsTheLogger(): void
     {
-        static::assertSame($this->logger, $this->amqpIntegration->getLogger()->getWrappedLogger());
+        static::assertSame($this->logger, $this->amqpIntegration->getLogger());
     }
 }

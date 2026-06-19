@@ -16,16 +16,12 @@ namespace Asmblah\PhpAmqpCompat\Bridge\Connection;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\Consumer;
-use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
-use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
-use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Transport\TransportInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Exception\TooManyChannelsOnConnectionException;
-use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use InvalidArgumentException;
-use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 use SplObjectStorage;
 
 /**
@@ -43,13 +39,9 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
     private readonly SplObjectStorage $channelBridges;
 
     public function __construct(
-        private readonly AmqplibConnection $amqplibConnection,
         private readonly TransportInterface $transport,
         private readonly ConnectionConfigInterface $connectionConfig,
-        private readonly EnvelopeTransformerInterface $envelopeTransformer,
-        private readonly MessageTransformerInterface $messageTransformer,
         private readonly ErrorReporterInterface $errorReporter,
-        private readonly ExceptionHandlerInterface $exceptionHandler,
         private readonly LoggerInterface $logger
     ) {
         $this->channelBridges = new SplObjectStorage();
@@ -58,11 +50,23 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
     /**
      * @inheritDoc
      */
-    public function createChannelBridge(): AmqpChannelBridgeInterface
+    public function checkHeartbeat(): void
     {
-        $amqplibChannel = $this->amqplibConnection->channel();
+        $this->transport->checkHeartbeat();
+    }
 
-        $channelBridge = new AmqpChannelBridge($this, $amqplibChannel, new Consumer());
+    /**
+     * @inheritDoc
+     */
+    public function createChannelBridge(string $exceptionClass, string $methodName): AmqpChannelBridgeInterface
+    {
+        $channel = $this->transport->openChannel($exceptionClass, $methodName);
+
+        $channelBridge = new AmqpChannelBridge(
+            $this,
+            $channel,
+            new Consumer()
+        );
 
         if (count($this->channelBridges) === PHP_AMQP_MAX_CHANNELS) {
             throw new TooManyChannelsOnConnectionException(
@@ -81,9 +85,9 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
     /**
      * @inheritDoc
      */
-    public function getAmqplibConnection(): AmqplibConnection
+    public function disconnect(string $exceptionClass, string $methodName): void
     {
-        return $this->amqplibConnection;
+        $this->transport->disconnect($exceptionClass, $methodName);
     }
 
     /**
@@ -97,14 +101,6 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
     /**
      * @inheritDoc
      */
-    public function getEnvelopeTransformer(): EnvelopeTransformerInterface
-    {
-        return $this->envelopeTransformer;
-    }
-
-    /**
-     * @inheritDoc
-     */
     public function getErrorReporter(): ErrorReporterInterface
     {
         return $this->errorReporter;
@@ -113,19 +109,9 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
     /**
      * @inheritDoc
      */
-    public function getExceptionHandler(): ExceptionHandlerInterface
-    {
-        return $this->exceptionHandler;
-    }
-
-    /**
-     * @inheritDoc
-     */
     public function getHeartbeatInterval(): int
     {
-        $timeout = $this->amqplibConnection->getHeartbeat();
-
-        return (int)ceil($timeout / 2);
+        return $this->transport->getHeartbeatInterval();
     }
 
     /**
@@ -139,9 +125,9 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
     /**
      * @inheritDoc
      */
-    public function getMessageTransformer(): MessageTransformerInterface
+    public function getTransport(): TransportInterface
     {
-        return $this->messageTransformer;
+        return $this->transport;
     }
 
     /**
@@ -150,6 +136,22 @@ class AmqpConnectionBridge implements AmqpConnectionBridgeInterface
     public function getUsedChannels(): int
     {
         return count($this->channelBridges);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function isBusy(): bool
+    {
+        return $this->transport->isBusy();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function isConnected(): bool
+    {
+        return $this->transport->isConnected();
     }
 
     /**

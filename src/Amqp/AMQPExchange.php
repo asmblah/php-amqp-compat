@@ -12,57 +12,53 @@
 declare(strict_types=1);
 
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
-use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
-use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
-use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
-use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
-use PhpAmqpLib\Exception\AMQPExceptionInterface;
-use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;
+use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
+use Asmblah\PhpAmqpCompat\Bridge\Channel\Envelope;
+use Asmblah\PhpAmqpCompat\Driver\Common\Channel\ChannelInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Logger\LoggerInterface;
 
 /**
  * Class AMQPExchange.
  *
  * Emulates AMQPExchange from pecl-amqp.
  *
- * @phpstan-import-type EnvelopeAttributes from MessageTransformerInterface
+ * @phpstan-import-type EnvelopeAttributes from Envelope
  * @see {@link https://github.com/php-amqp/php-amqp/blob/v1.11.0/stubs/AMQPExchange.php}
  */
 class AMQPExchange
 {
     private readonly AMQPChannel $amqpChannel;
     /**
-     * Nullable because the implementation allows for extension,
-     * where the parent constructor may not be called.
-     */
-    private ?AmqplibChannel $amqplibChannel = null;
-    /**
      * @var array<string, scalar>
      */
     private array $arguments = [];
-    private readonly ExceptionHandlerInterface $exceptionHandler;
+    private readonly AmqpChannelBridgeInterface $channelBridge;
+    /**
+     * The implementation allows for extension,
+     * where the parent constructor may not be called.
+     */
+    private bool $constructorCalled = false;
     private string $exchangeName = '';
     private string $exchangeType = ''; // Must be set to one of the AMQP_EX__TYPE* constants.
     private int $flags = 0;
     private readonly LoggerInterface $logger;
-    private readonly MessageTransformerInterface $messageTransformer;
 
     /**
      * @throws AMQPChannelException When channel is not connected.
      * @throws AMQPConnectionException If the connection to the broker was
      *                                 lost.
+     * @throws AMQPException
      */
     public function __construct(AMQPChannel $amqpChannel)
     {
         $this->amqpChannel = $amqpChannel;
 
-        $channelBridge = AmqpBridge::getBridgeChannel($amqpChannel);
-        $this->exceptionHandler = $channelBridge->getExceptionHandler();
-        $this->logger = $channelBridge->getLogger();
-        $this->messageTransformer = $channelBridge->getMessageTransformer();
+        $this->channelBridge = AmqpBridge::getBridgeChannel($amqpChannel);
+        $this->logger = $this->channelBridge->getLogger();
 
-        // Always set here in the constructor, however the API allows for the class to be extended
+        // Always set here in the constructor - however, the API allows for the class to be extended
         // and so this parent constructor may not be called. See reference implementation tests.
-        $this->amqplibChannel = $channelBridge->getAmqplibChannel();
+        $this->constructorCalled = true;
 
         $this->checkChannelOrThrow('Could not create exchange.');
     }
@@ -77,11 +73,12 @@ class AMQPExchange
      * @throws AMQPChannelException When the channel is not open.
      * @throws AMQPConnectionException When the connection to the broker was lost.
      * @throws AMQPExchangeException On failure.
+     * @throws AMQPException
      */
     public function bind(string $exchangeName, ?string $routingKey = '', array $arguments = []): bool
     {
         $routingKey ??= '';
-        $amqplibChannel = $this->checkChannelOrThrow('Could not bind to exchange.');
+        $channel = $this->checkChannelOrThrow('Could not bind to exchange.');
 
         $this->logger->debug(__METHOD__ . '(): Exchange bind attempt', [
             'arguments' => $arguments,
@@ -91,18 +88,15 @@ class AMQPExchange
             'source_exchange_name' => $exchangeName,
         ]);
 
-        try {
-            $amqplibChannel->exchange_bind(
-                $this->exchangeName,
-                $exchangeName,
-                $routingKey,
-                (bool) ($this->flags & AMQP_NOWAIT),
-                new AmqplibTable($arguments)
-            );
-        } catch (AMQPExceptionInterface $exception) {
-            /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleException($exception, AMQPExchangeException::class, __METHOD__);
-        }
+        $channel->bindExchange(
+            $this->exchangeName,
+            $exchangeName,
+            $routingKey,
+            (bool) ($this->flags & AMQP_NOWAIT),
+            $arguments,
+            AMQPExchangeException::class,
+            __METHOD__
+        );
 
         $this->logger->debug(__METHOD__ . '(): Exchange bound');
 
@@ -114,26 +108,15 @@ class AMQPExchange
      *
      * @throws AMQPChannelException
      * @throws AMQPConnectionException
+     * @throws AMQPException
      */
-    private function checkChannelOrThrow(string $error): AmqplibChannel
+    private function checkChannelOrThrow(string $error): ChannelInterface
     {
-        if ($this->amqplibChannel === null) {
+        if (!$this->constructorCalled) {
             throw new AMQPChannelException($error . ' Stale reference to the channel object.');
         }
 
-        if (!$this->amqplibChannel->is_open()) {
-            throw new AMQPChannelException($error . ' No channel available.');
-        }
-
-        if ($this->amqplibChannel->getConnection() === null) {
-            throw new AMQPChannelException($error . ' Stale reference to the connection object.');
-        }
-
-        if (!$this->amqplibChannel->getConnection()->isConnected()) {
-            throw new AMQPConnectionException($error . 'No connection available.');
-        }
-
-        return $this->amqplibChannel;
+        return $this->channelBridge->acquireChannel($error);
     }
 
     /**
@@ -144,10 +127,11 @@ class AMQPExchange
      * @throws AMQPExchangeException   On failure.
      * @throws AMQPChannelException    If the channel is not open.
      * @throws AMQPConnectionException If the connection to the broker was lost.
+     * @throws AMQPException
      */
     public function declareExchange(): bool
     {
-        $amqplibChannel = $this->checkChannelOrThrow('Could not declare exchange.');
+        $channel = $this->checkChannelOrThrow('Could not declare exchange.');
 
         if ($this->exchangeName === '') {
             throw new AMQPExchangeException('Could not declare exchange. Exchanges must have a name.');
@@ -164,21 +148,18 @@ class AMQPExchange
             'flags' => $this->flags,
         ]);
 
-        try {
-            $amqplibChannel->exchange_declare(
-                $this->exchangeName,
-                $this->exchangeType,
-                (bool) ($this->flags & AMQP_PASSIVE),
-                (bool) ($this->flags & AMQP_DURABLE),
-                (bool) ($this->flags & AMQP_AUTODELETE),
-                (bool) ($this->flags & AMQP_INTERNAL),
-                (bool) ($this->flags & AMQP_NOWAIT),
-                new AmqplibTable($this->arguments)
-            );
-        } catch (AMQPExceptionInterface $exception) {
-            /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleException($exception, AMQPExchangeException::class, __METHOD__);
-        }
+        $channel->declareExchange(
+            $this->exchangeName,
+            $this->exchangeType,
+            (bool) ($this->flags & AMQP_PASSIVE),
+            (bool) ($this->flags & AMQP_DURABLE),
+            (bool) ($this->flags & AMQP_AUTODELETE),
+            (bool) ($this->flags & AMQP_INTERNAL),
+            (bool) ($this->flags & AMQP_NOWAIT),
+            $this->arguments,
+            AMQPExchangeException::class,
+            __METHOD__
+        );
 
         $this->logger->debug(__METHOD__ . '(): Exchange declared');
 
@@ -199,10 +180,11 @@ class AMQPExchange
      * @throws AMQPExchangeException   On failure.
      * @throws AMQPChannelException    If the channel is not open.
      * @throws AMQPConnectionException If the connection to the broker was lost.
+     * @throws AMQPException
      */
     public function delete(?string $exchangeName = null, int $flags = AMQP_NOPARAM): bool
     {
-        $amqplibChannel = $this->checkChannelOrThrow('Could not delete exchange.');
+        $channel = $this->checkChannelOrThrow('Could not delete exchange.');
 
         if ($exchangeName === null || $exchangeName === '') {
             $exchangeName = $this->exchangeName;
@@ -213,16 +195,13 @@ class AMQPExchange
             'flags' => $flags,
         ]);
 
-        try {
-            $amqplibChannel->exchange_delete(
-                $exchangeName,
-                (bool) ($flags & AMQP_IFUNUSED),
-                (bool) ($flags & AMQP_NOWAIT)
-            );
-        } catch (AMQPExceptionInterface $exception) {
-            /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleException($exception, AMQPExchangeException::class, __METHOD__);
-        }
+        $channel->deleteExchange(
+            $exchangeName,
+            (bool) ($flags & AMQP_IFUNUSED),
+            (bool) ($flags & AMQP_NOWAIT),
+            AMQPExchangeException::class,
+            __METHOD__
+        );
 
         $this->logger->debug(__METHOD__ . '(): Exchange deleted');
 
@@ -324,7 +303,7 @@ class AMQPExchange
      *                           publish to.
      * @param integer $flags One or more of AMQP_MANDATORY and
      *                       AMQP_IMMEDIATE.
-     * @param EnvelopeAttributes $attributes
+     * @param EnvelopeAttributes $headers
      *
      * @return bool TRUE on success or FALSE on failure.
      *
@@ -336,33 +315,29 @@ class AMQPExchange
         string $message,
         ?string $routingKey = null,
         int $flags = AMQP_NOPARAM,
-        array $attributes = []
+        array $headers = []
     ): bool {
         $routingKey ??= '';
-        $amqplibChannel = $this->checkChannelOrThrow('Could not publish to exchange.');
+        $channel = $this->checkChannelOrThrow('Could not publish to exchange.');
 
         $this->logger->debug(__METHOD__ . '(): Message publish attempt', [
-            'attributes' => $attributes,
+            'attributes' => $headers,
             'exchange_name' => $this->exchangeName,
             'flags' => $flags,
             'message' => $message,
             'routing_key' => $routingKey,
         ]);
 
-        $amqplibMessage = $this->messageTransformer->transformEnvelope($message, $attributes);
-
-        try {
-            $amqplibChannel->basic_publish(
-                $amqplibMessage,
-                $this->exchangeName,
-                $routingKey,
-                (bool) ($flags & AMQP_MANDATORY),
-                (bool) ($flags & AMQP_IMMEDIATE)
-            );
-        } catch (AMQPExceptionInterface $exception) {
-            /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleException($exception, AMQPExchangeException::class, __METHOD__);
-        }
+        $channel->basicPublish(
+            $message,
+            $headers,
+            $this->exchangeName,
+            $routingKey,
+            (bool) ($flags & AMQP_MANDATORY),
+            (bool) ($flags & AMQP_IMMEDIATE),
+            AMQPExchangeException::class,
+            __METHOD__
+        );
 
         $this->logger->debug(__METHOD__ . '(): Message published');
 
@@ -463,7 +438,7 @@ class AMQPExchange
     public function unbind(string $exchangeName, ?string $routingKey = '', array $arguments = []): bool
     {
         $routingKey ??= '';
-        $amqplibChannel = $this->checkChannelOrThrow('Could not unbind from exchange.');
+        $channel = $this->checkChannelOrThrow('Could not unbind from exchange.');
 
         $this->logger->debug(__METHOD__ . '(): Exchange unbind attempt', [
             'arguments' => $arguments,
@@ -473,18 +448,15 @@ class AMQPExchange
             'source_exchange_name' => $exchangeName,
         ]);
 
-        try {
-            $amqplibChannel->exchange_unbind(
-                $this->exchangeName,
-                $exchangeName,
-                $routingKey,
-                (bool) ($this->flags & AMQP_NOWAIT),
-                new AmqplibTable($arguments)
-            );
-        } catch (AMQPExceptionInterface $exception) {
-            /** @var AMQPExceptionInterface&Exception $exception */
-            $this->exceptionHandler->handleException($exception, AMQPExchangeException::class, __METHOD__);
-        }
+        $channel->unbindExchange(
+            $this->exchangeName,
+            $exchangeName,
+            $routingKey,
+            (bool) ($this->flags & AMQP_NOWAIT),
+            $arguments,
+            AMQPExchangeException::class,
+            __METHOD__
+        );
 
         $this->logger->debug(__METHOD__ . '(): Exchange unbound');
 

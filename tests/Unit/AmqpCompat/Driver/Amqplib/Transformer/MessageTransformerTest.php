@@ -13,8 +13,8 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Driver\Amqplib\Transformer;
 
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Processor\ValueProcessorInterface;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformer;
-use Asmblah\PhpAmqpCompat\Driver\Common\Processor\ValueProcessorInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery\MockInterface;
 use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;

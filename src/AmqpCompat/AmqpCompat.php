@@ -60,6 +60,7 @@ class AmqpCompat implements AmqpCompatInterface
             );
         }
 
+        DefaultConfiguration::setDefaultDriver($package->getDriver());
         DefaultConfiguration::setDefaultSchedulerFactory($package->getSchedulerFactory());
 
         self::$installed = true;

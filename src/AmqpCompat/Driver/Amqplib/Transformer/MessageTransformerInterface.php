@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer;
 
+use Asmblah\PhpAmqpCompat\Bridge\Channel\Envelope;
 use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
 
 /**
@@ -20,20 +21,7 @@ use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
  *
  * Transforms AMQP envelope data into php-amqplib Message objects.
  *
- * @phpstan-type EnvelopeAttributes array{
- *                                       app_id?: string,
- *                                       content_encoding?: string,
- *                                       content_type?: string,
- *                                       delivery_mode?: string,
- *                                       expiration?: string,
- *                                       headers?: array<mixed>,
- *                                       message_id?: string,
- *                                       priority?: string,
- *                                       reply_to?: string,
- *                                       timestamp?: string,
- *                                       type?: string,
- *                                       user_id?: string,
- *                                      }
+ * @phpstan-import-type EnvelopeAttributes from Envelope
  * @author Dan Phillimore <dan@ovms.co>
  */
 interface MessageTransformerInterface

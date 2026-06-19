@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Integration;
 
-use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
@@ -21,66 +20,48 @@ use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfig;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\DefaultConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
-use Asmblah\PhpAmqpCompat\Driver\Amqplib\Exception\ExceptionHandler;
-use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
-use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transport\Transport;
-use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Transport\TransportConnectorInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSenderInterface;
-use Asmblah\PhpAmqpCompat\Logger\Logger;
-use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 
 /**
  * Class AmqpIntegration.
  *
- * This default implementation connects to the AMQP broker via the php-amqplib library.
+ * This default implementation connects via the configured AMQP driver layer.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
 class AmqpIntegration implements AmqpIntegrationInterface
 {
     private readonly ErrorReporterInterface $errorReporter;
-    private readonly ExceptionHandlerInterface $exceptionHandler;
-    private readonly LoggerInterface $logger;
 
     public function __construct(
         private readonly TransportConnectorInterface $connector,
         private readonly HeartbeatSenderInterface $heartbeatSender,
         private readonly ConfigurationInterface $configuration,
         private readonly DefaultConnectionConfigInterface $defaultConnectionConfig,
-        private readonly EnvelopeTransformerInterface $envelopeTransformer,
-        private readonly MessageTransformerInterface $messageTransformer
+        private readonly LoggerInterface $logger
     ) {
         $this->errorReporter = $configuration->getErrorReporter();
-        $this->logger = new Logger($configuration->getLogger());
-
-        // TODO: Handle with driver setup.
-        $this->exceptionHandler = new ExceptionHandler($this->logger);
     }
 
     /**
      * @inheritDoc
      */
-    public function connect(ConnectionConfigInterface $config): AmqpConnectionBridgeInterface
+    public function connect(ConnectionConfigInterface $config, string $methodName): AmqpConnectionBridgeInterface
     {
-        // TODO: Remove leakage of php-amqplib connection from Transport abstraction here.
-        /** @var Transport $transport */
-        $transport = $this->connector->connect($config);
+        $transport = $this->connector->connect($config, $methodName);
 
         // Internal representation of the AMQP connection that this compatibility layer uses.
         $connectionBridge = new AmqpConnectionBridge(
-            $transport->getAmqplibConnection(),
             $transport,
             $config,
-            $this->envelopeTransformer,
-            $this->messageTransformer,
             $this->errorReporter,
-            $this->exceptionHandler,
             $this->logger
         );
 
-        // Install AMQP heartbeat handling (via php-amqplib) as applicable.
+        // Install AMQP heartbeat handling (via the driver, e.g. php-amqplib) as applicable.
         $this->heartbeatSender->register($connectionBridge);
 
         return $connectionBridge;

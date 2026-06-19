@@ -13,22 +13,13 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat;
 
-use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformer;
 use Asmblah\PhpAmqpCompat\Configuration\Configuration;
 use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
-use Asmblah\PhpAmqpCompat\Connection\Amqplib\ConnectionFactory;
 use Asmblah\PhpAmqpCompat\Connection\Config\DefaultConnectionConfig;
-use Asmblah\PhpAmqpCompat\Connection\Connector;
-use Asmblah\PhpAmqpCompat\Driver\Amqplib\Heartbeat\HeartbeatTransmitter;
-use Asmblah\PhpAmqpCompat\Driver\Amqplib\Processor\ValueProcessor;
-use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformer;
-use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transport\TransportConnector;
 use Asmblah\PhpAmqpCompat\Heartbeat\HeartbeatSender;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegration;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
-use Asmblah\PhpAmqpCompat\Misc\Clock;
 use Asmblah\PhpAmqpCompat\Misc\Ini;
-use Asmblah\PhpAmqpCompat\Socket\SocketSubsystem;
 
 /**
  * Class AmqpManager.
@@ -50,25 +41,18 @@ class AmqpManager
     {
         if (self::$amqpIntegration === null) {
             $configuration = self::getConfiguration();
-            $valueProcessor = new ValueProcessor();
+            $driverImplementation = $configuration->getDriverImplementation();
 
-            $heartbeatTransmitter = new HeartbeatTransmitter(new Clock());
+            $heartbeatTransmitter = $driverImplementation->getHeartbeatTransmitter();
 
             $heartbeatScheduler = $configuration->getSchedulerFactory()->createScheduler($heartbeatTransmitter);
 
             self::$amqpIntegration = new AmqpIntegration(
-                new TransportConnector(
-                    new Connector(
-                        new ConnectionFactory(),
-                        $configuration->getUnlimitedTimeout()
-                    ),
-                    new SocketSubsystem()
-                ),
+                $driverImplementation->getTransportConnector(),
                 new HeartbeatSender($heartbeatScheduler),
                 $configuration,
                 new DefaultConnectionConfig(new Ini()),
-                new EnvelopeTransformer($valueProcessor),
-                new MessageTransformer($valueProcessor)
+                $driverImplementation->getLogger()
             );
         }
 
