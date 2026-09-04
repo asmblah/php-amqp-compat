@@ -11,10 +11,10 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Connection;
+namespace Asmblah\PhpAmqpCompat\Driver\Amqplib\Connection;
 
+use AMQPConnectionException;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
-use Exception;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 
 /**
@@ -29,7 +29,7 @@ interface ConnectorInterface
     /**
      * Performs the connection to the AMQP broker.
      *
-     * @throws Exception On connection failure.
+     * @throws AMQPConnectionException On connection failure.
      */
     public function connect(ConnectionConfigInterface $config): AmqplibConnection;
 }

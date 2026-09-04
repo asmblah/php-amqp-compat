@@ -11,11 +11,11 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Connection;
+namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Driver\Amqplib\Connection;
 
-use Asmblah\PhpAmqpCompat\Connection\Amqplib\ConnectionFactoryInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
-use Asmblah\PhpAmqpCompat\Connection\Connector;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Connection\ConnectionFactoryInterface;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Connection\Connector;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery;
 use Mockery\MockInterface;

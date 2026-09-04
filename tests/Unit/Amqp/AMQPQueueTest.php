@@ -21,22 +21,13 @@ use AMQPQueue;
 use AMQPQueueException;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
-use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
-use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Channel\ChannelInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
-use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Closure;
-use Exception;
 use Mockery;
 use Mockery\MockInterface;
-use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
-use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
-use PhpAmqpLib\Exception\AMQPIOException;
-use PhpAmqpLib\Exception\AMQPProtocolChannelException;
-use PhpAmqpLib\Exception\AMQPTimeoutException;
-use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;
-use PhpAmqpLib\Wire\AMQPTable as AmqplibTable;
 use stdClass;
 
 /**
@@ -48,35 +39,23 @@ class AMQPQueueTest extends AbstractTestCase
 {
     private MockInterface&AMQPChannel $amqpChannel;
     private AMQPQueue $amqpQueue;
-    private MockInterface&AmqplibChannel $amqplibChannel;
-    private MockInterface&AmqplibConnection $amqplibConnection;
+    private MockInterface&ChannelInterface $channel;
     private MockInterface&AmqpChannelBridgeInterface $channelBridge;
-    private MockInterface&EnvelopeTransformerInterface $envelopeTransformer;
-    private MockInterface&ExceptionHandlerInterface $exceptionHandler;
     private MockInterface&LoggerInterface $logger;
 
     public function setUp(): void
     {
         $this->amqpChannel = mock(AMQPChannel::class);
-        $this->amqplibConnection = mock(AmqplibConnection::class, [
-            'isConnected' => true,
+        $this->channel = mock(ChannelInterface::class, [
+            'basicAck' => null,
+            'basicConsume' => 'my_consumer_tag',
+            'basicNack' => null,
         ]);
-        $this->amqplibChannel = mock(AmqplibChannel::class, [
-            'basic_ack' => null,
-            'basic_consume' => 'my_consumer_tag',
-            'basic_nack' => null,
-            'getConnection' => $this->amqplibConnection,
-            'is_open' => true,
-        ]);
-        $this->envelopeTransformer = mock(EnvelopeTransformerInterface::class);
-        $this->exceptionHandler = mock(ExceptionHandlerInterface::class);
         $this->logger = mock(LoggerInterface::class, [
             'debug' => null,
         ]);
         $this->channelBridge = mock(AmqpChannelBridgeInterface::class, [
-            'getAmqplibChannel' => $this->amqplibChannel,
-            'getEnvelopeTransformer' => $this->envelopeTransformer,
-            'getExceptionHandler' => $this->exceptionHandler,
+            'acquireChannel' => $this->channel,
             'getLogger' => $this->logger,
             'getReadTimeout' => 12,
             'getSubscribedConsumers' => [
@@ -92,24 +71,6 @@ class AMQPQueueTest extends AbstractTestCase
             'subscribeConsumer' => null,
         ]);
         AmqpBridge::bridgeChannel($this->amqpChannel, $this->channelBridge);
-
-        $this->exceptionHandler->allows('handleException')
-            ->andReturnUsing(function (
-                Exception $libraryException,
-                string $exceptionClass,
-                string $methodName,
-                bool $isConsumption = false
-            ) {
-                throw new Exception(sprintf(
-                    'handleException() :: %s() :: Library Exception<%s> -> %s :: message(%s) isConsumption(%s)',
-                    $methodName,
-                    $libraryException::class,
-                    $exceptionClass,
-                    $libraryException->getMessage(),
-                    $isConsumption ? 'yes' : 'no'
-                ));
-            })
-            ->byDefault();
 
         $this->amqpQueue = new AMQPQueue($this->amqpChannel);
     }
@@ -132,8 +93,6 @@ class AMQPQueueTest extends AbstractTestCase
     public function testAckLogsAttemptAsDebug(): void
     {
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows()
-            ->basic_ack(123, false);
 
         $this->logger->expects()
             ->debug('AMQPQueue::ack(): Acknowledgement attempt', [
@@ -146,36 +105,32 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqpQueue->ack(123);
     }
 
-    public function testAckAcknowledgesViaAmqplibWithDefaultFlags(): void
+    public function testAckAcknowledgesViaChannelWithDefaultFlags(): void
     {
-        $this->amqplibChannel->expects()
-            ->basic_ack(321, false)
+        $this->channel->expects()
+            ->basicAck(321, false, AMQPQueueException::class, 'AMQPQueue::ack')
             ->once();
 
         $this->amqpQueue->ack(321);
     }
 
-    public function testAckAcknowledgesViaAmqplibWithMultipleFlag(): void
+    public function testAckAcknowledgesViaChannelWithMultipleFlag(): void
     {
-        $this->amqplibChannel->expects()
-            ->basic_ack(321, true)
+        $this->channel->expects()
+            ->basicAck(321, true, AMQPQueueException::class, 'AMQPQueue::ack')
             ->once();
 
         $this->amqpQueue->ack(321, AMQP_MULTIPLE);
     }
 
-    public function testAckHandlesAmqplibExceptionCorrectly(): void
+    public function testAckHandlesExceptionCorrectly(): void
     {
-        $exception = new AMQPIOException('Bang!', 123);
-        $this->amqplibChannel->allows()
-            ->basic_ack(123, false)
-            ->andThrow($exception);
+        $this->channel->allows()
+            ->basicAck(123, false, AMQPQueueException::class, 'AMQPQueue::ack')
+            ->andThrow(new AMQPQueueException('Bang!'));
 
-        $this->expectExceptionMessage(
-            'handleException() :: AMQPQueue::ack() :: ' .
-            'Library Exception<PhpAmqpLib\Exception\AMQPIOException> -> AMQPQueueException :: ' .
-            'message(Bang!) isConsumption(no)'
-        );
+        $this->expectException(AMQPQueueException::class);
+        $this->expectExceptionMessage('Bang!');
 
         $this->amqpQueue->ack(123);
     }
@@ -188,8 +143,6 @@ class AMQPQueueTest extends AbstractTestCase
     public function testAckLogsSuccessAsDebug(): void
     {
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows()
-            ->basic_ack(123, false);
 
         $this->logger->expects()
             ->debug('AMQPQueue::ack(): Message acknowledged')
@@ -221,7 +174,7 @@ class AMQPQueueTest extends AbstractTestCase
     {
         $consumerCallback = function () {};
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows('wait')
+        $this->channel->allows('wait')
             ->andThrow(new StopConsumptionException());
 
         $this->logger->expects()
@@ -243,7 +196,7 @@ class AMQPQueueTest extends AbstractTestCase
     {
         $consumerCallback = function () {};
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows('wait')
+        $this->channel->allows('wait')
             ->andThrow(new StopConsumptionException());
 
         $this->logger->expects()
@@ -264,17 +217,16 @@ class AMQPQueueTest extends AbstractTestCase
     public function testConsumeWithNoFlagsSubscribesConsumerWhenNoCallbackGiven(): void
     {
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows()
-            ->basic_consume(
+        $this->channel->allows()
+            ->basicConsume(
                 'my_queue',
                 'my_input_consumer_tag',
                 false,
                 false,
                 false,
-                false,
                 Mockery::type(Closure::class),
-                null,
-                []
+                AMQPQueueException::class,
+                'AMQPQueue::consume'
             )
             ->andReturn('my_output_consumer_tag');
 
@@ -301,7 +253,7 @@ class AMQPQueueTest extends AbstractTestCase
     {
         $consumerCallback = function () {};
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows('wait')
+        $this->channel->allows('wait')
             ->andThrow(new StopConsumptionException());
 
         $this->channelBridge->expects()
@@ -349,54 +301,48 @@ class AMQPQueueTest extends AbstractTestCase
 
     public function testConsumeWithNoFlagsProvidesCallbackThatConsumesViaChannelBridge(): void
     {
-        $consumerCallback = null;
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows()
-            ->basic_consume(
+        $internalCallback = null;
+        $this->channel->allows()
+            ->basicConsume(
                 'my_queue',
                 'my_input_consumer_tag',
                 false,
                 false,
                 false,
-                false,
                 Mockery::type(Closure::class),
-                null,
-                []
+                AMQPQueueException::class,
+                'AMQPQueue::consume'
             )
             ->andReturnUsing(function (
-                $queue,
-                $consumerTag,
-                $noLocal,
-                $noAck,
-                $exclusive,
-                $noWait,
+                string $queueName,
+                string $consumerTag,
+                bool $noLocal,
+                bool $autoAck,
+                bool $exclusive,
                 callable $callback
-            ) use (&$consumerCallback) {
-                $consumerCallback = $callback;
+            ) use (&$internalCallback) {
+                $internalCallback = $callback;
 
                 return 'my_consumer_tag';
             });
-        $amqplibMessage = mock(AmqplibMessage::class, [
+        $amqpEnvelope = mock(AMQPEnvelope::class, [
             'getConsumerTag' => 'my_consumer_tag',
         ]);
-        $amqpEnvelope = mock(AMQPEnvelope::class);
-        $this->envelopeTransformer->allows()
-            ->transformMessage($amqplibMessage)
-            ->andReturn($amqpEnvelope);
 
         $this->channelBridge->expects()
             ->consumeEnvelope($amqpEnvelope)
             ->once();
 
         $this->amqpQueue->consume(null, AMQP_NOPARAM, 'my_input_consumer_tag');
-        $consumerCallback($amqplibMessage);
+        $internalCallback($amqpEnvelope);
     }
 
     public function testConsumeWithJustConsumeFlagProvidesCallbackToChannelBridge(): void
     {
         $consumerCallback = function () {};
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows('wait')
+        $this->channel->allows('wait')
             ->andThrow(new StopConsumptionException());
 
         $this->channelBridge->expects()
@@ -410,10 +356,10 @@ class AMQPQueueTest extends AbstractTestCase
     {
         $consumerCallback = function () {};
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows('wait')
+        $this->channel->allows('wait')
             ->andThrow(new StopConsumptionException());
 
-        $this->amqplibChannel->expects('basic_consume')
+        $this->channel->expects('basicConsume')
             ->never();
         $this->logger->expects()
             ->debug('AMQPQueue::consume(): Consumer subscribed')
@@ -433,40 +379,34 @@ class AMQPQueueTest extends AbstractTestCase
 
     public function testConsumeProvidesCallbackThatRaisesAmqpEnvelopeExceptionIfConsumerTagIsUnknown(): void
     {
-        $consumerCallback = null;
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows()
-            ->basic_consume(
+        $internalCallback = null;
+        $this->channel->allows()
+            ->basicConsume(
                 'my_queue',
                 'my_input_consumer_tag',
                 false,
                 false,
                 false,
-                false,
                 Mockery::type(Closure::class),
-                null,
-                []
+                AMQPQueueException::class,
+                'AMQPQueue::consume'
             )
             ->andReturnUsing(function (
-                $queue,
-                $consumerTag,
-                $noLocal,
-                $noAck,
-                $exclusive,
-                $noWait,
+                string $queueName,
+                string $consumerTag,
+                bool $noLocal,
+                bool $autoAck,
+                bool $exclusive,
                 callable $callback
-            ) use (&$consumerCallback) {
-                $consumerCallback = $callback;
+            ) use (&$internalCallback) {
+                $internalCallback = $callback;
 
                 return 'my_consumer_tag';
             });
-        $amqplibMessage = mock(AmqplibMessage::class, [
+        $amqpEnvelope = mock(AMQPEnvelope::class, [
             'getConsumerTag' => 'my_unknown_consumer_tag',
         ]);
-        $amqpEnvelope = mock(AMQPEnvelope::class);
-        $this->envelopeTransformer->allows()
-            ->transformMessage($amqplibMessage)
-            ->andReturn($amqpEnvelope);
         $this->channelBridge->expects()
             ->isConsumerSubscribed('my_unknown_consumer_tag')
             ->andReturnFalse();
@@ -475,37 +415,22 @@ class AMQPQueueTest extends AbstractTestCase
         $this->expectExceptionMessage('Orphaned envelope');
         $this->amqpQueue->consume(null, AMQP_NOPARAM, 'my_input_consumer_tag');
         try {
-            $consumerCallback($amqplibMessage);
+            $internalCallback($amqpEnvelope);
         } catch (AMQPEnvelopeException $exception) {
             static::assertSame($amqpEnvelope, $exception->envelope);
             throw $exception;
         }
     }
 
-    public function testConsumeHandlesAmqplibExceptionCorrectly(): void
+    public function testConsumeHandlesExceptionFromBasicConsumeCorrectly(): void
     {
         $this->amqpQueue->setName('my_queue');
         $consumerCallback = function () {};
-        $exception = new AMQPIOException('Bang!', 123);
-        $this->amqplibChannel->allows()
-            ->basic_consume(
-                'my_queue',
-                'my_input_consumer_tag',
-                false,
-                false,
-                false,
-                false,
-                Mockery::type(Closure::class),
-                null,
-                []
-            )
-            ->andThrow($exception);
+        $this->channel->allows('basicConsume')
+            ->andThrow(new AMQPQueueException('Bang!'));
 
-        $this->expectExceptionMessage(
-            'handleException() :: AMQPQueue::consume() :: ' .
-            'Library Exception<PhpAmqpLib\Exception\AMQPIOException> -> AMQPQueueException :: ' .
-            'message(Bang!) isConsumption(no)'
-        );
+        $this->expectException(AMQPQueueException::class);
+        $this->expectExceptionMessage('Bang!');
 
         $this->amqpQueue->consume($consumerCallback, AMQP_NOPARAM, 'my_input_consumer_tag');
     }
@@ -515,67 +440,47 @@ class AMQPQueueTest extends AbstractTestCase
         $consumerCallback = function () {};
         $this->amqpQueue->setName('my_queue');
 
-        $this->amqplibChannel->expects()
-            ->wait(null, false, 12)
+        $this->channel->expects()
+            ->wait(12, AMQPQueueException::class, 'AMQPQueue::consume')
             ->once()
             ->andThrow(new StopConsumptionException());
 
         $this->amqpQueue->consume($consumerCallback);
     }
 
-    public function testConsumeHandlesExceptionsDuringWaitViaExceptionHandler(): void
+    public function testConsumeHandlesExceptionsDuringWait(): void
     {
         $consumerCallback = function () {};
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows('wait')
-            ->andThrow(new AMQPTimeoutException('Bang!'));
+        $this->channel->allows('wait')
+            ->andThrow(new AMQPQueueException('Bang!'));
 
-        $this->expectExceptionMessage(
-            'handleException() :: AMQPQueue::consume() :: ' .
-            'Library Exception<PhpAmqpLib\Exception\AMQPTimeoutException> -> AMQPQueueException :: ' .
-            'message(Bang!) isConsumption(yes)'
-        );
+        $this->expectException(AMQPQueueException::class);
+        $this->expectExceptionMessage('Bang!');
 
         $this->amqpQueue->consume($consumerCallback);
     }
 
-    public function testDeclareQueueDeclaresViaAmqplib(): void
+    public function testDeclareQueueDeclaresViaChannel(): void
     {
         $this->amqpQueue->setName('my_queue');
         $this->amqpQueue->setFlags(AMQP_PASSIVE | AMQP_EXCLUSIVE | AMQP_AUTODELETE);
         $this->amqpQueue->setArguments(['x-dead-letter-exchange' => 'my_retry_exchange']);
 
-        $this->amqplibChannel->expects()
-            ->queue_declare(
+        $this->channel->expects()
+            ->declareQueue(
                 'my_queue',
                 true,
                 false,
                 true,
                 true,
                 false,
-                Mockery::type(AmqplibTable::class)
+                ['x-dead-letter-exchange' => 'my_retry_exchange'],
+                AMQPQueueException::class,
+                'AMQPQueue::declareQueue'
             )
             ->once()
-            ->andReturnUsing(function (
-                $queueName,
-                $passive,
-                $durable,
-                $exclusive,
-                $autoDelete,
-                $noWait,
-                AmqplibTable $arguments
-            ) {
-                static::assertEquals(
-                    ['x-dead-letter-exchange' => 'my_retry_exchange'],
-                    $arguments->getNativeData()
-                );
-
-                $queueName = 'my_queue';
-                $messageCount = 21;
-                $consumerCount = 7;
-
-                return [$queueName, $messageCount, $consumerCount];
-            });
+            ->andReturn(['name' => 'my_queue', 'count' => 21]);
 
         static::assertSame(21, $this->amqpQueue->declareQueue(), 'Message count should be returned');
     }
@@ -584,23 +489,19 @@ class AMQPQueueTest extends AbstractTestCase
     {
         $this->amqpQueue->setFlags(AMQP_PASSIVE | AMQP_EXCLUSIVE | AMQP_AUTODELETE);
         $this->amqpQueue->setArguments(['x-dead-letter-exchange' => 'my_retry_exchange']);
-        $this->amqplibChannel->allows()
-            ->queue_declare(
+        $this->channel->allows()
+            ->declareQueue(
                 '',
                 true,
                 false,
                 true,
                 true,
                 false,
-                Mockery::type(AmqplibTable::class)
+                ['x-dead-letter-exchange' => 'my_retry_exchange'],
+                AMQPQueueException::class,
+                'AMQPQueue::declareQueue'
             )
-            ->andReturnUsing(function () {
-                $queueName = 'my_generated_queue';
-                $messageCount = 21;
-                $consumerCount = 7;
-
-                return [$queueName, $messageCount, $consumerCount];
-            });
+            ->andReturn(['name' => 'my_generated_queue', 'count' => 21]);
 
         $this->amqpQueue->declareQueue();
 
@@ -611,74 +512,14 @@ class AMQPQueueTest extends AbstractTestCase
         );
     }
 
-    public function testDeclareQueueHandlesAmqplibExceptionCorrectly(): void
+    public function testDeclareQueueHandlesExceptionCorrectly(): void
     {
         $this->amqpQueue->setName('my_queue');
-        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
-
-        $this->amqplibChannel->allows()
-            ->queue_declare(
-                'my_queue',
-                false,
-                false,
-                false,
-                true,
-                false,
-                Mockery::type(AmqplibTable::class)
-            )
-            ->andThrow($exception);
-
-        $this->expectExceptionMessage(
-            'handleException() :: AMQPQueue::declareQueue() :: ' .
-            'Library Exception<PhpAmqpLib\Exception\AMQPProtocolChannelException> -> AMQPQueueException :: ' .
-            'message(my text) isConsumption(no)'
-        );
-
-        $this->amqpQueue->declareQueue();
-    }
-
-    public function testDeclareQueueHandlesNonArrayResultFromAmqplibCorrectly(): void
-    {
-        $this->amqpQueue->setName('my_queue');
-
-        $this->amqplibChannel->allows()
-            ->queue_declare(
-                'my_queue',
-                false,
-                false,
-                false,
-                true,
-                false,
-                Mockery::type(AmqplibTable::class)
-            )
-            ->andReturn('I should be an array');
+        $this->channel->allows('declareQueue')
+            ->andThrow(new AMQPQueueException('my text'));
 
         $this->expectException(AMQPQueueException::class);
-        $this->expectExceptionMessage('AMQPQueue::declareQueue(): Amqplib result was not an array');
-
-        $this->amqpQueue->declareQueue();
-    }
-
-    public function testDeclareQueueHandlesInvalidArrayResultFromAmqplibCorrectly(): void
-    {
-        $this->amqpQueue->setName('my_queue');
-
-        $this->amqplibChannel->allows()
-            ->queue_declare(
-                'my_queue',
-                false,
-                false,
-                false,
-                true,
-                false,
-                Mockery::type(AmqplibTable::class)
-            )
-            ->andReturn(['I am not valid']);
-
-        $this->expectException(AMQPQueueException::class);
-        $this->expectExceptionMessage(
-            'AMQPQueue::declareQueue(): Amqplib result should contain message count at [1]'
-        );
+        $this->expectExceptionMessage('my text');
 
         $this->amqpQueue->declareQueue();
     }
@@ -686,8 +527,8 @@ class AMQPQueueTest extends AbstractTestCase
     public function testDeleteLogsAttemptAsDebug(): void
     {
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows()
-            ->queue_delete('my_queue', false, false, false)
+        $this->channel->allows()
+            ->deleteQueue('my_queue', false, false, false, AMQPQueueException::class, 'AMQPQueue::delete')
             ->andReturn(0);
 
         $this->logger->expects()
@@ -700,64 +541,60 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqpQueue->delete();
     }
 
-    public function testDeleteDeletesQueueViaAmqplibWithDefaultFlags(): void
+    public function testDeleteDeletesQueueViaChannelWithDefaultFlags(): void
     {
         $this->amqpQueue->setName('my_queue');
 
-        $this->amqplibChannel->expects()
-            ->queue_delete('my_queue', false, false, false)
+        $this->channel->expects()
+            ->deleteQueue('my_queue', false, false, false, AMQPQueueException::class, 'AMQPQueue::delete')
             ->once();
 
         $this->amqpQueue->delete();
     }
 
-    public function testDeleteDeletesQueueViaAmqplibWithIfUnusedFlag(): void
+    public function testDeleteDeletesQueueViaChannelWithIfUnusedFlag(): void
     {
         $this->amqpQueue->setName('my_queue');
 
-        $this->amqplibChannel->expects()
-            ->queue_delete('my_queue', true, false, false)
+        $this->channel->expects()
+            ->deleteQueue('my_queue', true, false, false, AMQPQueueException::class, 'AMQPQueue::delete')
             ->once();
 
         $this->amqpQueue->delete(AMQP_IFUNUSED);
     }
 
-    public function testDeleteDeletesQueueViaAmqplibWithIfEmptyFlag(): void
+    public function testDeleteDeletesQueueViaChannelWithIfEmptyFlag(): void
     {
         $this->amqpQueue->setName('my_queue');
 
-        $this->amqplibChannel->expects()
-            ->queue_delete('my_queue', false, true, false)
+        $this->channel->expects()
+            ->deleteQueue('my_queue', false, true, false, AMQPQueueException::class, 'AMQPQueue::delete')
             ->once();
 
         $this->amqpQueue->delete(AMQP_IFEMPTY);
     }
 
-    public function testDeleteDeletesQueueViaAmqplibWithNoWaitFlagSetOnQueue(): void
+    public function testDeleteDeletesQueueViaChannelWithNoWaitFlagSetOnQueue(): void
     {
         $this->amqpQueue->setName('my_queue');
         $this->amqpQueue->setFlags(AMQP_NOWAIT);
 
-        $this->amqplibChannel->expects()
-            ->queue_delete('my_queue', false, false, true)
+        $this->channel->expects()
+            ->deleteQueue('my_queue', false, false, true, AMQPQueueException::class, 'AMQPQueue::delete')
             ->once();
 
         $this->amqpQueue->delete();
     }
 
-    public function testDeleteHandlesAmqplibExceptionCorrectly(): void
+    public function testDeleteHandlesExceptionCorrectly(): void
     {
         $this->amqpQueue->setName('my_queue');
-        $exception = new AMQPIOException('Bang!', 123);
-        $this->amqplibChannel->allows()
-            ->queue_delete('my_queue', false, false, false)
-            ->andThrow($exception);
+        $this->channel->allows()
+            ->deleteQueue('my_queue', false, false, false, AMQPQueueException::class, 'AMQPQueue::delete')
+            ->andThrow(new AMQPQueueException('Bang!'));
 
-        $this->expectExceptionMessage(
-            'handleException() :: AMQPQueue::delete() :: ' .
-            'Library Exception<PhpAmqpLib\Exception\AMQPIOException> -> AMQPQueueException :: ' .
-            'message(Bang!) isConsumption(no)'
-        );
+        $this->expectException(AMQPQueueException::class);
+        $this->expectExceptionMessage('Bang!');
 
         $this->amqpQueue->delete();
     }
@@ -765,8 +602,8 @@ class AMQPQueueTest extends AbstractTestCase
     public function testDeleteReturnsTheNumberOfMessagesThatWereInTheDeletedQueue(): void
     {
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows()
-            ->queue_delete('my_queue', false, false, false)
+        $this->channel->allows()
+            ->deleteQueue('my_queue', false, false, false, AMQPQueueException::class, 'AMQPQueue::delete')
             ->andReturn(21);
 
         static::assertSame(21, $this->amqpQueue->delete());
@@ -775,8 +612,8 @@ class AMQPQueueTest extends AbstractTestCase
     public function testDeleteLogsSuccessAsDebug(): void
     {
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows()
-            ->queue_delete('my_queue', false, false, false);
+        $this->channel->allows()
+            ->deleteQueue('my_queue', false, false, false, AMQPQueueException::class, 'AMQPQueue::delete');
 
         $this->logger->expects()
             ->debug('AMQPQueue::delete(): Queue deleted')
@@ -787,17 +624,13 @@ class AMQPQueueTest extends AbstractTestCase
 
     public function testGetLogsAttemptAsDebug(): void
     {
-        $amqplibMessage = mock(AmqplibMessage::class, [
+        $envelope = mock(AMQPEnvelope::class, [
             'getBody' => 'my message body',
             'getDeliveryTag' => 4321,
         ]);
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows()
-            ->basic_get('my_queue', false)
-            ->andReturn($amqplibMessage);
-        $envelope = mock(AMQPEnvelope::class);
-        $this->envelopeTransformer->allows()
-            ->transformMessage($amqplibMessage)
+        $this->channel->allows()
+            ->basicGet('my_queue', false, AMQPQueueException::class, 'AMQPQueue::get')
             ->andReturn($envelope);
 
         $this->logger->expects()
@@ -810,56 +643,44 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqpQueue->get();
     }
 
-    public function testGetFetchesViaAmqplib(): void
+    public function testGetFetchesViaChannel(): void
     {
-        $amqplibMessage = mock(AmqplibMessage::class, [
+        $envelope = mock(AMQPEnvelope::class, [
             'getBody' => 'my message body',
             'getDeliveryTag' => 4321,
         ]);
         $this->amqpQueue->setName('my_queue');
-        $envelope = mock(AMQPEnvelope::class);
-        $this->envelopeTransformer->allows()
-            ->transformMessage($amqplibMessage)
-            ->andReturn($envelope);
 
-        $this->amqplibChannel->expects()
-            ->basic_get('my_queue', false)
+        $this->channel->expects()
+            ->basicGet('my_queue', false, AMQPQueueException::class, 'AMQPQueue::get')
             ->once()
-            ->andReturn($amqplibMessage);
+            ->andReturn($envelope);
 
         $this->amqpQueue->get();
     }
 
-    public function testGetHandlesAmqplibExceptionCorrectly(): void
+    public function testGetHandlesExceptionCorrectly(): void
     {
-        $exception = new AMQPIOException('Bang!', 123);
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows()
-            ->basic_get('my_queue', false)
-            ->andThrow($exception);
+        $this->channel->allows()
+            ->basicGet('my_queue', false, AMQPQueueException::class, 'AMQPQueue::get')
+            ->andThrow(new AMQPQueueException('Bang!'));
 
-        $this->expectExceptionMessage(
-            'handleException() :: AMQPQueue::get() :: ' .
-            'Library Exception<PhpAmqpLib\Exception\AMQPIOException> -> AMQPQueueException :: ' .
-            'message(Bang!) isConsumption(no)'
-        );
+        $this->expectException(AMQPQueueException::class);
+        $this->expectExceptionMessage('Bang!');
 
         $this->amqpQueue->get();
     }
 
     public function testGetHandlesMessageFetchCorrectlyWhenOneIsAvailable(): void
     {
-        $amqplibMessage = mock(AmqplibMessage::class, [
+        $envelope = mock(AMQPEnvelope::class, [
             'getBody' => 'my message body',
             'getDeliveryTag' => 4321,
         ]);
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows()
-            ->basic_get('my_queue', false)
-            ->andReturn($amqplibMessage);
-        $envelope = mock(AMQPEnvelope::class);
-        $this->envelopeTransformer->allows()
-            ->transformMessage($amqplibMessage)
+        $this->channel->allows()
+            ->basicGet('my_queue', false, AMQPQueueException::class, 'AMQPQueue::get')
             ->andReturn($envelope);
 
         $this->logger->expects()
@@ -874,8 +695,8 @@ class AMQPQueueTest extends AbstractTestCase
     public function testGetHandlesMessageFetchCorrectlyWhenNoneIsAvailable(): void
     {
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows()
-            ->basic_get('my_queue', false)
+        $this->channel->allows()
+            ->basicGet('my_queue', false, AMQPQueueException::class, 'AMQPQueue::get')
             ->andReturnNull();
 
         $this->logger->expects()
@@ -934,8 +755,6 @@ class AMQPQueueTest extends AbstractTestCase
     public function testNackLogsAttemptAsDebug(): void
     {
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows()
-            ->basic_nack(123, false, false);
 
         $this->logger->expects()
             ->debug('AMQPQueue::nack(): Negative acknowledgement attempt', [
@@ -948,45 +767,41 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqpQueue->nack(123);
     }
 
-    public function testNackNegativelyAcknowledgesViaAmqplibWithDefaultFlags(): void
+    public function testNackNegativelyAcknowledgesViaChannelWithDefaultFlags(): void
     {
-        $this->amqplibChannel->expects()
-            ->basic_nack(321, false, false)
+        $this->channel->expects()
+            ->basicNack(321, false, false, AMQPQueueException::class, 'AMQPQueue::nack')
             ->once();
 
         $this->amqpQueue->nack(321);
     }
 
-    public function testNackNegativelyAcknowledgesViaAmqplibWithMultipleFlag(): void
+    public function testNackNegativelyAcknowledgesViaChannelWithMultipleFlag(): void
     {
-        $this->amqplibChannel->expects()
-            ->basic_nack(321, true, false)
+        $this->channel->expects()
+            ->basicNack(321, true, false, AMQPQueueException::class, 'AMQPQueue::nack')
             ->once();
 
         $this->amqpQueue->nack(321, AMQP_MULTIPLE);
     }
 
-    public function testNackNegativelyAcknowledgesViaAmqplibWithRequeueFlag(): void
+    public function testNackNegativelyAcknowledgesViaChannelWithRequeueFlag(): void
     {
-        $this->amqplibChannel->expects()
-            ->basic_nack(321, false, true)
+        $this->channel->expects()
+            ->basicNack(321, false, true, AMQPQueueException::class, 'AMQPQueue::nack')
             ->once();
 
         $this->amqpQueue->nack(321, AMQP_REQUEUE);
     }
 
-    public function testNackHandlesAmqplibExceptionCorrectly(): void
+    public function testNackHandlesExceptionCorrectly(): void
     {
-        $exception = new AMQPIOException('Bang!', 123);
-        $this->amqplibChannel->allows()
-            ->basic_nack(123, false, false)
-            ->andThrow($exception);
+        $this->channel->allows()
+            ->basicNack(123, false, false, AMQPQueueException::class, 'AMQPQueue::nack')
+            ->andThrow(new AMQPQueueException('Bang!'));
 
-        $this->expectExceptionMessage(
-            'handleException() :: AMQPQueue::nack() :: ' .
-            'Library Exception<PhpAmqpLib\Exception\AMQPIOException> -> AMQPQueueException :: ' .
-            'message(Bang!) isConsumption(no)'
-        );
+        $this->expectException(AMQPQueueException::class);
+        $this->expectExceptionMessage('Bang!');
 
         $this->amqpQueue->nack(123);
     }
@@ -999,8 +814,6 @@ class AMQPQueueTest extends AbstractTestCase
     public function testNackLogsSuccessAsDebug(): void
     {
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows()
-            ->basic_nack(123, false, false);
 
         $this->logger->expects()
             ->debug('AMQPQueue::nack(): Message negatively acknowledged')
@@ -1012,8 +825,8 @@ class AMQPQueueTest extends AbstractTestCase
     public function testPurgeLogsAttemptAsDebug(): void
     {
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows()
-            ->queue_purge('my_queue', false);
+        $this->channel->allows()
+            ->purgeQueue('my_queue', false, AMQPQueueException::class, 'AMQPQueue::purge');
 
         $this->logger->expects()
             ->debug('AMQPQueue::purge(): Queue messages purge attempt', [
@@ -1024,42 +837,38 @@ class AMQPQueueTest extends AbstractTestCase
         $this->amqpQueue->purge();
     }
 
-    public function testPurgePurgesQueueViaAmqplibWithDefaultFlagsSetOnQueue(): void
+    public function testPurgePurgesQueueViaChannelWithDefaultFlagsSetOnQueue(): void
     {
         $this->amqpQueue->setName('my_queue');
 
-        $this->amqplibChannel->expects()
-            ->queue_purge('my_queue', false)
+        $this->channel->expects()
+            ->purgeQueue('my_queue', false, AMQPQueueException::class, 'AMQPQueue::purge')
             ->once();
 
         $this->amqpQueue->purge();
     }
 
-    public function testPurgePurgesQueueViaAmqplibWithNoWaitFlagSetOnQueue(): void
+    public function testPurgePurgesQueueViaChannelWithNoWaitFlagSetOnQueue(): void
     {
         $this->amqpQueue->setName('my_queue');
         $this->amqpQueue->setFlags(AMQP_NOWAIT);
 
-        $this->amqplibChannel->expects()
-            ->queue_purge('my_queue', true)
+        $this->channel->expects()
+            ->purgeQueue('my_queue', true, AMQPQueueException::class, 'AMQPQueue::purge')
             ->once();
 
         $this->amqpQueue->purge();
     }
 
-    public function testPurgeHandlesAmqplibExceptionCorrectly(): void
+    public function testPurgeHandlesExceptionCorrectly(): void
     {
         $this->amqpQueue->setName('my_queue');
-        $exception = new AMQPIOException('Bang!', 123);
-        $this->amqplibChannel->allows()
-            ->queue_purge('my_queue', false)
-            ->andThrow($exception);
+        $this->channel->allows()
+            ->purgeQueue('my_queue', false, AMQPQueueException::class, 'AMQPQueue::purge')
+            ->andThrow(new AMQPQueueException('Bang!'));
 
-        $this->expectExceptionMessage(
-            'handleException() :: AMQPQueue::purge() :: ' .
-            'Library Exception<PhpAmqpLib\Exception\AMQPIOException> -> AMQPQueueException :: ' .
-            'message(Bang!) isConsumption(no)'
-        );
+        $this->expectException(AMQPQueueException::class);
+        $this->expectExceptionMessage('Bang!');
 
         $this->amqpQueue->purge();
     }
@@ -1067,8 +876,8 @@ class AMQPQueueTest extends AbstractTestCase
     public function testPurgeReturnsTrue(): void
     {
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows()
-            ->queue_purge('my_queue', false);
+        $this->channel->allows()
+            ->purgeQueue('my_queue', false, AMQPQueueException::class, 'AMQPQueue::purge');
 
         static::assertTrue($this->amqpQueue->purge());
     }
@@ -1076,8 +885,8 @@ class AMQPQueueTest extends AbstractTestCase
     public function testPurgeLogsSuccessAsDebug(): void
     {
         $this->amqpQueue->setName('my_queue');
-        $this->amqplibChannel->allows()
-            ->queue_purge('my_queue', false);
+        $this->channel->allows()
+            ->purgeQueue('my_queue', false, AMQPQueueException::class, 'AMQPQueue::purge');
 
         $this->logger->expects()
             ->debug('AMQPQueue::purge(): Queue messages purged')

@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Configuration;
 
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\AmqplibDriver;
+use Asmblah\PhpAmqpCompat\Driver\DriverInterface;
 use Asmblah\PhpAmqpCompat\Scheduler\Factory\NullSchedulerFactory;
 use Asmblah\PhpAmqpCompat\Scheduler\Factory\SchedulerFactoryInterface;
 use LogicException;
@@ -26,8 +28,21 @@ use LogicException;
  */
 class DefaultConfiguration
 {
+    private static DriverInterface $defaultDriver;
     private static SchedulerFactoryInterface $defaultSchedulerFactory;
     private static bool $initialised = false;
+
+    /**
+     * Fetches the default AMQP driver layer to use.
+     */
+    public static function getDefaultDriver(): DriverInterface
+    {
+        if (!self::$initialised) {
+            throw new LogicException('DefaultConfiguration has not been initialised');
+        }
+
+        return self::$defaultDriver;
+    }
 
     /**
      * Fetches the default scheduler factory to use.
@@ -50,6 +65,9 @@ class DefaultConfiguration
             return; // Already initialised.
         }
 
+        // TODO: Eventually AmqplibDriver should live outside this library and be a required setting.
+        //       Otherwise if optional, the default should likely then be a Test(InMemory)Driver or NullDriver.
+        self::$defaultDriver = new AmqplibDriver();
         self::$defaultSchedulerFactory = new NullSchedulerFactory();
         self::$initialised = true;
     }
@@ -60,6 +78,16 @@ class DefaultConfiguration
     public static function isInitialised(): bool
     {
         return self::$initialised;
+    }
+
+    /**
+     * Overrides the default driver layer.
+     */
+    public static function setDefaultDriver(DriverInterface $driver): void
+    {
+        self::initialise();
+
+        self::$defaultDriver = $driver;
     }
 
     /**
@@ -79,6 +107,7 @@ class DefaultConfiguration
      */
     public static function uninitialise(): void
     {
+        self::setDefaultDriver(new AmqplibDriver());
         self::setDefaultSchedulerFactory(new NullSchedulerFactory());
 
         self::$initialised = false;

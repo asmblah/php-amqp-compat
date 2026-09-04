@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Configuration;
 
+use Asmblah\PhpAmqpCompat\Driver\ImplementationInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Scheduler\Factory\SchedulerFactoryInterface;
 use Psr\Log\LoggerInterface;
@@ -29,6 +30,11 @@ use Psr\Log\LoggerInterface;
  */
 interface ConfigurationInterface
 {
+    /**
+     * Fetches the underlying AMQP driver layer to use.
+     */
+    public function getDriverImplementation(): ImplementationInterface;
+
     /**
      * Fetches an ErrorReporter to use when raising warnings/notices etc.
      */

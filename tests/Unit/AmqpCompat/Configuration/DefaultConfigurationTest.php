@@ -14,6 +14,8 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Configuration;
 
 use Asmblah\PhpAmqpCompat\Configuration\DefaultConfiguration;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\AmqplibDriver;
+use Asmblah\PhpAmqpCompat\Driver\DriverInterface;
 use Asmblah\PhpAmqpCompat\Scheduler\Factory\NullSchedulerFactory;
 use Asmblah\PhpAmqpCompat\Scheduler\Factory\SchedulerFactoryInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
@@ -36,6 +38,21 @@ class DefaultConfigurationTest extends AbstractTestCase
         DefaultConfiguration::uninitialise();
     }
 
+    public function testGetDefaultDriverReturnsAmqplibDriverByDefault(): void
+    {
+        DefaultConfiguration::initialise();
+
+        static::assertInstanceOf(AmqplibDriver::class, DefaultConfiguration::getDefaultDriver());
+    }
+
+    public function testGetDefaultDriverRaisesExceptionWhenNotYetInitialised(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('DefaultConfiguration has not been initialised');
+
+        DefaultConfiguration::getDefaultDriver();
+    }
+
     public function testGetDefaultSchedulerFactoryReturnsNullFactoryByDefault(): void
     {
         DefaultConfiguration::initialise();
@@ -49,6 +66,18 @@ class DefaultConfigurationTest extends AbstractTestCase
         $this->expectExceptionMessage('DefaultConfiguration has not been initialised');
 
         DefaultConfiguration::getDefaultSchedulerFactory();
+    }
+
+    // When installed as a Nytris package, `AmqpCompat::install(...)` will override
+    // before this library's `bootstrap.php` is run and calls ::initialise(...).
+    public function testInitialiseDoesNotChangeDefaultDriverIfAlreadyOverridden(): void
+    {
+        $customDriver = mock(DriverInterface::class);
+        DefaultConfiguration::setDefaultDriver($customDriver);
+
+        DefaultConfiguration::initialise();
+
+        static::assertSame($customDriver, DefaultConfiguration::getDefaultDriver());
     }
 
     // When installed as a Nytris package, `AmqpCompat::install(...)` will override
@@ -81,6 +110,16 @@ class DefaultConfigurationTest extends AbstractTestCase
         DefaultConfiguration::uninitialise();
 
         static::assertFalse(DefaultConfiguration::isInitialised());
+    }
+
+    public function testSetDefaultDriverOverridesTheSetDriver(): void
+    {
+        DefaultConfiguration::initialise();
+        $driver = mock(DriverInterface::class);
+
+        DefaultConfiguration::setDefaultDriver($driver);
+
+        static::assertSame($driver, DefaultConfiguration::getDefaultDriver());
     }
 
     public function testSetDefaultSchedulerFactoryOverridesTheSetFactory(): void

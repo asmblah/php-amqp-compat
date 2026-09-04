@@ -15,6 +15,8 @@ namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat;
 
 use Asmblah\PhpAmqpCompat\AmqpCompat;
 use Asmblah\PhpAmqpCompat\AmqpCompatPackage;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\AmqplibDriver;
+use Asmblah\PhpAmqpCompat\Driver\DriverInterface;
 use Asmblah\PhpAmqpCompat\Scheduler\Factory\NullSchedulerFactory;
 use Asmblah\PhpAmqpCompat\Scheduler\Factory\SchedulerFactoryInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
@@ -26,6 +28,21 @@ use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
  */
 class AmqpCompatPackageTest extends AbstractTestCase
 {
+    public function testAmqplibDriverIsUsedByDefault(): void
+    {
+        $package = new AmqpCompatPackage();
+
+        static::assertInstanceOf(AmqplibDriver::class, $package->getDriver());
+    }
+
+    public function testACustomDriverMayBeSpecified(): void
+    {
+        $driver = mock(DriverInterface::class);
+        $package = new AmqpCompatPackage(driver: $driver);
+
+        static::assertSame($driver, $package->getDriver());
+    }
+
     public function testNullSchedulerFactoryIsUsedByDefault(): void
     {
         $package = new AmqpCompatPackage();

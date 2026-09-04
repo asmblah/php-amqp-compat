@@ -13,12 +13,22 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Driver\Amqplib\Transport;
 
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Channel\Channel;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\EnvelopeTransformerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Channel\ChannelInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Transport\TransportInterface;
+use Asmblah\PhpAmqpCompat\Exception\HeartbeatMissedException;
 use Asmblah\PhpAmqpCompat\Exception\SocketConfigurationFailedException;
 use Asmblah\PhpAmqpCompat\Exception\TransportConfigurationFailedException;
+use Asmblah\PhpAmqpCompat\Misc\ClockInterface;
 use Asmblah\PhpAmqpCompat\Socket\SocketSubsystemInterface;
 use Closure;
+use Exception;
 use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
+use PhpAmqpLib\Exception\AMQPExceptionInterface;
+use PhpAmqpLib\Exception\AMQPHeartbeatMissedException;
 use PhpAmqpLib\Wire\IO\StreamIO;
 use RuntimeException;
 use Socket;
@@ -34,8 +44,47 @@ class Transport implements TransportInterface
 {
     public function __construct(
         private readonly AmqplibConnection $amqplibConnection,
-        private readonly SocketSubsystemInterface $socketSubsystem
+        private readonly SocketSubsystemInterface $socketSubsystem,
+        private readonly ClockInterface $clock,
+        private readonly ExceptionHandlerInterface $exceptionHandler,
+        private readonly EnvelopeTransformerInterface $envelopeTransformer,
+        private readonly MessageTransformerInterface $messageTransformer
     ) {
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function checkHeartbeat(): void
+    {
+        $now = $this->clock->getUnixTimestamp();
+
+        $interval = $this->getHeartbeatInterval();
+
+        if ($now > ($this->amqplibConnection->getLastActivity() + $interval)) {
+            try {
+                $this->amqplibConnection->checkHeartBeat();
+            } catch (AMQPHeartbeatMissedException $exception) {
+                // TODO: Verify message is correct vs. original.
+                throw new HeartbeatMissedException(
+                    'Heartbeat missed: ' . $exception->getMessage(),
+                    previous: $exception
+                );
+            }
+        }
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function disconnect(string $exceptionClass, string $methodName): void
+    {
+        try {
+            $this->amqplibConnection->close();
+        } catch (AMQPExceptionInterface $exception) {
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, $exceptionClass, $methodName);
+        }
     }
 
     /**
@@ -44,6 +93,53 @@ class Transport implements TransportInterface
     public function getAmqplibConnection(): AmqplibConnection
     {
         return $this->amqplibConnection;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getHeartbeatInterval(): int
+    {
+        $timeout = $this->amqplibConnection->getHeartbeat();
+
+        return (int)ceil($timeout / 2);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function isBusy(): bool
+    {
+        return $this->amqplibConnection->isWriting();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function isConnected(): bool
+    {
+        return $this->amqplibConnection->isConnected();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function openChannel(string $exceptionClass, string $methodName): ChannelInterface
+    {
+        try {
+            $amqplibChannel = $this->amqplibConnection->channel();
+        } catch (AMQPExceptionInterface $exception) {
+            /** @var AMQPExceptionInterface&Exception $exception */
+            $this->exceptionHandler->handleException($exception, $exceptionClass, $methodName);
+        }
+
+        return new Channel(
+            $this,
+            $amqplibChannel,
+            $this->exceptionHandler,
+            $this->envelopeTransformer,
+            $this->messageTransformer
+        );
     }
 
     /**

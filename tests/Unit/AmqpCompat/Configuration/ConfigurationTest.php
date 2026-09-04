@@ -14,7 +14,10 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Configuration;
 
 use Asmblah\PhpAmqpCompat\Configuration\Configuration;
+use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Configuration\DefaultConfiguration;
+use Asmblah\PhpAmqpCompat\Driver\DriverInterface;
+use Asmblah\PhpAmqpCompat\Driver\ImplementationInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporter;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Scheduler\Factory\NullSchedulerFactory;
@@ -42,10 +45,51 @@ class ConfigurationTest extends AbstractTestCase
         DefaultConfiguration::initialise();
     }
 
+    public function testGetDriverImplementationReturnsAnImplementationFromTheProvidedDriver(): void
+    {
+        $driver = mock(DriverInterface::class);
+        $implementation = mock(ImplementationInterface::class);
+        $passedConfiguration = null;
+        $driver->allows('createImplementation')
+            ->andReturnUsing(function (ConfigurationInterface $configuration) use (
+                $implementation,
+                &$passedConfiguration
+            ) {
+                $passedConfiguration = $configuration;
+
+                return $implementation;
+            });
+        $configuration = new Configuration(driver: $driver);
+
+        static::assertSame($implementation, $configuration->getDriverImplementation());
+        static::assertSame($configuration, $passedConfiguration);
+    }
+
+    public function testGetDriverImplementationReturnsAnImplementationFromDefaultDriverByDefault(): void
+    {
+        $driver = mock(DriverInterface::class);
+        $implementation = mock(ImplementationInterface::class);
+        $passedConfiguration = null;
+        $driver->allows('createImplementation')
+            ->andReturnUsing(function (ConfigurationInterface $configuration) use (
+                $implementation,
+                &$passedConfiguration
+            ) {
+                $passedConfiguration = $configuration;
+
+                return $implementation;
+            });
+        DefaultConfiguration::setDefaultDriver($driver);
+        $configuration = new Configuration();
+
+        static::assertSame($implementation, $configuration->getDriverImplementation());
+        static::assertSame($configuration, $passedConfiguration);
+    }
+
     public function testGetErrorReporterReturnsTheProvidedErrorReporter(): void
     {
         $errorReporter = mock(ErrorReporterInterface::class);
-        $configuration = new Configuration(null, $errorReporter);
+        $configuration = new Configuration(errorReporter: $errorReporter);
 
         static::assertSame($errorReporter, $configuration->getErrorReporter());
     }
@@ -119,7 +163,7 @@ class ConfigurationTest extends AbstractTestCase
 
     public function testGetUnlimitedTimeoutReturnsTheProvidedUnlimitedTimeout(): void
     {
-        $configuration = new Configuration(null, null, 123.456);
+        $configuration = new Configuration(unlimitedTimeout: 123.456);
 
         static::assertSame(123.456, $configuration->getUnlimitedTimeout());
     }

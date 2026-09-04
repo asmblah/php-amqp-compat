@@ -16,6 +16,7 @@ namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat;
 use Asmblah\PhpAmqpCompat\AmqpCompat;
 use Asmblah\PhpAmqpCompat\AmqpCompatPackageInterface;
 use Asmblah\PhpAmqpCompat\Configuration\DefaultConfiguration;
+use Asmblah\PhpAmqpCompat\Driver\DriverInterface;
 use Asmblah\PhpAmqpCompat\Scheduler\Factory\SchedulerFactoryInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Nytris\Core\Package\PackageContextInterface;
@@ -41,11 +42,26 @@ class AmqpCompatTest extends AbstractTestCase
         AmqpCompat::uninstall();
     }
 
+    public function testInstallSetsDefaultDriver(): void
+    {
+        $packageContext = mock(PackageContextInterface::class);
+        $driver = mock(DriverInterface::class);
+        $package = mock(AmqpCompatPackageInterface::class, [
+            'getDriver' => $driver,
+            'getSchedulerFactory' => mock(SchedulerFactoryInterface::class),
+        ]);
+
+        AmqpCompat::install($packageContext, $package);
+
+        static::assertSame($driver, DefaultConfiguration::getDefaultDriver());
+    }
+
     public function testInstallSetsDefaultSchedulerFactory(): void
     {
         $packageContext = mock(PackageContextInterface::class);
         $schedulerFactory = mock(SchedulerFactoryInterface::class);
         $package = mock(AmqpCompatPackageInterface::class, [
+            'getDriver' => mock(DriverInterface::class),
             'getSchedulerFactory' => $schedulerFactory,
         ]);
 
@@ -58,6 +74,7 @@ class AmqpCompatTest extends AbstractTestCase
     {
         $packageContext = mock(PackageContextInterface::class);
         $package = mock(AmqpCompatPackageInterface::class, [
+            'getDriver' => mock(DriverInterface::class),
             'getSchedulerFactory' => mock(SchedulerFactoryInterface::class),
         ]);
 

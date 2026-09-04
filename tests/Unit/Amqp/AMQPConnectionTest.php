@@ -21,16 +21,13 @@ use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
+use Asmblah\PhpAmqpCompat\Driver\Common\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Exception\TransportConfigurationFailedException;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
-use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery;
 use Mockery\MockInterface;
-use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
-use PhpAmqpLib\Exception\AMQPIOException;
-use PhpAmqpLib\Exception\AMQPProtocolChannelException;
 
 /**
  * Class AMQPConnectionTest.
@@ -41,7 +38,6 @@ class AMQPConnectionTest extends AbstractTestCase
 {
     private AMQPConnection $amqpConnection;
     private MockInterface&AmqpIntegrationInterface $amqpIntegration;
-    private MockInterface&AmqplibConnection $amqplibConnection;
     private MockInterface&AmqpConnectionBridgeInterface $connectionBridge;
     private MockInterface&ConnectionConfigInterface $connectionConfig;
     private MockInterface&ErrorReporterInterface $errorReporter;
@@ -49,12 +45,10 @@ class AMQPConnectionTest extends AbstractTestCase
 
     public function setUp(): void
     {
-        $this->amqplibConnection = mock(AmqplibConnection::class, [
-            'isConnected' => true,
-        ]);
         $this->connectionBridge = mock(AmqpConnectionBridgeInterface::class, [
-            'getAmqplibConnection' => $this->amqplibConnection,
+            'disconnect' => null,
             'getUsedChannels' => 9998,
+            'isConnected' => true,
         ]);
         $this->connectionConfig = mock(ConnectionConfigInterface::class, [
             'getConnectionName' => 'my-connection-name',
@@ -83,7 +77,6 @@ class AMQPConnectionTest extends AbstractTestCase
         ]);
         $this->logger = mock(LoggerInterface::class, [
             'debug' => null,
-            'logAmqplibException' => null,
         ]);
         $this->amqpIntegration = mock(AmqpIntegrationInterface::class, [
             'connect' => $this->connectionBridge,
@@ -236,7 +229,7 @@ class AMQPConnectionTest extends AbstractTestCase
         $this->amqpConnection->connect();
 
         $this->amqpIntegration->expects()
-            ->connect($this->connectionConfig)
+            ->connect($this->connectionConfig, 'AMQPConnection::connect')
             ->never();
 
         $this->amqpConnection->connect(); // Connect for a second time.
@@ -245,7 +238,7 @@ class AMQPConnectionTest extends AbstractTestCase
     public function testConnectCorrectlyBridgesTheConnectionToTheCreatedConnectionBridge(): void
     {
         $this->amqpIntegration->expects()
-            ->connect($this->connectionConfig)
+            ->connect($this->connectionConfig, 'AMQPConnection::connect')
             ->once()
             ->andReturn($this->connectionBridge);
 
@@ -266,32 +259,14 @@ class AMQPConnectionTest extends AbstractTestCase
 
     public function testConnectThrowsCompatibleExceptionOnFailure(): void
     {
-        $amqplibException = new AMQPIOException('Bang! from amqplib');
         $this->amqpIntegration->allows()
-            ->connect($this->connectionConfig)
-            ->andThrow($amqplibException);
+            ->connect($this->connectionConfig, 'AMQPConnection::connect')
+            ->andThrow(new AMQPConnectionException('Socket error: could not connect to host.'));
 
         $this->expectException(AMQPConnectionException::class);
-        // Raise php-amqp/ext-amqp -compatible exception: see next test for detailed logger handling.
         $this->expectExceptionMessage('Socket error: could not connect to host.');
 
         $this->amqpConnection->connect();
-    }
-
-    public function testConnectLogsSpecificAmqplibExceptionViaLoggerOnFailure(): void
-    {
-        $amqplibException = new AMQPIOException('Bang! from amqplib');
-        $this->amqpIntegration->allows()
-            ->connect($this->connectionConfig)
-            ->andThrow($amqplibException);
-
-        $this->logger->expects()
-            ->logAmqplibException('AMQPConnection::connect', $amqplibException)
-            ->once();
-
-        try {
-            $this->amqpConnection->connect();
-        } catch (AMQPConnectionException) {}
     }
 
     public function testConnectLogsSuccess(): void
@@ -305,8 +280,6 @@ class AMQPConnectionTest extends AbstractTestCase
 
     public function testDisconnectLogsAttemptAsDebugWhenConnected(): void
     {
-        $this->amqplibConnection->allows()
-            ->close();
         $this->amqpConnection->connect();
 
         $this->logger->expects()
@@ -318,9 +291,6 @@ class AMQPConnectionTest extends AbstractTestCase
 
     public function testDisconnectLogsAttemptAsDebugWhenNotConnected(): void
     {
-        $this->amqplibConnection->allows()
-            ->close();
-
         $this->logger->expects()
             ->debug('AMQPConnection::disconnect(): Cannot disconnect; not connected')
             ->once();
@@ -328,30 +298,26 @@ class AMQPConnectionTest extends AbstractTestCase
         $this->amqpConnection->disconnect();
     }
 
-    public function testDisconnectGoesViaAmqplib(): void
+    public function testDisconnectGoesViaConnectionBridge(): void
     {
         $this->amqpConnection->connect();
 
-        $this->amqplibConnection->expects()
-            ->close()
+        $this->connectionBridge->expects()
+            ->disconnect(AMQPConnectionException::class, 'AMQPConnection::disconnect')
             ->once();
 
         static::assertTrue($this->amqpConnection->disconnect());
     }
 
-    public function testDisconnectHandlesAmqplibExceptionCorrectly(): void
+    public function testDisconnectHandlesExceptionCorrectly(): void
     {
-        $exception = new AMQPProtocolChannelException(21, 'my text', [1, 2, 3]);
-        $this->amqplibConnection->allows()
-            ->close()
-            ->andThrow($exception);
+        $this->connectionBridge->allows()
+            ->disconnect(AMQPConnectionException::class, 'AMQPConnection::disconnect')
+            ->andThrow(new AMQPConnectionException('AMQPConnection::disconnect(): Amqplib failure: my text'));
         $this->amqpConnection->connect();
 
         $this->expectException(AMQPConnectionException::class);
         $this->expectExceptionMessage('AMQPConnection::disconnect(): Amqplib failure: my text');
-        $this->logger->expects()
-            ->logAmqplibException('AMQPConnection::disconnect', $exception)
-            ->once();
 
         $this->amqpConnection->disconnect();
     }
@@ -469,7 +435,7 @@ class AMQPConnectionTest extends AbstractTestCase
     public function testIsConnectedReturnsFalseAfterConnectingThenDisconnecting(): void
     {
         $this->amqpConnection->connect();
-        $this->amqplibConnection->allows()
+        $this->connectionBridge->allows()
             ->isConnected()
             ->andReturnFalse();
 

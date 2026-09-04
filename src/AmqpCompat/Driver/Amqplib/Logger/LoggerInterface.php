@@ -11,10 +11,10 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Logger;
+namespace Asmblah\PhpAmqpCompat\Driver\Amqplib\Logger;
 
+use Asmblah\PhpAmqpCompat\Driver\Common\Logger\LoggerInterface as AmqpCompatLoggerInterface;
 use PhpAmqpLib\Exception\AMQPExceptionInterface;
-use Psr\Log\LoggerInterface as PsrLoggerInterface;
 use Throwable;
 
 /**
@@ -24,13 +24,8 @@ use Throwable;
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
-interface LoggerInterface extends PsrLoggerInterface
+interface LoggerInterface extends AmqpCompatLoggerInterface
 {
-    /**
-     * Fetches the wrapped PSR logger.
-     */
-    public function getWrappedLogger(): PsrLoggerInterface;
-
     /**
      * Logs details of the php-amqplib exception.
      */

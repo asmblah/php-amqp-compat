@@ -14,11 +14,12 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Bridge\Channel;
 
 use AMQPEnvelope;
+use AMQPException;
 use AMQPQueue;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridgeResourceInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Channel\ChannelInterface;
 use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
-use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 
 /**
  * Interface AmqpChannelBridgeInterface.
@@ -30,6 +31,18 @@ use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 interface AmqpChannelBridgeInterface extends AmqpBridgeResourceInterface
 {
     /**
+     * Acquires the internal driver-level channel, ensuring it is connected.
+     *
+     * @throws AMQPException
+     */
+    public function acquireChannel(string $errorOnFailure): ChannelInterface;
+
+    /**
+     * Closes the channel without raising an AMQP exception if it is already closed or in a broken state.
+     */
+    public function closeQuietly(): void;
+
+    /**
      * Consumes the given envelope, raising a StopConsumptionException
      * if further consumption should be stopped.
      *
@@ -38,9 +51,9 @@ interface AmqpChannelBridgeInterface extends AmqpBridgeResourceInterface
     public function consumeEnvelope(AMQPEnvelope $amqpEnvelope): void;
 
     /**
-     * Fetches the internal php-amqplib channel.
+     * Fetches the channel ID if open, or null if closed.
      */
-    public function getAmqplibChannel(): AmqplibChannel;
+    public function getChannelId(): ?int;
 
     /**
      * Fetches the AMQP connection bridge.
@@ -65,9 +78,19 @@ interface AmqpChannelBridgeInterface extends AmqpBridgeResourceInterface
     public function getSubscribedConsumers(): array;
 
     /**
+     * Determines whether the underlying connection is open.
+     */
+    public function isConnected(): bool;
+
+    /**
      * Determines whether a consumer with the given tag is subscribed.
      */
     public function isConsumerSubscribed(string $consumerTag): bool;
+
+    /**
+     * Determines whether the channel is open.
+     */
+    public function isOpen(): bool;
 
     /**
      * Sets the callback to use for consuming AMQP messages.

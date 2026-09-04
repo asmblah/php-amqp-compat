@@ -14,13 +14,15 @@ declare(strict_types=1);
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Driver\Amqplib\Exception;
 
 use AMQPConnectionException;
+use AMQPException;
 use AMQPExchangeException;
 use AMQPQueueException;
 use Asmblah\PhpAmqpCompat\Driver\Amqplib\Exception\ExceptionHandler;
-use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use InvalidArgumentException;
 use Mockery\MockInterface;
+use PhpAmqpLib\Exception\AMQPHeartbeatMissedException;
 use PhpAmqpLib\Exception\AMQPIOException;
 use PhpAmqpLib\Exception\AMQPLogicException;
 use PhpAmqpLib\Exception\AMQPProtocolException;
@@ -146,6 +148,18 @@ class ExceptionHandlerTest extends AbstractTestCase
         try {
             $this->handler->handleException($exception, AMQPQueueException::class, 'myMethod', isConsumption: true);
         } catch (AMQPQueueException) {}
+    }
+
+    public function testHandleExceptionRaisesAmqpExceptionOnMissedHeartbeatException(): void
+    {
+        $exception = new AMQPHeartbeatMissedException('Missed server heartbeat');
+
+        $this->expectException(AMQPException::class);
+        $this->expectExceptionMessageMatches(
+            '/Library error: Server connection error: 0, message: Missed server heartbeat$/'
+        );
+
+        $this->handler->handleException($exception, AMQPException::class, 'myMethod');
     }
 
     public function testHandleExceptionRaisesTrimmedConnectionExceptionOnOtherAmqpException(): void

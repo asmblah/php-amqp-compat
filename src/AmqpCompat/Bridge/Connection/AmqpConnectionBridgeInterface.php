@@ -13,12 +13,14 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Bridge\Connection;
 
+use AMQPException;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridgeResourceInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Transport\TransportInterface;
+use Asmblah\PhpAmqpCompat\Exception\HeartbeatMissedException;
 use Asmblah\PhpAmqpCompat\Exception\TooManyChannelsOnConnectionException;
 use Asmblah\PhpAmqpCompat\Exception\TransportConfigurationFailedException;
-use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 
 /**
  * Interface AmqpConnectionBridgeInterface.
@@ -30,16 +32,28 @@ use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 interface AmqpConnectionBridgeInterface extends AmqpBridgeResourceInterface
 {
     /**
-     * Creates an AmqpChannelBridge for the given connection.
+     * Checks whether a client heartbeat needs to be sent or a server heartbeat has been missed.
      *
-     * @throws TooManyChannelsOnConnectionException When PHP_AMQP_MAX_CHANNELS would be exceeded.
+     * @throws HeartbeatMissedException
      */
-    public function createChannelBridge(): AmqpChannelBridgeInterface;
+    public function checkHeartbeat(): void;
 
     /**
-     * Fetches the internal php-amqplib connection.
+     * Creates an AmqpChannelBridge for the given connection.
+     *
+     * @param class-string<AMQPException> $exceptionClass
+     * @throws TooManyChannelsOnConnectionException When PHP_AMQP_MAX_CHANNELS would be exceeded.
+     * @throws AMQPException
      */
-    public function getAmqplibConnection(): AmqplibConnection;
+    public function createChannelBridge(string $exceptionClass, string $methodName): AmqpChannelBridgeInterface;
+
+    /**
+     * Disconnects from the AMQP broker server.
+     *
+     * @param class-string<AMQPException> $exceptionClass
+     * @throws AMQPException
+     */
+    public function disconnect(string $exceptionClass, string $methodName): void;
 
     /**
      * Fetches the connection configuration.
@@ -53,9 +67,24 @@ interface AmqpConnectionBridgeInterface extends AmqpBridgeResourceInterface
     public function getHeartbeatInterval(): int;
 
     /**
+     * Fetches the transport (driver-level connection).
+     */
+    public function getTransport(): TransportInterface;
+
+    /**
      * Fetches the number of channels currently in use on this connection.
      */
     public function getUsedChannels(): int;
+
+    /**
+     * Fetches whether the connection is busy, e.g. mid-write.
+     */
+    public function isBusy(): bool;
+
+    /**
+     * Determines whether the connection is open.
+     */
+    public function isConnected(): bool;
 
     /**
      * Updates the read timeout for the connection.

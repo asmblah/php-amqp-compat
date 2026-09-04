@@ -20,6 +20,7 @@ use AMQPQueueException;
 use Asmblah\PhpAmqpCompat\AmqpManager;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
 use Asmblah\PhpAmqpCompat\Configuration\Configuration;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transport\Transport;
 use Asmblah\PhpAmqpCompat\Tests\Functional\AbstractFunctionalTestCase;
 use Mockery\MockInterface;
 use PhpAmqpLib\Wire\IO\StreamIO;
@@ -65,7 +66,9 @@ class AMQPConnectionTest extends AbstractFunctionalTestCase
 
         static::assertTrue($amqpConnection->isConnected());
         static::assertSame(18.5, $amqpConnection->getReadTimeout());
-        $amqplibConnection = AmqpBridge::getBridgeConnection($amqpConnection)->getAmqplibConnection();
+        /** @var Transport $transport */
+        $transport = AmqpBridge::getBridgeConnection($amqpConnection)->getTransport();
+        $amqplibConnection = $transport->getAmqplibConnection();
         static::assertSame(
             18.5,
             $amqplibConnection->getReadTimeout()

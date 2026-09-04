@@ -13,12 +13,12 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Integration;
 
+use AMQPConnectionException;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
-use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
-use Exception;
 
 /**
  * Interface AmqpIntegrationInterface.
@@ -32,9 +32,9 @@ interface AmqpIntegrationInterface
     /**
      * Connects to the AMQP server.
      *
-     * @throws Exception
+     * @throws AMQPConnectionException
      */
-    public function connect(ConnectionConfigInterface $config): AmqpConnectionBridgeInterface;
+    public function connect(ConnectionConfigInterface $config, string $methodName): AmqpConnectionBridgeInterface;
 
     /**
      * Creates a configuration for later connection.

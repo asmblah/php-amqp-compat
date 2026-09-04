@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ClassEmulator;
 
-use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\ReferenceImplementationTest;
 use Asmblah\PhpAmqpCompat\Tests\Functional\Reference\Util\ContextResolver;
 use LogicException;
 use ReflectionProperty;

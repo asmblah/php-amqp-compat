@@ -11,9 +11,9 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Logger;
+namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Driver\Amqplib\Logger;
 
-use Asmblah\PhpAmqpCompat\Logger\Logger;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Logger\Logger;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery\MockInterface;
 use PhpAmqpLib\Exception\AMQPIOException;

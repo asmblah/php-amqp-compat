@@ -11,7 +11,7 @@
 
 declare(strict_types=1);
 
-namespace Asmblah\PhpAmqpCompat\Bridge\Channel;
+namespace Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer;
 
 use AMQPEnvelope;
 use PhpAmqpLib\Message\AMQPMessage as AmqplibMessage;

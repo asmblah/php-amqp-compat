@@ -13,21 +13,22 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Bridge\Channel;
 
+use AMQPChannelException;
+use AMQPConnectionException;
 use AMQPEnvelope;
+use AMQPException;
 use AMQPQueue;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\ConsumerInterface;
-use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridgeInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
-use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
-use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Channel\ChannelInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
-use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
+use Asmblah\PhpAmqpCompat\Exception\HeartbeatMissedException;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use LogicException;
 use Mockery\MockInterface;
-use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
 
 /**
  * Class AmqpChannelBridgeTest.
@@ -36,41 +37,97 @@ use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
  */
 class AmqpChannelBridgeTest extends AbstractTestCase
 {
-    private MockInterface&AmqplibChannel $amqplibChannel;
+    private MockInterface&ChannelInterface $channel;
     private AmqpChannelBridge $channelBridge;
     private MockInterface&AmqpConnectionBridgeInterface $connectionBridge;
     private MockInterface&ConsumerInterface $consumer;
-    private MockInterface&EnvelopeTransformerInterface $envelopeTransformer;
     private MockInterface&ErrorReporterInterface $errorReporter;
-    private MockInterface&ExceptionHandlerInterface $exceptionHandler;
     private MockInterface&LoggerInterface $logger;
-    private MockInterface&MessageTransformerInterface $messageTransformer;
 
     public function setUp(): void
     {
-        $this->amqplibChannel = mock(AmqplibChannel::class);
-        $this->envelopeTransformer = mock(EnvelopeTransformerInterface::class);
+        $this->channel = mock(ChannelInterface::class);
         $this->errorReporter = mock(ErrorReporterInterface::class);
-        $this->exceptionHandler = mock(ExceptionHandlerInterface::class);
         $this->logger = mock(LoggerInterface::class);
-        $this->messageTransformer = mock(MessageTransformerInterface::class);
         $this->connectionBridge = mock(AmqpConnectionBridgeInterface::class, [
             'getConnectionConfig' => mock(ConnectionConfigInterface::class, [
                 'getReadTimeout' => 123.45,
             ]),
-            'getEnvelopeTransformer' => $this->envelopeTransformer,
             'getErrorReporter' => $this->errorReporter,
-            'getExceptionHandler' => $this->exceptionHandler,
             'getLogger' => $this->logger,
-            'getMessageTransformer' => $this->messageTransformer,
         ]);
         $this->consumer = mock(ConsumerInterface::class);
 
         $this->channelBridge = new AmqpChannelBridge(
             $this->connectionBridge,
-            $this->amqplibChannel,
+            $this->channel,
             $this->consumer
         );
+    }
+
+    public function testAcquireChannelReturnsChannelWhenOpenAndConnected(): void
+    {
+        $this->channel->allows('isOpen')->andReturn(true);
+        $this->channel->allows('hasConnection')->andReturn(true);
+        $this->channel->allows('isConnected')->andReturn(true);
+        $this->connectionBridge->allows('checkHeartbeat');
+
+        static::assertSame($this->channel, $this->channelBridge->acquireChannel('MyError'));
+    }
+
+    public function testAcquireChannelThrowsAmqpChannelExceptionWhenChannelIsNotOpen(): void
+    {
+        $this->channel->allows('isOpen')->andReturn(false);
+
+        $this->expectException(AMQPChannelException::class);
+        $this->expectExceptionMessage('MyError No channel available.');
+
+        $this->channelBridge->acquireChannel('MyError');
+    }
+
+    public function testAcquireChannelThrowsAmqpChannelExceptionWhenChannelHasNoConnection(): void
+    {
+        $this->channel->allows('isOpen')->andReturn(true);
+        $this->channel->allows('hasConnection')->andReturn(false);
+
+        $this->expectException(AMQPChannelException::class);
+        $this->expectExceptionMessage('MyError Stale reference to the connection object.');
+
+        $this->channelBridge->acquireChannel('MyError');
+    }
+
+    public function testAcquireChannelThrowsAmqpConnectionExceptionWhenChannelIsNotConnected(): void
+    {
+        $this->channel->allows('isOpen')->andReturn(true);
+        $this->channel->allows('hasConnection')->andReturn(true);
+        $this->channel->allows('isConnected')->andReturn(false);
+
+        $this->expectException(AMQPConnectionException::class);
+        $this->expectExceptionMessage('MyError No connection available.');
+
+        $this->channelBridge->acquireChannel('MyError');
+    }
+
+    public function testAcquireChannelThrowsAmqpExceptionWhenHeartbeatIsMissed(): void
+    {
+        $this->channel->allows('isOpen')->andReturn(true);
+        $this->channel->allows('hasConnection')->andReturn(true);
+        $this->channel->allows('isConnected')->andReturn(true);
+        $this->connectionBridge->allows('checkHeartbeat')
+            ->andThrow(new HeartbeatMissedException('Heartbeat missed'));
+
+        $this->expectException(AMQPException::class);
+        $this->expectExceptionMessage('Heartbeat missed');
+
+        $this->channelBridge->acquireChannel('MyError');
+    }
+
+    public function testCloseQuietlyDelegatesToChannel(): void
+    {
+        $this->channel->expects('closeQuietly')
+            ->once();
+
+        $this->channelBridge->closeQuietly();
     }
 
     public function testConsumeEnvelopeDelegatesToTheConsumer(): void
@@ -103,9 +160,20 @@ class AmqpChannelBridgeTest extends AbstractTestCase
         $this->channelBridge->consumeEnvelope($amqpEnvelope);
     }
 
-    public function testGetAmqplibChannelReturnsTheChannel(): void
+    public function testGetChannelIdDelegatesToChannel(): void
     {
-        static::assertSame($this->amqplibChannel, $this->channelBridge->getAmqplibChannel());
+        $this->channel->allows('getChannelId')
+            ->andReturn(42);
+
+        static::assertSame(42, $this->channelBridge->getChannelId());
+    }
+
+    public function testGetChannelIdReturnsNullWhenChannelIsClosed(): void
+    {
+        $this->channel->allows('getChannelId')
+            ->andReturnNull();
+
+        static::assertNull($this->channelBridge->getChannelId());
     }
 
     public function testGetConnectionBridgeReturnsTheBridge(): void
@@ -113,29 +181,14 @@ class AmqpChannelBridgeTest extends AbstractTestCase
         static::assertSame($this->connectionBridge, $this->channelBridge->getConnectionBridge());
     }
 
-    public function testGetEnvelopeTransformerReturnsTheTransformer(): void
-    {
-        static::assertSame($this->envelopeTransformer, $this->channelBridge->getEnvelopeTransformer());
-    }
-
     public function testGetErrorReporterReturnsTheReporter(): void
     {
         static::assertSame($this->errorReporter, $this->channelBridge->getErrorReporter());
     }
 
-    public function testGetExceptionHandlerReturnsTheHandler(): void
-    {
-        static::assertSame($this->exceptionHandler, $this->channelBridge->getExceptionHandler());
-    }
-
     public function testGetLoggerReturnsTheLogger(): void
     {
         static::assertSame($this->logger, $this->channelBridge->getLogger());
-    }
-
-    public function testGetMessageTransformerReturnsTheTransformer(): void
-    {
-        static::assertSame($this->messageTransformer, $this->channelBridge->getMessageTransformer());
     }
 
     public function testGetReadTimeoutReturnsTheTimeout(): void
@@ -157,6 +210,29 @@ class AmqpChannelBridgeTest extends AbstractTestCase
         static::assertSame($amqpQueue2, $consumers['my-second-consumer']);
     }
 
+    public function testIsConnectedReturnsTrueWhenHasConnectionAndIsConnected(): void
+    {
+        $this->channel->allows('hasConnection')->andReturn(true);
+        $this->channel->allows('isConnected')->andReturn(true);
+
+        static::assertTrue($this->channelBridge->isConnected());
+    }
+
+    public function testIsConnectedReturnsFalseWhenHasNoConnection(): void
+    {
+        $this->channel->allows('hasConnection')->andReturn(false);
+
+        static::assertFalse($this->channelBridge->isConnected());
+    }
+
+    public function testIsConnectedReturnsFalseWhenHasConnectionButIsNotConnected(): void
+    {
+        $this->channel->allows('hasConnection')->andReturn(true);
+        $this->channel->allows('isConnected')->andReturn(false);
+
+        static::assertFalse($this->channelBridge->isConnected());
+    }
+
     public function testIsConsumerSubscribedReturnsTrueWhenSubscribed(): void
     {
         $amqpQueue = mock(AMQPQueue::class);
@@ -168,6 +244,16 @@ class AmqpChannelBridgeTest extends AbstractTestCase
     public function testIsConsumerSubscribedReturnsFalseWhenNotSubscribed(): void
     {
         static::assertFalse($this->channelBridge->isConsumerSubscribed('invalid_consumer_tag'));
+    }
+
+    /**
+     * @dataProvider booleanDataProvider
+     */
+    public function testIsOpenDelegatesToChannel(bool $value): void
+    {
+        $this->channel->allows('isOpen')->andReturn($value);
+
+        static::assertSame($value, $this->channelBridge->isOpen());
     }
 
     public function testUnregisterChannelUnregistersChannelBridgeViaConnectionBridge(): void
@@ -190,5 +276,16 @@ class AmqpChannelBridgeTest extends AbstractTestCase
 
         static::assertFalse($this->channelBridge->isConsumerSubscribed('my_first_consumer_tag'));
         static::assertTrue($this->channelBridge->isConsumerSubscribed('my_second_consumer_tag'));
+    }
+
+    /**
+     * @return array<string, array{bool}>
+     */
+    public static function booleanDataProvider(): array
+    {
+        return [
+            'true' => [true],
+            'false' => [false],
+        ];
     }
 }

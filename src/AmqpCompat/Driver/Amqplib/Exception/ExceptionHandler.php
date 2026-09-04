@@ -15,8 +15,8 @@ namespace Asmblah\PhpAmqpCompat\Driver\Amqplib\Exception;
 
 use AMQPConnectionException;
 use AMQPException;
+use Asmblah\PhpAmqpCompat\Driver\Amqplib\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
-use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Exception;
 use InvalidArgumentException;
 use PhpAmqpLib\Exception\AMQPExceptionInterface;
@@ -54,7 +54,7 @@ class ExceptionHandler implements ExceptionHandlerInterface
             ));
         }
 
-        if (!is_subclass_of($exceptionClass, AMQPException::class)) {
+        if ($exceptionClass !== AMQPException::class && !is_subclass_of($exceptionClass, AMQPException::class)) {
             throw new InvalidArgumentException(sprintf(
                 'Expected a class that extends "%s" but got "%s"',
                 AMQPException::class,
@@ -98,12 +98,23 @@ class ExceptionHandler implements ExceptionHandlerInterface
 
         $libraryMessage = $libraryException->getMessage();
 
-        throw new AMQPConnectionException(
-            sprintf(
-                'Server connection error: %d, message: %s',
+        $connectionErrorMessage = sprintf(
+            'Server connection error: %d, message: %s',
+            $libraryException->getCode(),
+            preg_replace('/\(\d+, \d+\)$/', '', $libraryMessage)
+        );
+
+        if ($libraryMessage === 'Missed server heartbeat') {
+            // Match the reference implementation ext-amqp's behaviour.
+            throw new AMQPException(
+                sprintf('Library error: %s', $connectionErrorMessage),
                 $libraryException->getCode(),
-                preg_replace('/\(\d+, \d+\)$/', '', $libraryMessage)
-            ),
+                $libraryException
+            );
+        }
+
+        throw new AMQPConnectionException(
+            $connectionErrorMessage,
             $libraryException->getCode(),
             $libraryException
         );

@@ -13,21 +13,19 @@ declare(strict_types=1);
 
 namespace Asmblah\PhpAmqpCompat\Tests\Unit\AmqpCompat\Bridge\Connection;
 
+use AMQPChannelException;
+use AMQPConnectionException;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridge;
 use Asmblah\PhpAmqpCompat\Bridge\Channel\AmqpChannelBridgeInterface;
-use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformerInterface;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
-use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformerInterface;
-use Asmblah\PhpAmqpCompat\Driver\Common\Exception\ExceptionHandlerInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Channel\ChannelInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Transport\TransportInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Exception\TooManyChannelsOnConnectionException;
-use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
 use Mockery\MockInterface;
-use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
-use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
 
 /**
  * Class AmqpConnectionBridgeTest.
@@ -36,69 +34,67 @@ use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
  */
 class AmqpConnectionBridgeTest extends AbstractTestCase
 {
-    private MockInterface&AmqplibConnection $amqplibConnection;
     private AmqpConnectionBridge $connectionBridge;
     private MockInterface&ConnectionConfigInterface $connectionConfig;
-    private MockInterface&EnvelopeTransformerInterface $envelopeTransformer;
     private MockInterface&ErrorReporterInterface $errorReporter;
-    private MockInterface&ExceptionHandlerInterface $exceptionHandler;
     private MockInterface&LoggerInterface $logger;
-    private MockInterface&MessageTransformerInterface $messageTransformer;
     private MockInterface&TransportInterface $transport;
 
     public function setUp(): void
     {
-        $this->amqplibConnection = mock(AmqplibConnection::class);
         $this->connectionConfig = mock(ConnectionConfigInterface::class);
-        $this->envelopeTransformer = mock(EnvelopeTransformerInterface::class);
         $this->errorReporter = mock(ErrorReporterInterface::class);
-        $this->exceptionHandler = mock(ExceptionHandlerInterface::class);
         $this->logger = mock(LoggerInterface::class);
-        $this->messageTransformer = mock(MessageTransformerInterface::class);
         $this->transport = mock(TransportInterface::class);
 
         $this->connectionBridge = new AmqpConnectionBridge(
-            $this->amqplibConnection,
             $this->transport,
             $this->connectionConfig,
-            $this->envelopeTransformer,
-            $this->messageTransformer,
             $this->errorReporter,
-            $this->exceptionHandler,
             $this->logger
         );
     }
 
-    public function testCreateChannelBridgeCreatesAChannelViaAmqplibConnection(): void
+    public function testCheckHeartbeatDelegatesToTransport(): void
     {
-        $amqplibChannel = mock(AmqplibChannel::class);
-        $this->amqplibConnection->expects()
-            ->channel()
-            ->once()
-            ->andReturn($amqplibChannel);
+        $this->transport->expects('checkHeartbeat')
+            ->once();
 
-        $this->connectionBridge->createChannelBridge();
+        $this->connectionBridge->checkHeartbeat();
+    }
+
+    public function testCreateChannelBridgeOpensAChannelViaTransport(): void
+    {
+        $this->transport->expects()
+            ->openChannel(AMQPChannelException::class, 'MyClass::myMethod')
+            ->once()
+            ->andReturn(mock(ChannelInterface::class));
+
+        $this->connectionBridge->createChannelBridge(AMQPChannelException::class, 'MyClass::myMethod');
     }
 
     public function testCreateChannelBridgeReturnsTheCreatedBridge(): void
     {
-        $this->amqplibConnection->allows()
-            ->channel()
-            ->andReturn(mock(AmqplibChannel::class));
+        $this->transport->allows()
+            ->openChannel(AMQPChannelException::class, 'MyClass::myMethod')
+            ->andReturn(mock(ChannelInterface::class));
 
-        static::assertInstanceOf(AmqpChannelBridge::class, $this->connectionBridge->createChannelBridge());
+        static::assertInstanceOf(
+            AmqpChannelBridge::class,
+            $this->connectionBridge->createChannelBridge(AMQPChannelException::class, 'MyClass::myMethod')
+        );
     }
 
     public function testCreateChannelBridgeDoesNotRaiseTooManyChannelsOnConnectionExceptionWhenAtLimit(): void
     {
-        $this->amqplibConnection->allows()
-            ->channel()
-            ->andReturn(mock(AmqplibChannel::class));
+        $this->transport->allows()
+            ->openChannel(AMQPChannelException::class, 'MyClass::myMethod')
+            ->andReturn(mock(ChannelInterface::class));
         /** @var AmqpChannelBridgeInterface[] $channelBridges */
         $channelBridges = [];
 
         for ($i = 0; $i < PHP_AMQP_MAX_CHANNELS; $i++) {
-            $channelBridges[] = $this->connectionBridge->createChannelBridge();
+            $channelBridges[] = $this->connectionBridge->createChannelBridge(AMQPChannelException::class, 'MyClass::myMethod');
         }
 
         static::assertCount(PHP_AMQP_MAX_CHANNELS, $channelBridges);
@@ -106,9 +102,9 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
 
     public function testCreateChannelBridgeRaisesTooManyChannelsOnConnectionExceptionWhenAlreadyAtLimit(): void
     {
-        $this->amqplibConnection->allows()
-            ->channel()
-            ->andReturn(mock(AmqplibChannel::class));
+        $this->transport->allows()
+            ->openChannel(AMQPChannelException::class, 'MyClass::myMethod')
+            ->andReturn(mock(ChannelInterface::class));
         /** @var AmqpChannelBridgeInterface[] $channelBridges */
         /** @noinspection PhpArrayUsedOnlyForWriteInspection */
         $channelBridges = [];
@@ -118,13 +114,17 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
 
         for ($i = 0; $i < PHP_AMQP_MAX_CHANNELS + 1; $i++) {
             // Keep a reference to each object to avoid them being freed too early.
-            $channelBridges[] = $this->connectionBridge->createChannelBridge();
+            $channelBridges[] = $this->connectionBridge->createChannelBridge(AMQPChannelException::class, 'MyClass::myMethod');
         }
     }
 
-    public function testGetAmqplibConnectionReturnsTheUnderlyingConnection(): void
+    public function testDisconnectDelegatesToTransport(): void
     {
-        static::assertSame($this->amqplibConnection, $this->connectionBridge->getAmqplibConnection());
+        $this->transport->expects()
+            ->disconnect(AMQPConnectionException::class, 'AMQPConnection::disconnect')
+            ->once();
+
+        $this->connectionBridge->disconnect(AMQPConnectionException::class, 'AMQPConnection::disconnect');
     }
 
     public function testGetConnectionConfigReturnsTheConfig(): void
@@ -132,26 +132,16 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
         static::assertSame($this->connectionConfig, $this->connectionBridge->getConnectionConfig());
     }
 
-    public function testGetEnvelopeTransformerReturnsTheTransformer(): void
-    {
-        static::assertSame($this->envelopeTransformer, $this->connectionBridge->getEnvelopeTransformer());
-    }
-
-    public function testGetExceptionHandlerReturnsTheHandler(): void
-    {
-        static::assertSame($this->exceptionHandler, $this->connectionBridge->getExceptionHandler());
-    }
-
     public function testGetErrorReporterReturnsTheErrorReporter(): void
     {
         static::assertSame($this->errorReporter, $this->connectionBridge->getErrorReporter());
     }
 
-    public function testGetHeartbeatIntervalReturnsHalfTheIntervalFromAmqplib(): void
+    public function testGetHeartbeatIntervalDelegatesToTransport(): void
     {
-        $this->amqplibConnection->allows()
-            ->getHeartbeat()
-            ->andReturn(42);
+        $this->transport->allows()
+            ->getHeartbeatInterval()
+            ->andReturn(21);
 
         static::assertSame(21, $this->connectionBridge->getHeartbeatInterval());
     }
@@ -161,9 +151,9 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
         static::assertSame($this->logger, $this->connectionBridge->getLogger());
     }
 
-    public function testGetMessageTransformerReturnsTheTransformer(): void
+    public function testGetTransportReturnsTheTransport(): void
     {
-        static::assertSame($this->messageTransformer, $this->connectionBridge->getMessageTransformer());
+        static::assertSame($this->transport, $this->connectionBridge->getTransport());
     }
 
     public function testGetUsedChannelsReturnsZeroInitially(): void
@@ -173,13 +163,37 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
 
     public function testGetUsedChannelsReturnsOneAfterCreatingAChannelBridge(): void
     {
-        $this->amqplibConnection->allows()
-            ->channel()
-            ->andReturn(mock(AmqplibChannel::class));
+        $this->transport->allows()
+            ->openChannel(AMQPChannelException::class, 'MyClass::myMethod')
+            ->andReturn(mock(ChannelInterface::class));
 
-        $this->connectionBridge->createChannelBridge();
+        $this->connectionBridge->createChannelBridge(AMQPChannelException::class, 'MyClass::myMethod');
 
         static::assertSame(1, $this->connectionBridge->getUsedChannels());
+    }
+
+    /**
+     * @dataProvider booleanDataProvider
+     */
+    public function testIsBusyDelegatesToTransport(bool $value): void
+    {
+        $this->transport->allows()
+            ->isBusy()
+            ->andReturn($value);
+
+        static::assertSame($value, $this->connectionBridge->isBusy());
+    }
+
+    /**
+     * @dataProvider booleanDataProvider
+     */
+    public function testIsConnectedDelegatesToTransport(bool $value): void
+    {
+        $this->transport->allows()
+            ->isConnected()
+            ->andReturn($value);
+
+        static::assertSame($value, $this->connectionBridge->isConnected());
     }
 
     public function testSetReadTimeoutSetsViaTheTransport(): void
@@ -193,13 +207,24 @@ class AmqpConnectionBridgeTest extends AbstractTestCase
 
     public function testUnregisterChannelBridgeUnregisters(): void
     {
-        $this->amqplibConnection->allows()
-            ->channel()
-            ->andReturn(mock(AmqplibChannel::class));
-        $channelBridge = $this->connectionBridge->createChannelBridge();
+        $this->transport->allows()
+            ->openChannel(AMQPChannelException::class, 'MyClass::myMethod')
+            ->andReturn(mock(ChannelInterface::class));
+        $channelBridge = $this->connectionBridge->createChannelBridge(AMQPChannelException::class, 'MyClass::myMethod');
 
         $this->connectionBridge->unregisterChannelBridge($channelBridge);
 
         static::assertSame(0, $this->connectionBridge->getUsedChannels());
+    }
+
+    /**
+     * @return array<string, array{bool}>
+     */
+    public static function booleanDataProvider(): array
+    {
+        return [
+            'true' => [true],
+            'false' => [false],
+        ];
     }
 }

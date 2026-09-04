@@ -18,27 +18,23 @@ use AMQPConnection;
 use AMQPEnvelope;
 use AMQPExchange;
 use AMQPQueue;
+use AMQPQueueException;
 use Asmblah\PhpAmqpCompat\AmqpManager;
 use Asmblah\PhpAmqpCompat\Bridge\AmqpBridge;
-use Asmblah\PhpAmqpCompat\Bridge\Channel\EnvelopeTransformer;
 use Asmblah\PhpAmqpCompat\Bridge\Connection\AmqpConnectionBridge;
 use Asmblah\PhpAmqpCompat\Configuration\ConfigurationInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\ConnectionConfigInterface;
 use Asmblah\PhpAmqpCompat\Connection\Config\TimeoutDeprecationUsageEnum;
-use Asmblah\PhpAmqpCompat\Driver\Amqplib\Exception\ExceptionHandler;
-use Asmblah\PhpAmqpCompat\Driver\Amqplib\Processor\ValueProcessor;
-use Asmblah\PhpAmqpCompat\Driver\Amqplib\Transformer\MessageTransformer;
+use Asmblah\PhpAmqpCompat\Driver\Common\Channel\ChannelInterface;
+use Asmblah\PhpAmqpCompat\Driver\Common\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Driver\Common\Transport\TransportInterface;
 use Asmblah\PhpAmqpCompat\Error\ErrorReporterInterface;
 use Asmblah\PhpAmqpCompat\Exception\StopConsumptionException;
 use Asmblah\PhpAmqpCompat\Integration\AmqpIntegrationInterface;
-use Asmblah\PhpAmqpCompat\Logger\LoggerInterface;
 use Asmblah\PhpAmqpCompat\Tests\AbstractTestCase;
+use Closure;
 use Mockery;
 use Mockery\MockInterface;
-use PhpAmqpLib\Channel\AMQPChannel as AmqplibChannel;
-use PhpAmqpLib\Connection\AbstractConnection as AmqplibConnection;
-use PhpAmqpLib\Message\AMQPMessage;
 
 /**
  * Class PublishThenConsumeTest.
@@ -55,8 +51,7 @@ class PublishThenConsumeTest extends AbstractTestCase
     private AMQPExchange $amqpExchange;
     private MockInterface&AmqpIntegrationInterface $amqpIntegration;
     private AMQPQueue $amqpQueue;
-    private MockInterface&AmqplibChannel $amqplibChannel;
-    private MockInterface&AmqplibConnection $amqplibConnection;
+    private MockInterface&ChannelInterface $channel;
     private MockInterface&ConnectionConfigInterface $connectionConfig;
     private MockInterface&ErrorReporterInterface $errorReporter;
     private MockInterface&LoggerInterface $logger;
@@ -87,42 +82,29 @@ class PublishThenConsumeTest extends AbstractTestCase
             'getErrorReporter' => $this->errorReporter,
             'getLogger' => $this->logger,
         ]);
-        $this->amqplibChannel = mock(AmqplibChannel::class, [
-            'basic_consume' => 'my-consumer-tag',
-            'basic_publish' => null,
-            'basic_qos' => null,
-            'close' => null,
-            'exchange_declare' => null,
-            'is_open' => true,
-            'queue_bind' => null,
-            'queue_declare' => ['my_queue', 21, 7],
-        ]);
-        $this->amqplibConnection = mock(AmqplibConnection::class, [
-            'channel' => $this->amqplibChannel,
-            'checkHeartBeat' => null,
+        $this->channel = mock(ChannelInterface::class, [
+            'basicPublish' => null,
+            'basicQos' => null,
+            'bindQueue' => null,
+            'closeQuietly' => null,
+            'declareExchange' => null,
+            'declareQueue' => ['name' => 'my_queue', 'count' => 21],
+            'hasConnection' => true,
             'isConnected' => true,
+            'isOpen' => true,
         ]);
-        $this->transport = mock(TransportInterface::class);
+        $this->transport = mock(TransportInterface::class, [
+            'checkHeartbeat' => null,
+            'isConnected' => true,
+            'openChannel' => $this->channel,
+        ]);
 
-        $this->amqplibChannel->allows()
-            ->getConnection()
-            ->andReturn($this->amqplibConnection);
-
-        $valueProcessor = new ValueProcessor();
         $this->amqpConnectionBridge = new AmqpConnectionBridge(
-            $this->amqplibConnection,
             $this->transport,
             $this->connectionConfig,
-            new EnvelopeTransformer($valueProcessor),
-            new MessageTransformer($valueProcessor),
             $this->errorReporter,
-            new ExceptionHandler($this->logger),
             $this->logger
         );
-
-        $this->amqpIntegration->allows()
-            ->connect($this->connectionConfig)
-            ->andReturn($this->amqpConnectionBridge);
 
         AmqpManager::setAmqpIntegration($this->amqpIntegration);
 
@@ -143,31 +125,33 @@ class PublishThenConsumeTest extends AbstractTestCase
 
     public function testPublishThenConsumeWorksAsExpected(): void
     {
-        $amqplibMessage = new AMQPMessage('my message body');
-        $amqplibMessage->setConsumerTag('my-consumer-tag');
-        $amqplibMessage->setDeliveryInfo(1234, false, 'my-exchange', 'my-routing-key');
+        $amqpEnvelope = new AMQPEnvelope(
+            body: 'my message body',
+            consumerTag: 'my-consumer-tag'
+        );
 
         $consumerCallback = null;
 
-        $this->amqplibChannel->expects()
-            ->basic_consume(Mockery::andAnyOthers())
+        $this->channel->expects()
+            ->basicConsume('my_queue', '', false, false, false, Mockery::type(Closure::class), \AMQPQueueException::class, 'AMQPQueue::consume')
             ->andReturnUsing(function (
-                $queue,
-                $tag,
-                $noLocal,
-                $noAck,
-                $exclusive,
-                $noWait,
-                callable $callback
+                string $queue,
+                string $tag,
+                bool $noLocal,
+                bool $autoAck,
+                bool $exclusive,
+                callable $callback,
+                string $exceptionClass,
+                string $methodName
             ) use (&$consumerCallback) {
                 $consumerCallback = $callback;
 
                 return 'my-consumer-tag';
             });
-        $this->amqplibChannel->expects()
-            ->wait(null, false, 60)
-            ->andReturnUsing(function () use ($amqplibMessage, &$consumerCallback) {
-                $consumerCallback($amqplibMessage);
+        $this->channel->expects()
+            ->wait(60, AMQPQueueException::class, 'AMQPQueue::consume')
+            ->andReturnUsing(function () use ($amqpEnvelope, &$consumerCallback) {
+                $consumerCallback($amqpEnvelope);
 
                 throw new StopConsumptionException();
             });
